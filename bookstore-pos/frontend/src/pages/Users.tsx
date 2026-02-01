@@ -1,0 +1,112 @@
+﻿import React, { useState } from "react";
+import { Box, Button, MenuItem, Paper, TextField, Typography } from "@mui/material";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createUser, listUsers, updateUser, updateUserPassword, updateUserStatus, unlockUser, setupUser2FA, confirmUser2FA, resetUser2FA } from "../api/users";
+import { User } from "../types/dto";
+import { useToast } from "../components/ToastProvider";
+
+const empty: Omit<User, "id"> & { password?: string } = {
+  username: "",
+  role: "cashier",
+  is_active: true,
+  password: "",
+};
+
+const Users: React.FC = () => {
+  const qc = useQueryClient();
+  const { showToast } = useToast();
+  const { data } = useQuery({ queryKey: ["users"], queryFn: listUsers });
+  const [form, setForm] = useState(empty);
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  const handleSubmit = async () => {
+    try {
+      if (editingId) {
+        await updateUser(editingId, { username: form.username, role: form.role, is_active: form.is_active });
+        if (form.password) {
+          await updateUserPassword(editingId, form.password);
+        }
+        showToast({ message: "Usuario actualizado", severity: "success" });
+      } else {
+        await createUser({ username: form.username, password: form.password || "123456", role: form.role, is_active: form.is_active });
+        showToast({ message: "Usuario creado", severity: "success" });
+      }
+      setForm(empty);
+      setEditingId(null);
+      qc.invalidateQueries({ queryKey: ["users"] });
+    } catch (err: any) {
+      showToast({ message: err?.response?.data?.detail || "Error", severity: "error" });
+    }
+  };
+
+  const handleStatus = async (id: number, is_active: boolean) => {
+    await updateUserStatus(id, !is_active);
+    qc.invalidateQueries({ queryKey: ["users"] });
+  };
+
+  const handleUnlock = async (id: number) => {
+    await unlockUser(id);
+    qc.invalidateQueries({ queryKey: ["users"] });
+    showToast({ message: "Usuario desbloqueado", severity: "success" });
+  };
+
+  const handleSetup2FA = async (id: number) => {
+    const data = await setupUser2FA(id);
+    showToast({ message: "2FA generado. Escanea el QR con tu app o guarda el secreto.", severity: "info" });
+    const code = window.prompt("Ingrese el codigo OTP para confirmar 2FA:");
+    if (!code) return;
+    await confirmUser2FA(id, code);
+    qc.invalidateQueries({ queryKey: ["users"] });
+    showToast({ message: `2FA activado. Secreto: ${data.secret}`, severity: "success" });
+  };
+
+  const handleReset2FA = async (id: number) => {
+    await resetUser2FA(id);
+    qc.invalidateQueries({ queryKey: ["users"] });
+    showToast({ message: "2FA desactivado", severity: "success" });
+  };
+
+  return (
+    <Box sx={{ display: "grid", gap: 2 }}>
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Usuarios
+        </Typography>
+        {(data || []).map((u) => {
+          const locked = u.locked_until && new Date(u.locked_until).getTime() > Date.now();
+          return (
+            <Box key={u.id} sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1, flexWrap: "wrap" }}>
+              <Typography sx={{ flex: 1 }}>
+                {u.username} ({u.role}) {u.twofa_enabled ? "• 2FA" : ""} {locked ? "• BLOQUEADO" : ""}
+              </Typography>
+              <Button size="small" onClick={() => { setEditingId(u.id); setForm({ username: u.username, role: u.role, is_active: u.is_active, password: "" }); }}>Editar</Button>
+              <Button size="small" onClick={() => handleStatus(u.id, u.is_active)}>
+                {u.is_active ? "Desactivar" : "Activar"}
+              </Button>
+              <Button size="small" onClick={() => handleUnlock(u.id)} disabled={!locked}>Desbloquear</Button>
+              <Button size="small" onClick={() => handleSetup2FA(u.id)}>Config 2FA</Button>
+              <Button size="small" onClick={() => handleReset2FA(u.id)}>Reset 2FA</Button>
+            </Box>
+          );
+        })}
+      </Paper>
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {editingId ? "Editar" : "Nuevo"}
+        </Typography>
+        <Box sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
+          <TextField label="Usuario" value={form.username} onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))} />
+          <TextField select label="Rol" value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}>
+            <MenuItem value="admin">admin</MenuItem>
+            <MenuItem value="cashier">cashier</MenuItem>
+            <MenuItem value="stock">stock</MenuItem>
+          </TextField>
+          <TextField label="Password" type="password" value={form.password || ""} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
+          <Button variant="contained" onClick={handleSubmit}>Guardar</Button>
+        </Box>
+      </Paper>
+    </Box>
+  );
+};
+
+export default Users;

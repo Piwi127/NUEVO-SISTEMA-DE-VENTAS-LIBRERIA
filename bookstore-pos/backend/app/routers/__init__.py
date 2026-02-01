@@ -1,0 +1,25 @@
+from app.routers import auth, users, products, customers, suppliers, inventory, cash, sales, purchases, reports, display_ws, settings, admin, permissions, audit, warehouses, price_lists, promotions, returns, purchasing, printing
+
+__all__ = [
+    "auth",
+    "users",
+    "products",
+    "customers",
+    "suppliers",
+    "inventory",
+    "cash",
+    "sales",
+    "purchases",
+    "reports",
+    "display_ws",
+    "settings",
+    "admin",
+    "permissions",
+    "audit",
+    "warehouses",
+    "price_lists",
+    "promotions",
+    "returns",
+    "purchasing",
+    "printing",
+]
