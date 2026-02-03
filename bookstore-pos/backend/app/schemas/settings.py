@@ -16,6 +16,7 @@ class SystemSettingsOut(BaseModel):
     receipt_header: str
     receipt_footer: str
     paper_width_mm: int
+    default_warehouse_id: int | None = None
 
 
 class SystemSettingsUpdate(BaseModel):
@@ -33,3 +34,4 @@ class SystemSettingsUpdate(BaseModel):
     receipt_header: str
     receipt_footer: str
     paper_width_mm: int
+    default_warehouse_id: int | None = None

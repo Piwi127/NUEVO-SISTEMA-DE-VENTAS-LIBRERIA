@@ -1,5 +1,5 @@
-﻿import React, { useState } from "react";
-import { Box, Button, Paper, TextField, Typography } from "@mui/material";
+import React, { useState } from "react";
+import { Box, Button, Paper, TextField, Typography, useMediaQuery } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createSupplier, deleteSupplier, listSuppliers, updateSupplier } from "../api/suppliers";
 import { Supplier } from "../types/dto";
@@ -13,6 +13,8 @@ const Suppliers: React.FC = () => {
   const { data } = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers });
   const [form, setForm] = useState<Omit<Supplier, "id">>(empty);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const compact = useMediaQuery("(max-width:900px)");
+  const [query, setQuery] = useState("");
 
   const handleSubmit = async () => {
     if (editingId) {
@@ -39,13 +41,47 @@ const Suppliers: React.FC = () => {
         <Typography variant="h6" sx={{ mb: 2 }}>
           Proveedores
         </Typography>
-        {(data || []).map((c) => (
-          <Box key={c.id} sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1 }}>
-            <Typography sx={{ flex: 1 }}>{c.name} ({c.phone})</Typography>
-            <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "" }); }}>Editar</Button>
-            <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
+        <TextField
+          label="Buscar"
+          size="small"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          sx={{ mb: 2, maxWidth: 320 }}
+        />
+        {compact ? (
+          <Box sx={{ display: "grid", gap: 1 }}>
+            {(data || [])
+              .filter((c) => {
+                const term = query.trim().toLowerCase();
+                if (!term) return true;
+                return `${c.name} ${c.phone || ""}`.toLowerCase().includes(term);
+              })
+              .map((c) => (
+              <Paper key={c.id} sx={{ p: 1.5 }}>
+                <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
+                <Typography variant="body2" color="text.secondary">{c.phone || "-"}</Typography>
+                <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                  <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "" }); }}>Editar</Button>
+                  <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
+                </Box>
+              </Paper>
+            ))}
           </Box>
-        ))}
+        ) : (
+          (data || [])
+            .filter((c) => {
+              const term = query.trim().toLowerCase();
+              if (!term) return true;
+              return `${c.name} ${c.phone || ""}`.toLowerCase().includes(term);
+            })
+            .map((c) => (
+            <Box key={c.id} sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1 }}>
+              <Typography sx={{ flex: 1 }}>{c.name} ({c.phone})</Typography>
+              <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "" }); }}>Editar</Button>
+              <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
+            </Box>
+          ))
+        )}
       </Paper>
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>

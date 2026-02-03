@@ -45,6 +45,7 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
             >
               <ListItemText
                 primary={`${p.sku} - ${p.name}`}
+                secondaryTypographyProps={{ component: "div" }}
                 secondary={
                   <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                     <Chip size="small" label={`Stock: ${p.stock}`} />

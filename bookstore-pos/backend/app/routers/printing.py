@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_role
-from app.models.sale import Sale, SaleItem
-from app.models.settings import SystemSettings
+from app.services.printing_service import PrintingService
 
 router = APIRouter(prefix="/printing", tags=["printing"], dependencies=[Depends(require_role("admin", "cashier"))])
 
@@ -31,7 +29,7 @@ def _wrap(text: str, width: int) -> list[str]:
     return lines
 
 
-def _build_receipt_lines(sale: Sale, items: list[SaleItem], settings: SystemSettings | None) -> list[str]:
+def _build_receipt_lines(sale, items: list[tuple], settings) -> list[str]:
     width = _line_width(settings.paper_width_mm if settings else 80)
     lines: list[str] = []
     header = settings.receipt_header if settings else ""
@@ -55,8 +53,8 @@ def _build_receipt_lines(sale: Sale, items: list[SaleItem], settings: SystemSett
     lines.append(f"Fecha: {sale.created_at.strftime('%Y-%m-%d %H:%M')}")
     lines.append("-" * width)
 
-    for item in items:
-        name = f"Producto {item.product_id}"
+    for item, name in items:
+        name = name or f"Producto {item.product_id}"
         lines.extend(_wrap(name, width))
         line_total = f"{item.qty} x {item.unit_price:.2f} = {item.line_total:.2f}"
         lines.append(line_total[:width])
@@ -96,16 +94,10 @@ def _to_escpos(lines: list[str]) -> bytes:
 
 @router.get("/receipt-text/{sale_id}")
 async def receipt_text(sale_id: int, db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Sale).where(Sale.id == sale_id))
-    sale = res.scalar_one_or_none()
+    service = PrintingService(db)
+    sale, items, settings = await service.build_receipt(sale_id)
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
-
-    items_res = await db.execute(select(SaleItem).where(SaleItem.sale_id == sale_id))
-    items = items_res.scalars().all()
-
-    settings_res = await db.execute(select(SystemSettings).limit(1))
-    settings = settings_res.scalar_one_or_none()
 
     lines = _build_receipt_lines(sale, items, settings)
     text = "\n".join(lines)
@@ -114,16 +106,10 @@ async def receipt_text(sale_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/escpos/{sale_id}")
 async def receipt_escpos(sale_id: int, db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Sale).where(Sale.id == sale_id))
-    sale = res.scalar_one_or_none()
+    service = PrintingService(db)
+    sale, items, settings = await service.build_receipt(sale_id)
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
-
-    items_res = await db.execute(select(SaleItem).where(SaleItem.sale_id == sale_id))
-    items = items_res.scalars().all()
-
-    settings_res = await db.execute(select(SystemSettings).limit(1))
-    settings = settings_res.scalar_one_or_none()
 
     lines = _build_receipt_lines(sale, items, settings)
     data = _to_escpos(lines)

@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timedelta
+﻿from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from jose import JWTError, jwt
@@ -19,7 +19,7 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(subject: str, role: str, expires_minutes: int | None = None) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=expires_minutes or settings.access_token_expire_minutes)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes or settings.access_token_expire_minutes)
     to_encode: dict[str, Any] = {"sub": subject, "role": role, "exp": expire}
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=ALGORITHM)
 

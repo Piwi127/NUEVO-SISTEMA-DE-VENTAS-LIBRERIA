@@ -17,6 +17,7 @@ import AdminPanel from "../pages/AdminPanel";
 import Promotions from "../pages/Promotions";
 import PriceLists from "../pages/PriceLists";
 import Returns from "../pages/Returns";
+import SalesHistory from "../pages/SalesHistory";
 
 const App: React.FC = () => {
   return (
@@ -159,6 +160,16 @@ const App: React.FC = () => {
           <ProtectedRoute roles={["admin"]}>
             <AppLayout>
               <Reports />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales-history"
+        element={
+          <ProtectedRoute roles={["admin", "cashier"]}>
+            <AppLayout>
+              <SalesHistory />
             </AppLayout>
           </ProtectedRoute>
         }

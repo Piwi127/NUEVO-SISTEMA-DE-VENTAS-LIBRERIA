@@ -1,9 +1,8 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.db.session import engine
-from app.db.base import Base
 from app.routers import (
     auth,
     users,
@@ -30,14 +29,23 @@ from app.routers import (
 from app.seed import seed_admin
 from app.db.session import AsyncSessionLocal
 
-app = FastAPI(title="Bookstore POS API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with AsyncSessionLocal() as session:
+        await seed_admin(session)
+    yield
+
+
+app = FastAPI(title="Bookstore POS API", lifespan=lifespan)
 
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+origin_regex = r"^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins or ["*"],
-    allow_origin_regex=None,
-    allow_credentials=False,
+    allow_origin_regex=origin_regex,
+    allow_credentials=True,
     allow_methods=["*"] ,
     allow_headers=["*"] ,
 )
@@ -63,12 +71,6 @@ app.include_router(promotions.router)
 app.include_router(returns.router)
 app.include_router(purchasing.router)
 app.include_router(printing.router)
-
-
-@app.on_event("startup")
-async def startup_event():
-    async with AsyncSessionLocal() as session:
-        await seed_admin(session)
 
 
 @app.get("/")

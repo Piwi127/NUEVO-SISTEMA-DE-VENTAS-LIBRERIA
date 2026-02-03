@@ -15,10 +15,16 @@ export type SystemSettings = {
   receipt_header: string;
   receipt_footer: string;
   paper_width_mm: number;
+  default_warehouse_id?: number | null;
 };
 
 export const getSettings = async (): Promise<SystemSettings> => {
   const res = await api.get("/settings");
+  return res.data;
+};
+
+export const getPublicSettings = async (): Promise<SystemSettings> => {
+  const res = await api.get("/settings/public");
   return res.data;
 };
 

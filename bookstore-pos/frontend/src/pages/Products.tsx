@@ -1,5 +1,5 @@
-﻿import React, { useMemo, useState } from "react";
-import { Box, Button, Paper, TextField, Typography } from "@mui/material";
+import React, { useMemo, useState } from "react";
+import { Box, Button, Paper, TextField, Typography, useMediaQuery, MenuItem } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createProduct, deleteProduct, listProducts, updateProduct } from "../api/products";
@@ -22,6 +22,9 @@ const Products: React.FC = () => {
   const { data } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
   const [form, setForm] = useState<Omit<Product, "id">>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const compact = useMediaQuery("(max-width:900px)");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -63,28 +66,85 @@ const Products: React.FC = () => {
     qc.invalidateQueries({ queryKey: ["products"] });
   };
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    (data || []).forEach((p) => {
+      if (p.category) set.add(p.category);
+    });
+    return Array.from(set).sort();
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return (data || []).filter((p) => {
+      if (category && p.category !== category) return false;
+      if (!term) return true;
+      return `${p.name} ${p.sku} ${p.category || ""}`.toLowerCase().includes(term);
+    });
+  }, [data, query, category]);
+
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Productos
         </Typography>
-        <div style={{ height: 320, width: "100%" }}>
-          <DataGrid
-            rows={data || []}
-            columns={columns}
-            pageSizeOptions={[5, 10, 25, 50, 100]}
-            onRowClick={(params) => {
-              setEditingId(params.row.id);
-              const { id, ...rest } = params.row as Product;
-              setForm(rest);
-            }}
-            sx={{
-              border: "none",
-              "& .MuiDataGrid-columnHeaders": { bgcolor: "#0f172a", color: "#fff" },
-            }}
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+          <TextField
+            label="Buscar"
+            size="small"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            sx={{ maxWidth: 320 }}
           />
-        </div>
+          <TextField
+            select
+            label="Categoria"
+            size="small"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            sx={{ minWidth: 200 }}
+          >
+            <MenuItem value="">Todas</MenuItem>
+            {categories.map((c) => (
+              <MenuItem key={c} value={c}>{c}</MenuItem>
+            ))}
+          </TextField>
+        </Box>
+        {compact ? (
+          <Box sx={{ display: "grid", gap: 1 }}>
+            {filtered.map((row) => (
+              <Paper key={row.id} sx={{ p: 1.5 }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography sx={{ fontWeight: 600 }}>{row.name}</Typography>
+                  <Typography variant="body2">#{row.sku}</Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary">{row.category}</Typography>
+                <Typography variant="body2">Precio: {row.price} | Stock: {row.stock}</Typography>
+                <Box sx={{ mt: 1 }}>
+                  <Button size="small" onClick={() => { setEditingId(row.id); const { id, ...rest } = row as Product; setForm(rest); }}>Editar</Button>
+                </Box>
+              </Paper>
+            ))}
+          </Box>
+        ) : (
+          <div style={{ height: 320, width: "100%" }}>
+            <DataGrid
+              rows={filtered}
+              columns={columns}
+              pageSizeOptions={[5, 10, 25, 50, 100]}
+              onRowClick={(params) => {
+                setEditingId(params.row.id);
+                const { id, ...rest } = params.row as Product;
+                setForm(rest);
+              }}
+              sx={{
+                border: "none",
+                "& .MuiDataGrid-columnHeaders": { bgcolor: "#0f172a", color: "#fff" },
+              }}
+            />
+          </div>
+        )}
       </Paper>
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>

@@ -5,10 +5,11 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, require_role
+from app.core.deps import get_db, get_current_user, require_permission, require_role
 from app.models.inventory import StockMovement
 from app.models.product import Product
 from app.schemas.inventory import InventoryMovementCreate, StockMovementOut
+from app.services.stock_service import StockService
 
 router = APIRouter(prefix="/inventory", tags=["inventory"], dependencies=[Depends(require_role("admin", "stock"))])
 
@@ -16,30 +17,17 @@ router = APIRouter(prefix="/inventory", tags=["inventory"], dependencies=[Depend
 REQUIRED_COLUMNS = {"sku", "name", "category", "price", "cost", "stock", "stock_min"}
 
 
-@router.post("/movement", response_model=StockMovementOut, status_code=201)
-async def create_movement(data: InventoryMovementCreate, db: AsyncSession = Depends(get_db)):
-    if data.qty <= 0:
-        raise HTTPException(status_code=400, detail="Cantidad invalida")
-    if data.type not in {"IN", "ADJ"}:
-        raise HTTPException(status_code=400, detail="Tipo invalido")
-    result = await db.execute(select(Product).where(Product.id == data.product_id))
-    product = result.scalar_one_or_none()
-    if not product:
-        raise HTTPException(status_code=404, detail="Producto no encontrado")
-    product.stock += data.qty
-    movement = StockMovement(
-        product_id=data.product_id,
-        type=data.type,
-        qty=data.qty,
-        ref=data.ref,
-    )
-    db.add(movement)
-    await db.commit()
-    await db.refresh(movement)
-    return movement
+@router.post("/movement", response_model=StockMovementOut, status_code=201, dependencies=[Depends(require_permission("inventory.write"))])
+async def create_movement(
+    data: InventoryMovementCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    service = StockService(db, current_user)
+    return await service.create_movement(data)
 
 
-@router.get("/template")
+@router.get("/template", dependencies=[Depends(require_permission("inventory.read"))])
 async def download_template():
     output = StringIO()
     writer = csv.writer(output)
@@ -48,7 +36,7 @@ async def download_template():
     return PlainTextResponse(output.getvalue(), media_type="text/csv")
 
 
-@router.get("/template/xlsx")
+@router.get("/template/xlsx", dependencies=[Depends(require_permission("inventory.read"))])
 async def download_template_xlsx():
     try:
         from openpyxl import Workbook
@@ -68,8 +56,12 @@ async def download_template_xlsx():
     )
 
 
-@router.post("/upload")
-async def upload_inventory(file: UploadFile = File(...), db: AsyncSession = Depends(get_db), _=Depends(require_role("admin"))):
+@router.post("/upload", dependencies=[Depends(require_permission("inventory.write"))])
+async def upload_inventory(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Archivo invalido")
     filename = file.filename.lower()
@@ -104,64 +96,11 @@ async def upload_inventory(file: UploadFile = File(...), db: AsyncSession = Depe
     else:
         raise HTTPException(status_code=400, detail="Formato no soportado. Use CSV o XLSX")
 
-    if not rows:
-        return {"ok": True, "count": 0}
-
-    async with db.begin():
-        for r in rows:
-            sku = str(r.get("sku") or "").strip()
-            name = str(r.get("name") or "").strip()
-            if not sku or not name:
-                continue
-            category = str(r.get("category") or "").strip()
-            price = float(r.get("price") or 0)
-            cost = float(r.get("cost") or 0)
-            stock = int(float(r.get("stock") or 0))
-            stock_min = int(float(r.get("stock_min") or 0))
-
-            result = await db.execute(select(Product).where(Product.sku == sku))
-            product = result.scalar_one_or_none()
-            if product:
-                diff = stock - product.stock
-                product.name = name
-                product.category = category
-                product.price = price
-                product.cost = cost
-                product.stock = stock
-                product.stock_min = stock_min
-                if diff != 0:
-                    movement = StockMovement(
-                        product_id=product.id,
-                        type="ADJ",
-                        qty=abs(diff),
-                        ref="BULK_IMPORT",
-                    )
-                    db.add(movement)
-            else:
-                product = Product(
-                    sku=sku,
-                    name=name,
-                    category=category,
-                    price=price,
-                    cost=cost,
-                    stock=stock,
-                    stock_min=stock_min,
-                )
-                db.add(product)
-                await db.flush()
-                if stock != 0:
-                    movement = StockMovement(
-                        product_id=product.id,
-                        type="IN",
-                        qty=stock,
-                        ref="BULK_IMPORT",
-                    )
-                    db.add(movement)
-
-    return {"ok": True, "count": len(rows)}
+    service = StockService(db, current_user)
+    return await service.bulk_import(rows)
 
 
-@router.get("/kardex/{product_id}", response_model=list[StockMovementOut])
+@router.get("/kardex/{product_id}", response_model=list[StockMovementOut], dependencies=[Depends(require_permission("inventory.read"))])
 async def get_kardex(product_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(StockMovement).where(StockMovement.product_id == product_id).order_by(StockMovement.id.desc()).limit(200)

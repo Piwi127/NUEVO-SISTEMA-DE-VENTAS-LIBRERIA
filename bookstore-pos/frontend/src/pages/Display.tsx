@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Box, Typography, Paper, List, ListItem, ListItemText } from "@mui/material";
 import { formatMoney } from "../utils/money";
 import { useSettings } from "../store/useSettings";
+import { getPublicSettings } from "../api/settings";
 
 const wsBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace("http", "ws");
 
@@ -19,7 +20,66 @@ const Display: React.FC = () => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [total, setTotal] = useState(0);
   const [message, setMessage] = useState("");
-  useSettings();
+  const {
+    projectName,
+    setProjectName,
+    setCurrency,
+    setTaxRate,
+    setTaxIncluded,
+    setStoreAddress,
+    setStorePhone,
+    setStoreTaxId,
+    setLogoUrl,
+    setPaymentMethods,
+    setInvoicePrefix,
+    setInvoiceNext,
+    setReceiptHeader,
+    setReceiptFooter,
+    setPaperWidthMm,
+    setDefaultWarehouseId,
+  } = useSettings();
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const s = await getPublicSettings();
+        setProjectName(s.project_name);
+        setCurrency(s.currency as any);
+        setTaxRate(s.tax_rate);
+        setTaxIncluded(s.tax_included);
+        setStoreAddress(s.store_address);
+        setStorePhone(s.store_phone);
+        setStoreTaxId(s.store_tax_id);
+        setLogoUrl(s.logo_url);
+        setPaymentMethods(s.payment_methods);
+        setInvoicePrefix(s.invoice_prefix);
+        setInvoiceNext(s.invoice_next);
+        setReceiptHeader(s.receipt_header);
+        setReceiptFooter(s.receipt_footer);
+        setPaperWidthMm(s.paper_width_mm);
+        setDefaultWarehouseId(s.default_warehouse_id ?? null);
+      } catch {
+        // ignore
+      }
+    };
+    load();
+  }, [
+    setProjectName,
+    setCurrency,
+    setTaxRate,
+    setTaxIncluded,
+    setStoreAddress,
+    setStorePhone,
+    setStoreTaxId,
+    setLogoUrl,
+    setPaymentMethods,
+    setInvoicePrefix,
+    setInvoiceNext,
+    setReceiptHeader,
+    setReceiptFooter,
+    setPaperWidthMm,
+    setDefaultWarehouseId,
+  ]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -43,7 +103,7 @@ const Display: React.FC = () => {
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#0c0f14", color: "#fff", p: 4 }}>
       <Typography variant="h3" sx={{ mb: 3 }}>
-        Bookstore POS
+        {projectName}
       </Typography>
       <Paper sx={{ p: 3, bgcolor: "#121826", color: "#fff" }}>
         {message ? (

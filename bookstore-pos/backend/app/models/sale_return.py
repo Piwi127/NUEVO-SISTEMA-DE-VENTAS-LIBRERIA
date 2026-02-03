@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,7 +11,7 @@ class SaleReturn(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sale_id: Mapped[int] = mapped_column(ForeignKey("sales.id"))
     reason: Mapped[str] = mapped_column(String(200), default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class SaleReturnItem(Base):

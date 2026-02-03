@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField } from "@mui/material";
+import React, { useEffect, useRef, useState } from "react";
+import { Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery } from "@mui/material";
 import * as QRCode from "qrcode";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProductSearch } from "../components/ProductSearch";
@@ -14,6 +14,10 @@ import { getPriceListItems } from "../api/priceLists";
 import { listProducts } from "../api/products";
 import { downloadEscpos } from "../api/printing";
 import { useToast } from "../components/ToastProvider";
+import { useSettings } from "../store/useSettings";
+import { calcTotals } from "../utils/totals";
+import { KpiCard } from "../components/KpiCard";
+import { formatMoney } from "../utils/money";
 
 const wsBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace("http", "ws");
 
@@ -25,7 +29,10 @@ const makeSessionId = () => {
 
 const POS: React.FC = () => {
   const cart = useCartStore();
-  const { subtotal, total, tax, discount } = cart.totals();
+  const { taxRate, taxIncluded, paymentMethods } = useSettings();
+  const discount = cart.discount;
+  const { subtotal, total, tax } = calcTotals(cart.items, discount, taxRate, taxIncluded);
+  const compact = useMediaQuery("(max-width:900px)");
   const [payOpen, setPayOpen] = useState(false);
   const [sessionId] = useState(() => makeSessionId());
   const wsRef = useRef<WebSocket | null>(null);
@@ -43,11 +50,20 @@ const POS: React.FC = () => {
   const barcodeRef = useRef<HTMLInputElement | null>(null);
   const [lastSaleId, setLastSaleId] = useState<number | null>(null);
 
+  const lastPromo = useRef<number | "">("");
+
   useEffect(() => {
     const promo = promos?.find((p) => p.id === promoId);
-    if (promo && promo.type === "PERCENT") {
-      cart.setDiscount((subtotal * promo.value) / 100);
+    if (promo) {
+      if (promo.type === "PERCENT") {
+        cart.setDiscount((subtotal * promo.value) / 100);
+      } else if (promo.type === "AMOUNT") {
+        cart.setDiscount(promo.value);
+      }
+    } else if (!promoId && lastPromo.current) {
+      cart.setDiscount(0);
     }
+    lastPromo.current = promoId;
   }, [promoId, promos, subtotal]);
 
   useEffect(() => {
@@ -164,7 +180,7 @@ const POS: React.FC = () => {
         <div>Fecha: ${receipt.created_at}</div>
         <hr />
         ${receipt.items
-          .map((i: any) => `<div>${i.product_id} x${i.qty} - ${i.line_total.toFixed(2)}</div>`)
+          .map((i: any) => `<div>${i.name || i.product_id} x${i.qty} - ${i.line_total.toFixed(2)}</div>`)
           .join("")}
         <hr />
         <div>Subtotal: ${receipt.subtotal.toFixed(2)}</div>
@@ -213,49 +229,75 @@ const POS: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <TextField
-        inputRef={barcodeRef}
-        label="Escaner (SKU)"
-        placeholder="Escanea y Enter"
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            handleBarcode((e.target as HTMLInputElement).value);
-            (e.target as HTMLInputElement).value = "";
-          }
-        }}
-        sx={{ maxWidth: 360 }}
-      />
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={4}>
+          <KpiCard label="Venta" value={formatMoney(total)} accent="#0b1e3b" />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <KpiCard label="Descuento" value={formatMoney(discount)} accent="#c9a227" />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <KpiCard label="Impuesto" value={formatMoney(tax)} accent="#2f4858" />
+        </Grid>
+      </Grid>
+
+      <Paper sx={{ p: 2 }}>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", flexDirection: compact ? "column" : "row" }}>
+          <TextField
+            inputRef={barcodeRef}
+            label="Escaner (SKU)"
+            placeholder="Escanea y Enter"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleBarcode((e.target as HTMLInputElement).value);
+                (e.target as HTMLInputElement).value = "";
+              }
+            }}
+            sx={{ minWidth: 260, maxWidth: 360, width: compact ? "100%" : "auto" }}
+          />
+          <TextField
+            select
+            label="Cliente"
+            value={customerId}
+            onChange={(e) => setCustomerId(Number(e.target.value))}
+            sx={{ minWidth: 220, width: compact ? "100%" : "auto" }}
+          >
+            <MenuItem value="">Sin cliente</MenuItem>
+            {(customers || []).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+          </TextField>
+          <TextField
+            select
+            label="Promo"
+            value={promoId}
+            onChange={(e) => setPromoId(Number(e.target.value))}
+            sx={{ minWidth: 220, width: compact ? "100%" : "auto" }}
+          >
+            <MenuItem value="">Sin promo</MenuItem>
+            {(promos || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+          </TextField>
+        </Box>
+      </Paper>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={7}>
           <Paper sx={{ p: 2, height: "100%" }}>
             <Typography variant="h6" sx={{ mb: 2 }}>Busqueda de productos</Typography>
-            <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-              <TextField select label="Cliente" value={customerId} onChange={(e) => setCustomerId(Number(e.target.value))} sx={{ minWidth: 220 }}>
-                <MenuItem value="">Sin cliente</MenuItem>
-                {(customers || []).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-              </TextField>
-              <TextField select label="Promo" value={promoId} onChange={(e) => setPromoId(Number(e.target.value))} sx={{ minWidth: 220 }}>
-                <MenuItem value="">Sin promo</MenuItem>
-                {(promos || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
-              </TextField>
-            </Box>
             <ProductSearch priceMap={priceMap} inputRef={searchRef} />
           </Paper>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={5}>
           <Paper sx={{ p: 2, height: "100%" }}>
             <Typography variant="h6" sx={{ mb: 2 }}>Carrito</Typography>
             <Cart />
             <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-              <Button variant="contained" size="large" disabled={cart.items.length === 0} onClick={() => setPayOpen(true)}>
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", flexDirection: compact ? "column" : "row" }}>
+              <Button fullWidth={compact} variant="contained" size="large" disabled={cart.items.length === 0} onClick={() => setPayOpen(true)}>
                 Cobrar
               </Button>
-              <Button variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>
+              <Button fullWidth={compact} variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>
                 Imprimir ticket
               </Button>
-              <Button variant="outlined" disabled={!lastSaleId} onClick={handleEscpos}>
+              <Button fullWidth={compact} variant="outlined" disabled={!lastSaleId} onClick={handleEscpos}>
                 Descargar ESC/POS
               </Button>
             </Box>
@@ -263,7 +305,13 @@ const POS: React.FC = () => {
         </Grid>
       </Grid>
 
-      <PaymentDialog open={payOpen} total={total} onClose={() => setPayOpen(false)} onConfirm={handlePayment} />
+      <PaymentDialog
+        open={payOpen}
+        total={total}
+        methods={(paymentMethods || "CASH,CARD,TRANSFER").split(",").map((m) => m.trim().toUpperCase()).filter(Boolean)}
+        onClose={() => setPayOpen(false)}
+        onConfirm={handlePayment}
+      />
     </Box>
   );
 };

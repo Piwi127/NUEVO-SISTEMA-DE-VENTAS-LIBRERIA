@@ -1,20 +1,29 @@
-﻿import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Typography } from "@mui/material";
 import { formatMoney } from "../utils/money";
 
-export type Payment = { method: "CASH" | "CARD" | "TRANSFER"; amount: number };
+export type Payment = { method: string; amount: number };
 
 type Props = {
   open: boolean;
   total: number;
+  methods: string[];
   onClose: () => void;
   onConfirm: (payments: Payment[]) => void;
 };
 
-export const PaymentDialog: React.FC<Props> = ({ open, total, onClose, onConfirm }) => {
-  const [cash, setCash] = useState(0);
-  const [card, setCard] = useState(0);
-  const [transfer, setTransfer] = useState(0);
+export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, onConfirm }) => {
+  const [amounts, setAmounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (open) {
+      const next: Record<string, number> = {};
+      methods.forEach((m) => {
+        next[m] = amounts[m] ?? 0;
+      });
+      setAmounts(next);
+    }
+  }, [open, methods]);
 
   const parseAmount = (raw: string) => {
     const v = raw.replace(",", ".");
@@ -22,26 +31,28 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, onClose, onConfirm
     return Number.isFinite(n) ? n : 0;
   };
 
-  const sum = useMemo(() => cash + card + transfer, [cash, card, transfer]);
-  const nonCash = card + transfer;
-  const valid =
-    total > 0 &&
-    sum > 0 &&
-    (nonCash > 0 ? Math.abs(sum - total) < 0.01 : sum + 0.0001 >= total);
-  const change = Math.max(0, sum - total);
+  const sum = useMemo(() => methods.reduce((acc, m) => acc + (amounts[m] || 0), 0), [amounts, methods]);
+  const cashAmount = amounts["CASH"] || 0;
+  const hasCash = methods.includes("CASH");
+  const valid = total > 0 && sum > 0 && (hasCash ? sum + 0.0001 >= total : Math.abs(sum - total) < 0.01);
+  const change = hasCash ? Math.max(0, sum - total) : 0;
 
   const handleConfirm = () => {
     const payments: Payment[] = [];
-    if (cash > 0) payments.push({ method: "CASH", amount: cash });
-    if (card > 0) payments.push({ method: "CARD", amount: card });
-    if (transfer > 0) payments.push({ method: "TRANSFER", amount: transfer });
+    methods.forEach((m) => {
+      const amt = amounts[m] || 0;
+      if (amt > 0) payments.push({ method: m, amount: amt });
+    });
     onConfirm(payments);
   };
 
   const handleExact = () => {
-    setCash(total);
-    setCard(0);
-    setTransfer(0);
+    if (!methods.includes("CASH")) return;
+    const other = methods.reduce((acc, m) => (m === "CASH" ? acc : acc + (amounts[m] || 0)), 0);
+    setAmounts((prev) => ({
+      ...prev,
+      CASH: Math.max(0, total - other),
+    }));
   };
 
   return (
@@ -50,29 +61,27 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, onClose, onConfirm
       <DialogContent>
         <Typography sx={{ mb: 2 }}>Total: {formatMoney(total)}</Typography>
         <Box sx={{ display: "grid", gap: 2 }}>
-          <TextField
-            label="Efectivo"
-            type="number"
-            value={cash}
-            onChange={(e) => setCash(e.target.value === "" ? 0 : parseAmount(e.target.value))}
-          />
-          <TextField
-            label="Tarjeta"
-            type="number"
-            value={card}
-            onChange={(e) => setCard(e.target.value === "" ? 0 : parseAmount(e.target.value))}
-          />
-          <TextField
-            label="Transferencia"
-            type="number"
-            value={transfer}
-            onChange={(e) => setTransfer(e.target.value === "" ? 0 : parseAmount(e.target.value))}
-          />
+          {methods.map((m) => (
+            <TextField
+              key={m}
+              label={m}
+              type="number"
+              value={amounts[m] || 0}
+              onChange={(e) =>
+                setAmounts((prev) => ({
+                  ...prev,
+                  [m]: e.target.value === "" ? 0 : parseAmount(e.target.value),
+                }))
+              }
+            />
+          ))}
         </Box>
         <Box sx={{ mt: 2, display: "flex", gap: 2 }}>
-          <Button variant="outlined" onClick={handleExact}>
-            Pagar exacto
-          </Button>
+          {methods.includes("CASH") ? (
+            <Button variant="outlined" onClick={handleExact}>
+              Pagar exacto
+            </Button>
+          ) : null}
         </Box>
         <Typography sx={{ mt: 2 }} color={valid ? "success.main" : "error.main"}>
           Suma: {formatMoney(sum)}

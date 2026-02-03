@@ -1,13 +1,16 @@
 import React, { useState } from "react";
-import { Box, Button, Checkbox, FormControlLabel, Grid, MenuItem, Paper, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody } from "@mui/material";
+import { Box, Button, Checkbox, FormControlLabel, Grid, MenuItem, Paper, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody, Divider } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
 import { useSettings } from "../store/useSettings";
 import { getSettings, updateSettings, downloadBackup } from "../api/settings";
 import { getRolePermissions, updateRolePermissions } from "../api/permissions";
 import { listAuditLogs } from "../api/audit";
 import { setup2fa, confirm2fa } from "../api/auth";
+import { listWarehouses } from "../api/warehouses";
 import { useToast } from "../components/ToastProvider";
 
 const PERMISSIONS = [
+  "sales.read",
   "sales.create",
   "cash.open",
   "cash.close",
@@ -53,6 +56,8 @@ const AdminPanel: React.FC = () => {
     setReceiptFooter,
     paperWidthMm,
     setPaperWidthMm,
+    defaultWarehouseId,
+    setDefaultWarehouseId,
   } = useSettings();
 
   const [nameDraft, setNameDraft] = useState(projectName);
@@ -67,6 +72,7 @@ const AdminPanel: React.FC = () => {
   const [receiptHeaderDraft, setReceiptHeaderDraft] = useState(receiptHeader);
   const [receiptFooterDraft, setReceiptFooterDraft] = useState(receiptFooter);
   const [paperWidthDraft, setPaperWidthDraft] = useState(paperWidthMm);
+  const [defaultWarehouseDraft, setDefaultWarehouseDraft] = useState<number | "">(defaultWarehouseId ?? "");
 
   const [role, setRole] = useState("cashier");
   const [rolePerms, setRolePerms] = useState<string[]>([]);
@@ -75,6 +81,7 @@ const AdminPanel: React.FC = () => {
   const [otpCode, setOtpCode] = useState("");
 
   const { showToast } = useToast();
+  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses });
 
   React.useEffect(() => {
     const load = async () => {
@@ -94,6 +101,7 @@ const AdminPanel: React.FC = () => {
         setReceiptHeader(s.receipt_header);
         setReceiptFooter(s.receipt_footer);
         setPaperWidthMm(s.paper_width_mm);
+        setDefaultWarehouseId(s.default_warehouse_id ?? null);
 
         setNameDraft(s.project_name);
         setAddressDraft(s.store_address);
@@ -107,6 +115,7 @@ const AdminPanel: React.FC = () => {
         setReceiptHeaderDraft(s.receipt_header);
         setReceiptFooterDraft(s.receipt_footer);
         setPaperWidthDraft(s.paper_width_mm);
+        setDefaultWarehouseDraft(s.default_warehouse_id ?? "");
       } catch {
         // ignore
       }
@@ -151,6 +160,7 @@ const AdminPanel: React.FC = () => {
       receipt_header: receiptHeaderDraft,
       receipt_footer: receiptFooterDraft,
       paper_width_mm: Number(paperWidthDraft) || 80,
+      default_warehouse_id: defaultWarehouseDraft === "" ? null : Number(defaultWarehouseDraft),
     };
     try {
       const s = await updateSettings(payload);
@@ -168,6 +178,7 @@ const AdminPanel: React.FC = () => {
       setReceiptHeader(s.receipt_header);
       setReceiptFooter(s.receipt_footer);
       setPaperWidthMm(s.paper_width_mm);
+      setDefaultWarehouseId(s.default_warehouse_id ?? null);
       showToast({ message: "Configuracion guardada", severity: "success" });
     } catch (err: any) {
       showToast({ message: err?.response?.data?.detail || "Error guardando", severity: "error" });
@@ -229,7 +240,7 @@ const AdminPanel: React.FC = () => {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Configuracion del sistema</Typography>
+        <Typography variant="h6" sx={{ mb: 2 }}>Operacion y facturacion</Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}>
             <TextField select fullWidth label="Moneda" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
@@ -255,6 +266,22 @@ const AdminPanel: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField fullWidth label="Ancho papel (mm)" type="number" value={paperWidthDraft} onChange={(e) => setPaperWidthDraft(Number(e.target.value))} />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              select
+              fullWidth
+              label="Almacen por defecto"
+              value={defaultWarehouseDraft}
+              onChange={(e) => setDefaultWarehouseDraft(e.target.value === "" ? "" : Number(e.target.value))}
+            >
+              <MenuItem value="">Sin asignar</MenuItem>
+              {(warehouses || []).map((w) => (
+                <MenuItem key={w.id} value={w.id}>
+                  {w.name}
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
@@ -283,7 +310,7 @@ const AdminPanel: React.FC = () => {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>2FA (Google Authenticator)</Typography>
+        <Typography variant="h6" sx={{ mb: 2 }}>Seguridad</Typography>
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
           <Button variant="outlined" onClick={handleSetup2fa}>Generar secreto</Button>
           {otpSecret && <TextField label="Secreto" value={otpSecret} />}
@@ -312,7 +339,10 @@ const AdminPanel: React.FC = () => {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Auditoria</Typography>
-        <Button variant="outlined" onClick={loadAudit}>Cargar logs</Button>
+        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+          <Button variant="outlined" onClick={loadAudit}>Cargar logs</Button>
+          <Typography variant="body2" color="text.secondary">Se muestran los 200 ultimos eventos.</Typography>
+        </Box>
         <Table size="small" sx={{ mt: 2 }}>
           <TableHead>
             <TableRow>

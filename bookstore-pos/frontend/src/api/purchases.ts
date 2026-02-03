@@ -9,3 +9,18 @@ export const createPurchase = async (data: {
   const res = await api.post("/purchases", data);
   return res.data;
 };
+
+export const listPurchases = async (params: {
+  from_date?: string;
+  to?: string;
+  supplier_id?: number;
+  limit?: number;
+}) => {
+  const res = await api.get("/purchases", { params });
+  return res.data as PurchaseResponse[];
+};
+
+export const exportPurchases = async (params: { from_date?: string; to?: string; supplier_id?: number }) => {
+  const res = await api.get("/purchases/export", { params, responseType: "blob" });
+  return res.data as Blob;
+};

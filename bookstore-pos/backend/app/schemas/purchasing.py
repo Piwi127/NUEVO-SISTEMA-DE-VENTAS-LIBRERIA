@@ -20,6 +20,17 @@ class PurchaseOrderOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PurchaseOrderItemOut(BaseModel):
+    id: int
+    purchase_order_id: int
+    product_id: int
+    qty: int
+    unit_cost: float
+    received_qty: int
+
+    model_config = {"from_attributes": True}
+
+
 class ReceiveItem(BaseModel):
     product_id: int
     qty: int

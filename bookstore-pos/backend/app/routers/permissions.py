@@ -1,25 +1,25 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, require_role
-from app.models.permission import RolePermission
+from app.core.deps import get_db, get_current_user, require_role
 from app.schemas.permission import RolePermissionsOut, RolePermissionsUpdate
+from app.services.permissions_service import PermissionsService
 
 router = APIRouter(prefix="/permissions", tags=["permissions"], dependencies=[Depends(require_role("admin"))])
 
 
 @router.get("/{role}", response_model=RolePermissionsOut)
 async def get_role_permissions(role: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(RolePermission).where(RolePermission.role == role))
-    perms = [p.permission for p in result.scalars().all()]
-    return RolePermissionsOut(role=role, permissions=perms)
+    service = PermissionsService(db, None)
+    return await service.get_role_permissions(role)
 
 
 @router.put("/{role}", response_model=RolePermissionsOut)
-async def update_role_permissions(role: str, data: RolePermissionsUpdate, db: AsyncSession = Depends(get_db)):
-    await db.execute(delete(RolePermission).where(RolePermission.role == role))
-    for p in data.permissions:
-        db.add(RolePermission(role=role, permission=p))
-    await db.commit()
-    return RolePermissionsOut(role=role, permissions=data.permissions)
+async def update_role_permissions(
+    role: str,
+    data: RolePermissionsUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    service = PermissionsService(db, current_user)
+    return await service.update_role_permissions(role, data.permissions)

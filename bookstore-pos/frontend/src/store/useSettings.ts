@@ -19,6 +19,7 @@ export const useSettings = () => {
     setReceiptHeader: settingsStore.setReceiptHeader,
     setReceiptFooter: settingsStore.setReceiptFooter,
     setPaperWidthMm: settingsStore.setPaperWidthMm,
+    setDefaultWarehouseId: settingsStore.setDefaultWarehouseId,
   } as {
     currency: Currency;
     projectName: string;
@@ -34,6 +35,7 @@ export const useSettings = () => {
     receiptHeader: string;
     receiptFooter: string;
     paperWidthMm: number;
+    defaultWarehouseId: number | null;
     setCurrency: (c: Currency) => void;
     setProjectName: (n: string) => void;
     setTaxRate: (n: number) => void;
@@ -48,5 +50,6 @@ export const useSettings = () => {
     setReceiptHeader: (n: string) => void;
     setReceiptFooter: (n: string) => void;
     setPaperWidthMm: (n: number) => void;
+    setDefaultWarehouseId: (n: number | null) => void;
   };
 };

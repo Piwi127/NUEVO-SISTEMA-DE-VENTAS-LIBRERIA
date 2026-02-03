@@ -19,3 +19,15 @@ export const getReceipt = async (saleId: number) => {
   const res = await api.get(`/sales/${saleId}/receipt`);
   return res.data as any;
 };
+
+export const listSales = async (params: {
+  status?: string;
+  from_date?: string;
+  to_date?: string;
+  customer_id?: number;
+  user_id?: number;
+  limit?: number;
+}) => {
+  const res = await api.get("/sales", { params });
+  return res.data as any[];
+};

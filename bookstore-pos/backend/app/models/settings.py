@@ -1,4 +1,4 @@
-from sqlalchemy import Float, Integer, String, Boolean
+from sqlalchemy import Float, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -22,3 +22,4 @@ class SystemSettings(Base):
     receipt_header: Mapped[str] = mapped_column(String(500), default="")
     receipt_footer: Mapped[str] = mapped_column(String(500), default="Gracias por su compra")
     paper_width_mm: Mapped[int] = mapped_column(Integer, default=80)
+    default_warehouse_id: Mapped[int | None] = mapped_column(ForeignKey("warehouses.id"), nullable=True)

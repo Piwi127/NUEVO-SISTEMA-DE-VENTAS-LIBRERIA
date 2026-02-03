@@ -1,15 +1,18 @@
 import React, { useState } from "react";
-import { Box, Button, MenuItem, Paper, TextField, Typography } from "@mui/material";
+import { Box, Button, MenuItem, Paper, TextField, Typography, Table, TableBody, TableCell, TableHead, TableRow, Divider, useMediaQuery } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { listProducts } from "../api/products";
 import { listSuppliers } from "../api/suppliers";
-import { createPurchaseOrder, receivePurchaseOrder, supplierPayment } from "../api/purchasing";
+import { createPurchaseOrder, receivePurchaseOrder, supplierPayment, listPurchaseOrders, listPurchaseOrderItems } from "../api/purchasing";
+import { listPurchases, exportPurchases } from "../api/purchases";
 import { useToast } from "../components/ToastProvider";
 
 const Purchases: React.FC = () => {
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
   const { data: suppliers } = useQuery({ queryKey: ["suppliers"], queryFn: () => listSuppliers() });
+  const { data: orders } = useQuery({ queryKey: ["purchase-orders"], queryFn: () => listPurchaseOrders() });
   const { showToast } = useToast();
+  const compact = useMediaQuery("(max-width:900px)");
 
   const [supplierId, setSupplierId] = useState<number | "">("");
   const [productId, setProductId] = useState<number | "">("");
@@ -17,14 +20,28 @@ const Purchases: React.FC = () => {
   const [unitCost, setUnitCost] = useState(0);
   const [items, setItems] = useState<{ product_id: number; qty: number; unit_cost: number }[]>([]);
 
-  const [receiveOrderId, setReceiveOrderId] = useState("");
+  const [receiveOrderId, setReceiveOrderId] = useState<number | "">("");
   const [receiveProductId, setReceiveProductId] = useState<number | "">("");
   const [receiveQty, setReceiveQty] = useState(0);
+  const [orderItems, setOrderItems] = useState<{ product_id: number; qty: number; unit_cost: number; received_qty: number }[]>([]);
 
   const [paySupplierId, setPaySupplierId] = useState<number | "">("");
   const [payAmount, setPayAmount] = useState(0);
   const [payMethod, setPayMethod] = useState("TRANSFER");
   const [payRef, setPayRef] = useState("");
+
+  const [histFrom, setHistFrom] = useState("");
+  const [histTo, setHistTo] = useState("");
+  const [histSupplier, setHistSupplier] = useState<number | "">("");
+  const { data: purchases } = useQuery({
+    queryKey: ["purchases-history", histFrom, histTo, histSupplier],
+    queryFn: () =>
+      listPurchases({
+        from_date: histFrom || undefined,
+        to: histTo || undefined,
+        supplier_id: histSupplier ? Number(histSupplier) : undefined,
+      }),
+  });
 
   const addItem = () => {
     if (!productId) return;
@@ -55,8 +72,8 @@ const Purchases: React.FC = () => {
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6">Orden de compra</Typography>
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", mt: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Orden de compra</Typography>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
           <TextField select label="Proveedor" value={supplierId} onChange={(e) => setSupplierId(Number(e.target.value))}>
             {(suppliers || []).map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
           </TextField>
@@ -67,32 +84,163 @@ const Purchases: React.FC = () => {
           <TextField label="Costo" type="number" value={unitCost} onChange={(e) => setUnitCost(Number(e.target.value))} />
           <Button variant="outlined" onClick={addItem}>Agregar item</Button>
         </Box>
-        <Button variant="contained" sx={{ mt: 2 }} onClick={handleCreateOC}>Crear OC</Button>
+
+        {items.length > 0 && (
+          compact ? (
+            <Box sx={{ display: "grid", gap: 1, mt: 2 }}>
+              {items.map((i, idx) => {
+                const product = (products || []).find((p) => p.id === i.product_id);
+                return (
+                  <Paper key={idx} sx={{ p: 1.5 }}>
+                    <Typography sx={{ fontWeight: 600 }}>{product?.name || i.product_id}</Typography>
+                    <Typography variant="body2">Cantidad: {i.qty}</Typography>
+                    <Typography variant="body2">Costo: {i.unit_cost}</Typography>
+                  </Paper>
+                );
+              })}
+            </Box>
+          ) : (
+            <Table size="small" sx={{ mt: 2 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Producto</TableCell>
+                  <TableCell>Cantidad</TableCell>
+                  <TableCell>Costo</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {items.map((i, idx) => {
+                  const product = (products || []).find((p) => p.id === i.product_id);
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell>{product?.name || i.product_id}</TableCell>
+                      <TableCell>{i.qty}</TableCell>
+                      <TableCell>{i.unit_cost}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )
+        )}
+
+        <Button fullWidth={compact} variant="contained" sx={{ mt: 2 }} onClick={handleCreateOC}>Crear OC</Button>
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6">Recepcion parcial</Typography>
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", mt: 2 }}>
-          <TextField label="ID OC" value={receiveOrderId} onChange={(e) => setReceiveOrderId(e.target.value)} />
+        <Typography variant="h6" sx={{ mb: 2 }}>Recepcion parcial</Typography>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
+          <TextField
+            select
+            label="Orden de compra"
+            value={receiveOrderId}
+            onChange={async (e) => {
+              const raw = e.target.value;
+              if (raw === "") {
+                setReceiveOrderId("");
+                setOrderItems([]);
+                return;
+              }
+              const v = Number(raw);
+              setReceiveOrderId(v);
+              const items = await listPurchaseOrderItems(v);
+              setOrderItems(items);
+            }}
+          >
+            <MenuItem value="">Seleccione</MenuItem>
+            {(orders || []).map((o) => (
+              <MenuItem key={o.id} value={o.id}>
+                OC #{o.id} - {o.status}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField select label="Producto" value={receiveProductId} onChange={(e) => setReceiveProductId(Number(e.target.value))}>
-            {(products || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+            {orderItems.map((item) => {
+              const product = (products || []).find((p) => p.id === item.product_id);
+              const remaining = item.qty - item.received_qty;
+              return (
+                <MenuItem key={item.product_id} value={item.product_id}>
+                  {product?.name || `Producto ${item.product_id}`} (pendiente {remaining})
+                </MenuItem>
+              );
+            })}
           </TextField>
           <TextField label="Cantidad" type="number" value={receiveQty} onChange={(e) => setReceiveQty(Number(e.target.value))} />
-          <Button variant="contained" onClick={handleReceive}>Registrar</Button>
+          <Button fullWidth={compact} variant="contained" onClick={handleReceive}>Registrar</Button>
         </Box>
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6">Pago a proveedor</Typography>
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", mt: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Pago a proveedor</Typography>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
           <TextField select label="Proveedor" value={paySupplierId} onChange={(e) => setPaySupplierId(Number(e.target.value))}>
             {(suppliers || []).map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
           </TextField>
           <TextField label="Monto" type="number" value={payAmount} onChange={(e) => setPayAmount(Number(e.target.value))} />
           <TextField label="Metodo" value={payMethod} onChange={(e) => setPayMethod(e.target.value)} />
           <TextField label="Referencia" value={payRef} onChange={(e) => setPayRef(e.target.value)} />
-          <Button variant="contained" onClick={handlePay}>Pagar</Button>
+          <Button fullWidth={compact} variant="contained" onClick={handlePay}>Pagar</Button>
         </Box>
+      </Paper>
+
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Historial de compras</Typography>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+          <TextField type="date" label="Desde" value={histFrom} onChange={(e) => setHistFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <TextField type="date" label="Hasta" value={histTo} onChange={(e) => setHistTo(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <TextField select label="Proveedor" value={histSupplier} onChange={(e) => setHistSupplier(Number(e.target.value))} sx={{ minWidth: 200 }}>
+            <MenuItem value="">Todos</MenuItem>
+            {(suppliers || []).map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+          </TextField>
+          <Button
+            variant="outlined"
+            onClick={async () => {
+              const blob = await exportPurchases({
+                from_date: histFrom || undefined,
+                to: histTo || undefined,
+                supplier_id: histSupplier ? Number(histSupplier) : undefined,
+              });
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "compras.csv";
+              a.click();
+              window.URL.revokeObjectURL(url);
+            }}
+          >
+            Exportar CSV
+          </Button>
+        </Box>
+        {compact ? (
+          <Box sx={{ display: "grid", gap: 1 }}>
+            {(purchases || []).map((p) => (
+              <Paper key={p.id} sx={{ p: 1.5 }}>
+                <Typography sx={{ fontWeight: 600 }}>Compra #{p.id}</Typography>
+                <Typography variant="body2">Proveedor: {p.supplier_id}</Typography>
+                <Typography variant="body2">Total: {p.total}</Typography>
+              </Paper>
+            ))}
+          </Box>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Proveedor</TableCell>
+                <TableCell>Total</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(purchases || []).map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell>{p.id}</TableCell>
+                  <TableCell>{p.supplier_id}</TableCell>
+                  <TableCell>{p.total}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Paper>
     </Box>
   );

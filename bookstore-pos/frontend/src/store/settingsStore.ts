@@ -15,6 +15,7 @@ type SettingsState = {
   receiptHeader: string;
   receiptFooter: string;
   paperWidthMm: number;
+  defaultWarehouseId: number | null;
 };
 
 type Listener = () => void;
@@ -36,6 +37,7 @@ const state: SettingsState = {
   receiptHeader: "",
   receiptFooter: "Gracias por su compra",
   paperWidthMm: 80,
+  defaultWarehouseId: null,
 };
 
 const listeners = new Set<Listener>();
@@ -66,6 +68,7 @@ const load = () => {
     if (typeof parsed.receiptHeader === "string") state.receiptHeader = parsed.receiptHeader;
     if (typeof parsed.receiptFooter === "string") state.receiptFooter = parsed.receiptFooter;
     if (typeof parsed.paperWidthMm === "number") state.paperWidthMm = parsed.paperWidthMm;
+    if (typeof parsed.defaultWarehouseId === "number") state.defaultWarehouseId = parsed.defaultWarehouseId;
   } catch {
     // ignore
   }
@@ -147,6 +150,11 @@ export const settingsStore = {
   },
   setPaperWidthMm: (paperWidthMm: number) => {
     state.paperWidthMm = paperWidthMm;
+    persist();
+    emit();
+  },
+  setDefaultWarehouseId: (defaultWarehouseId: number | null) => {
+    state.defaultWarehouseId = defaultWarehouseId;
     persist();
     emit();
   },

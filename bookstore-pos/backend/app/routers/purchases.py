@@ -1,45 +1,58 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import csv
+from io import StringIO
 
-from app.core.deps import get_db, require_role
-from app.models.product import Product
-from app.models.purchase import Purchase, PurchaseItem
-from app.models.inventory import StockMovement
+from app.core.deps import get_db, get_current_user, require_permission, require_role
+from app.models.purchase import Purchase
 from app.schemas.purchase import PurchaseCreate, PurchaseOut
+from app.services.purchases_service import PurchasesService
 
 router = APIRouter(prefix="/purchases", tags=["purchases"], dependencies=[Depends(require_role("admin", "stock"))])
 
+@router.get("", response_model=list[PurchaseOut], dependencies=[Depends(require_permission("purchases.create"))])
+async def list_purchases(
+    from_date: str | None = None,
+    to: str | None = None,
+    supplier_id: int | None = None,
+    limit: int = 200,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Purchase)
+    if from_date:
+        stmt = stmt.where(Purchase.created_at >= from_date)
+    if to:
+        stmt = stmt.where(Purchase.created_at <= to)
+    if supplier_id:
+        stmt = stmt.where(Purchase.supplier_id == supplier_id)
+    stmt = stmt.order_by(Purchase.id.desc()).limit(min(max(limit, 1), 500))
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
-@router.post("", response_model=PurchaseOut, status_code=201)
-async def create_purchase(data: PurchaseCreate, db: AsyncSession = Depends(get_db)):
-    async with db.begin():
-        purchase = Purchase(supplier_id=data.supplier_id, total=data.total)
-        db.add(purchase)
-        await db.flush()
 
-        for item in data.items:
-            prod_result = await db.execute(select(Product).where(Product.id == item.product_id))
-            product = prod_result.scalar_one_or_none()
-            if not product:
-                raise HTTPException(status_code=404, detail=f"Producto {item.product_id} no encontrado")
-            product.stock += item.qty
-            line_total = item.unit_cost * item.qty
-            p_item = PurchaseItem(
-                purchase_id=purchase.id,
-                product_id=product.id,
-                qty=item.qty,
-                unit_cost=item.unit_cost,
-                line_total=line_total,
-            )
-            db.add(p_item)
-            movement = StockMovement(
-                product_id=product.id,
-                type="IN",
-                qty=item.qty,
-                ref=f"PURCHASE:{purchase.id}",
-            )
-            db.add(movement)
+@router.get("/export", dependencies=[Depends(require_permission("purchases.create"))])
+async def export_purchases(
+    from_date: str | None = None,
+    to: str | None = None,
+    supplier_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    rows = await list_purchases(from_date, to, supplier_id, 500, db)
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["id", "supplier_id", "total", "created_at"])
+    for r in rows:
+        writer.writerow([r.id, r.supplier_id, r.total, r.created_at])
+    return PlainTextResponse(output.getvalue(), media_type="text/csv")
 
-    await db.refresh(purchase)
-    return purchase
+
+@router.post("", response_model=PurchaseOut, status_code=201, dependencies=[Depends(require_permission("purchases.create"))])
+async def create_purchase(
+    data: PurchaseCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    service = PurchasesService(db, current_user)
+    return await service.create_purchase(data)

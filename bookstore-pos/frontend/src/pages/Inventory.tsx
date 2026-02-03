@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, Button, MenuItem, Paper, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody, Divider } from "@mui/material";
+import { Box, Button, MenuItem, Paper, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody, Divider, Chip, Tabs, Tab, Grid, useMediaQuery } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { listProducts } from "../api/products";
@@ -20,6 +20,7 @@ const Inventory: React.FC = () => {
   const { role } = useAuth();
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: () => listWarehouses() });
+  const compact = useMediaQuery("(max-width:900px)");
 
   const [productId, setProductId] = useState<number | "">("");
   const [qty, setQty] = useState(0);
@@ -52,6 +53,8 @@ const Inventory: React.FC = () => {
     queryKey: ["kardex", productId],
     queryFn: () => (productId ? getKardex(productId as number) : Promise.resolve([])),
   });
+
+  const [tab, setTab] = useState(0);
 
   const handleSubmit = async () => {
     if (!productId) return;
@@ -191,40 +194,61 @@ const Inventory: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      {role === "admin" && (
+      <Paper sx={{ p: 1 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" allowScrollButtonsMobile>
+          <Tab label="Carga masiva" />
+          <Tab label="Operaciones" />
+          <Tab label="Kardex" />
+        </Tabs>
+      </Paper>
+
+      {tab === 0 && role === "admin" && (
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Carga masiva (CSV/XLSX)</Typography>
-          <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
-            Columnas requeridas: {REQUIRED.join(", ")}
-          </Typography>
-          <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-            <Button variant="outlined" onClick={handleDownload}>Descargar plantilla CSV</Button>
-            <Button variant="outlined" onClick={handleDownloadXlsx}>Descargar plantilla XLSX</Button>
+          <Typography variant="h6" sx={{ mb: 2 }}>Carga masiva</Typography>
+          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+            <Button variant="outlined" onClick={handleDownload}>Plantilla CSV</Button>
+            <Button variant="outlined" onClick={handleDownloadXlsx}>Plantilla XLSX</Button>
             <TextField type="file" inputProps={{ accept: ".csv,.xlsx" }} onChange={(e) => handleFileChange(e.target.files?.[0] || null)} />
             <Button variant="contained" onClick={handleUpload} disabled={!file}>Subir archivo</Button>
+            <Chip label={`Columnas: ${REQUIRED.join(", ")}`} size="small" />
           </Box>
 
           {preview.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>Vista previa (primeras {PREVIEW_LIMIT} filas)</Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    {REQUIRED.map((h) => (
-                      <TableCell key={h}>{h}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
+              {compact ? (
+                <Box sx={{ display: "grid", gap: 1 }}>
                   {preview.map((row, idx) => (
-                    <TableRow key={idx}>
+                    <Paper key={idx} sx={{ p: 1.5 }}>
                       {REQUIRED.map((h) => (
-                        <TableCell key={h}>{String(row[h] ?? "")}</TableCell>
+                        <Box key={h} sx={{ display: "flex", justifyContent: "space-between" }}>
+                          <Typography variant="body2" color="text.secondary">{h}</Typography>
+                          <Typography variant="body2">{String(row[h] ?? "")}</Typography>
+                        </Box>
+                      ))}
+                    </Paper>
+                  ))}
+                </Box>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      {REQUIRED.map((h) => (
+                        <TableCell key={h}>{h}</TableCell>
                       ))}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHead>
+                  <TableBody>
+                    {preview.map((row, idx) => (
+                      <TableRow key={idx}>
+                        {REQUIRED.map((h) => (
+                          <TableCell key={h}>{String(row[h] ?? "")}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
               <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
                 Total de filas detectadas: {totalRows}
               </Typography>
@@ -233,84 +257,107 @@ const Inventory: React.FC = () => {
         </Paper>
       )}
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Almacenes</Typography>
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <TextField label="Nombre" value={whName} onChange={(e) => setWhName(e.target.value)} />
-          <TextField label="Ubicacion" value={whLocation} onChange={(e) => setWhLocation(e.target.value)} />
-          <Button variant="contained" onClick={handleCreateWarehouse}>Crear</Button>
-        </Box>
-      </Paper>
+      {tab === 1 && (
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={5}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>Almacenes</Typography>
+              <Box sx={{ display: "grid", gap: 2 }}>
+                <TextField label="Nombre" value={whName} onChange={(e) => setWhName(e.target.value)} />
+                <TextField label="Ubicacion" value={whLocation} onChange={(e) => setWhLocation(e.target.value)} />
+                <Button variant="contained" onClick={handleCreateWarehouse}>Crear almacen</Button>
+              </Box>
+            </Paper>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Transferencias</Typography>
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-          <TextField select label="Almacen origen" value={fromWh} onChange={(e) => setFromWh(Number(e.target.value))}>
-            {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
-          </TextField>
-          <TextField select label="Almacen destino" value={toWh} onChange={(e) => setToWh(Number(e.target.value))}>
-            {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
-          </TextField>
-          <TextField select label="Producto" value={transferProduct} onChange={(e) => setTransferProduct(Number(e.target.value))}>
-            {(products || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
-          </TextField>
-          <TextField label="Cantidad" type="number" value={transferQty} onChange={(e) => setTransferQty(Number(e.target.value))} />
-          <Button variant="contained" onClick={handleTransfer}>Transferir</Button>
-        </Box>
-      </Paper>
+            <Paper sx={{ p: 2, mt: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>Ajuste de inventario</Typography>
+              <Box sx={{ display: "grid", gap: 2 }}>
+                <TextField select label="Producto" value={productId} onChange={(e) => setProductId(Number(e.target.value))}>
+                  {(products || []).map((p) => (
+                    <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField label="Cantidad" type="number" value={qty} onChange={(e) => setQty(Number(e.target.value))} />
+                <TextField label="Referencia" value={ref} onChange={(e) => setRef(e.target.value)} />
+                <Button variant="contained" onClick={handleSubmit}>Registrar</Button>
+              </Box>
+            </Paper>
+          </Grid>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Lotes</Typography>
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-          <TextField select label="Almacen" value={batchWh} onChange={(e) => setBatchWh(Number(e.target.value))}>
-            {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
-          </TextField>
-          <TextField select label="Producto" value={batchProduct} onChange={(e) => setBatchProduct(Number(e.target.value))}>
-            {(products || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
-          </TextField>
-          <TextField label="Lote" value={batchLot} onChange={(e) => setBatchLot(e.target.value)} />
-          <TextField label="Vencimiento" value={batchExpiry} onChange={(e) => setBatchExpiry(e.target.value)} />
-          <TextField label="Cantidad" type="number" value={batchQty} onChange={(e) => setBatchQty(Number(e.target.value))} />
-          <Button variant="contained" onClick={handleBatch}>Registrar lote</Button>
-        </Box>
-      </Paper>
+          <Grid item xs={12} md={7}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>Transferencias</Typography>
+              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
+                <TextField select label="Almacen origen" value={fromWh} onChange={(e) => setFromWh(Number(e.target.value))}>
+                  {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
+                </TextField>
+                <TextField select label="Almacen destino" value={toWh} onChange={(e) => setToWh(Number(e.target.value))}>
+                  {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
+                </TextField>
+                <TextField select label="Producto" value={transferProduct} onChange={(e) => setTransferProduct(Number(e.target.value))}>
+                  {(products || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                </TextField>
+                <TextField label="Cantidad" type="number" value={transferQty} onChange={(e) => setTransferQty(Number(e.target.value))} />
+                <Button variant="contained" onClick={handleTransfer}>Transferir</Button>
+              </Box>
+            </Paper>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Conteo ciclico</Typography>
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-          <TextField select label="Almacen" value={countWh} onChange={(e) => setCountWh(Number(e.target.value))}>
-            {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
-          </TextField>
-          <TextField select label="Producto" value={countProduct} onChange={(e) => setCountProduct(Number(e.target.value))}>
-            {(products || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
-          </TextField>
-          <TextField label="Cantidad contada" type="number" value={countQty} onChange={(e) => setCountQty(Number(e.target.value))} />
-          <Button variant="contained" onClick={handleCount}>Registrar conteo</Button>
-        </Box>
-      </Paper>
+            <Paper sx={{ p: 2, mt: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>Lotes</Typography>
+              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
+                <TextField select label="Almacen" value={batchWh} onChange={(e) => setBatchWh(Number(e.target.value))}>
+                  {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
+                </TextField>
+                <TextField select label="Producto" value={batchProduct} onChange={(e) => setBatchProduct(Number(e.target.value))}>
+                  {(products || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                </TextField>
+                <TextField label="Lote" value={batchLot} onChange={(e) => setBatchLot(e.target.value)} />
+                <TextField label="Vencimiento" value={batchExpiry} onChange={(e) => setBatchExpiry(e.target.value)} />
+                <TextField label="Cantidad" type="number" value={batchQty} onChange={(e) => setBatchQty(Number(e.target.value))} />
+                <Button variant="contained" onClick={handleBatch}>Registrar lote</Button>
+              </Box>
+            </Paper>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Ajuste de inventario</Typography>
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-          <TextField select label="Producto" value={productId} onChange={(e) => setProductId(Number(e.target.value))}>
-            {(products || []).map((p) => (
-              <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-            ))}
-          </TextField>
-          <TextField label="Cantidad" type="number" value={qty} onChange={(e) => setQty(Number(e.target.value))} />
-          <TextField label="Referencia" value={ref} onChange={(e) => setRef(e.target.value)} />
-          <Button variant="contained" onClick={handleSubmit}>Registrar</Button>
-        </Box>
-      </Paper>
+            <Paper sx={{ p: 2, mt: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>Conteo ciclico</Typography>
+              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
+                <TextField select label="Almacen" value={countWh} onChange={(e) => setCountWh(Number(e.target.value))}>
+                  {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
+                </TextField>
+                <TextField select label="Producto" value={countProduct} onChange={(e) => setCountProduct(Number(e.target.value))}>
+                  {(products || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                </TextField>
+                <TextField label="Cantidad contada" type="number" value={countQty} onChange={(e) => setCountQty(Number(e.target.value))} />
+                <Button variant="contained" onClick={handleCount}>Registrar conteo</Button>
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6">Kardex</Typography>
-        <Box sx={{ mt: 2, maxHeight: 300, overflow: "auto" }}>
-          {(kardex || []).map((k) => (
-            <Typography key={k.id} variant="body2">{k.created_at} | {k.type} | {k.qty} | {k.ref}</Typography>
-          ))}
-        </Box>
-      </Paper>
+      {tab === 2 && (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">Kardex</Typography>
+          <Divider sx={{ my: 2 }} />
+          {compact ? (
+            <Box sx={{ display: "grid", gap: 1, maxHeight: 320, overflow: "auto" }}>
+              {(kardex || []).map((k) => (
+                <Paper key={k.id} sx={{ p: 1.5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{k.type} • {k.qty}</Typography>
+                  <Typography variant="body2" color="text.secondary">{k.created_at}</Typography>
+                  <Typography variant="body2">{k.ref}</Typography>
+                </Paper>
+              ))}
+            </Box>
+          ) : (
+            <Box sx={{ maxHeight: 320, overflow: "auto" }}>
+              {(kardex || []).map((k) => (
+                <Typography key={k.id} variant="body2">{k.created_at} | {k.type} | {k.qty} | {k.ref}</Typography>
+              ))}
+            </Box>
+          )}
+        </Paper>
+      )}
 
       <ConfirmDialog
         open={confirmOpen}

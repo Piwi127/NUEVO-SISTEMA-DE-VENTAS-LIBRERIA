@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,7 +12,7 @@ class PurchaseOrder(Base):
     supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"))
     status: Mapped[str] = mapped_column(String(20), default="OPEN")
     total: Mapped[float] = mapped_column(Float, default=0.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class PurchaseOrderItem(Base):
@@ -34,4 +34,4 @@ class SupplierPayment(Base):
     amount: Mapped[float] = mapped_column(Float)
     method: Mapped[str] = mapped_column(String(20))
     reference: Mapped[str] = mapped_column(String(100), default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

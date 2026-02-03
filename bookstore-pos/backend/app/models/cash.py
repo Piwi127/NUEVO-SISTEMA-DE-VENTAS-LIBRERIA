@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+﻿from datetime import datetime, timezone
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,8 +10,8 @@ class CashSession(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    opened_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     opening_amount: Mapped[float] = mapped_column(Float)
     is_open: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -24,7 +24,7 @@ class CashMovement(Base):
     type: Mapped[str] = mapped_column(String(10))
     amount: Mapped[float] = mapped_column(Float)
     reason: Mapped[str] = mapped_column(String(200))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class CashAudit(Base):
@@ -37,4 +37,4 @@ class CashAudit(Base):
     counted_amount: Mapped[float] = mapped_column(Float)
     difference: Mapped[float] = mapped_column(Float)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
