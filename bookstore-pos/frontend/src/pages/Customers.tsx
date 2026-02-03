@@ -1,6 +1,10 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, TextField, Typography, MenuItem, useMediaQuery, Stack, Chip } from "@mui/material";
+import { Box, Button, Paper, TextField, Typography, MenuItem, useMediaQuery } from "@mui/material";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import { PageHeader } from "../components/PageHeader";
+import { TableToolbar } from "../components/TableToolbar";
+import { EmptyState } from "../components/EmptyState";
+import { CardTable } from "../components/CardTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createCustomer, deleteCustomer, listCustomers, updateCustomer } from "../api/customers";
 import { listPriceLists } from "../api/priceLists";
@@ -12,12 +16,31 @@ const empty: Omit<Customer, "id"> = { name: "", phone: "", price_list_id: null }
 const Customers: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
+  const { data, isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
   const { data: lists } = useQuery({ queryKey: ["price-lists"], queryFn: listPriceLists });
   const [form, setForm] = useState<any>(empty);
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const compact = useMediaQuery("(max-width:900px)");
+  const filtered = (data || []).filter((c) => {
+    const term = query.trim().toLowerCase();
+    if (!term) return true;
+    return `${c.name} ${c.phone || ""}`.toLowerCase().includes(term);
+  });
+  const cardRows = filtered.map((c) => ({
+    key: c.id,
+    title: c.name,
+    subtitle: c.phone || "-",
+    right: (
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "", price_list_id: c.price_list_id || null }); }}>Editar</Button>
+        <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
+      </Box>
+    ),
+    fields: [
+      { label: "Lista", value: c.price_list_id || "Sin lista" },
+    ],
+  }));
 
   const handleSubmit = async () => {
     if (editingId) {
@@ -40,61 +63,40 @@ const Customers: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <PeopleAltIcon color="primary" />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                Clientes
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Gestion de contactos y listas de precio.
-              </Typography>
-            </Box>
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
-            <Chip label={`Total: ${data?.length ?? 0}`} size="small" />
-          </Stack>
-        </Stack>
-      </Paper>
+      <PageHeader
+        title="Clientes"
+        subtitle="Gestion de contactos y listas de precio."
+        icon={<PeopleAltIcon color="primary" />}
+        chips={[`Total: ${data?.length ?? 0}`]}
+      />
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Clientes</Typography>
+      <TableToolbar title="Clientes" subtitle="Busqueda por nombre o telefono.">
         <TextField
           label="Buscar"
           size="small"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          sx={{ mb: 2, maxWidth: 320 }}
+          sx={{ maxWidth: 320 }}
+          placeholder="Nombre o telefono"
         />
-        {compact ? (
-          <Box sx={{ display: "grid", gap: 1 }}>
-            {(data || [])
-              .filter((c) => {
-                const term = query.trim().toLowerCase();
-                if (!term) return true;
-                return `${c.name} ${c.phone || ""}`.toLowerCase().includes(term);
-              })
-              .map((c) => (
-              <Paper key={c.id} sx={{ p: 1.5 }}>
-                <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
-                <Typography variant="body2" color="text.secondary">{c.phone || "-"}</Typography>
-                <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                  <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "", price_list_id: c.price_list_id || null }); }}>Editar</Button>
-                  <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
-                </Box>
-              </Paper>
-            ))}
-          </Box>
+      </TableToolbar>
+
+      <Paper sx={{ p: 2 }}>
+        {isLoading && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Cargando clientes...
+          </Typography>
+        )}
+        {!isLoading && filtered.length === 0 ? (
+          <EmptyState
+            title="Sin clientes"
+            description="No hay clientes con ese filtro."
+            icon={<PeopleAltIcon color="disabled" />}
+          />
+        ) : compact ? (
+          <CardTable rows={cardRows} />
         ) : (
-          (data || [])
-            .filter((c) => {
-              const term = query.trim().toLowerCase();
-              if (!term) return true;
-              return `${c.name} ${c.phone || ""}`.toLowerCase().includes(term);
-            })
-            .map((c) => (
+          filtered.map((c) => (
             <Box key={c.id} sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1 }}>
               <Typography sx={{ flex: 1 }}>{c.name} ({c.phone})</Typography>
               <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "", price_list_id: c.price_list_id || null }); }}>Editar</Button>
@@ -106,13 +108,24 @@ const Customers: React.FC = () => {
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>{editingId ? "Editar" : "Nuevo"}</Typography>
         <Box sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
-          <TextField label="Nombre" value={form.name} onChange={(e) => setForm((p: any) => ({ ...p, name: e.target.value }))} />
-          <TextField label="Telefono" value={form.phone || ""} onChange={(e) => setForm((p: any) => ({ ...p, phone: e.target.value }))} />
+          <TextField
+            label="Nombre"
+            value={form.name}
+            onChange={(e) => setForm((p: any) => ({ ...p, name: e.target.value }))}
+            error={!form.name.trim() && form.name.length > 0}
+            helperText={!form.name.trim() && form.name.length > 0 ? "Nombre requerido" : "Nombre completo"}
+          />
+          <TextField
+            label="Telefono"
+            value={form.phone || ""}
+            onChange={(e) => setForm((p: any) => ({ ...p, phone: e.target.value }))}
+            helperText="Opcional"
+          />
           <TextField select label="Lista de precio" value={form.price_list_id || ""} onChange={(e) => setForm((p: any) => ({ ...p, price_list_id: Number(e.target.value) }))}>
             <MenuItem value="">Sin lista</MenuItem>
             {(lists || []).map((l) => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
           </TextField>
-          <Button variant="contained" onClick={handleSubmit}>Guardar</Button>
+          <Button variant="contained" onClick={handleSubmit} disabled={!form.name.trim()}>Guardar</Button>
         </Box>
       </Paper>
     </Box>

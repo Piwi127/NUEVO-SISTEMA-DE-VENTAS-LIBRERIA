@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack, Chip } from "@mui/material";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import { PageHeader } from "../components/PageHeader";
 import * as QRCode from "qrcode";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProductSearch } from "../components/ProductSearch";
@@ -231,25 +232,15 @@ const POS: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <PointOfSaleIcon color="primary" />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                Punto de venta
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Cobro rapido, promociones y facturacion.
-              </Typography>
-            </Box>
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
-            <Chip label={cash?.is_open ? "Caja abierta" : "Caja cerrada"} color={cash?.is_open ? "success" : "warning"} size="small" />
-            <Chip label={`Items: ${cart.items.length}`} size="small" />
-          </Stack>
-        </Stack>
-      </Paper>
+      <PageHeader
+        title="Punto de venta"
+        subtitle="Cobro rapido, promociones y facturacion."
+        icon={<PointOfSaleIcon color="primary" />}
+        chips={[
+          cash?.is_open ? "Caja abierta" : "Caja cerrada",
+          `Items: ${cart.items.length}`,
+        ]}
+      />
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={4}>

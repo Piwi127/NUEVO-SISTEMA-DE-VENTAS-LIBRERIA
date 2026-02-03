@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { Box, Button, Paper, TextField, Typography, useMediaQuery, MenuItem, Stack, Chip } from "@mui/material";
+import { Box, Button, Paper, TextField, Typography, useMediaQuery, MenuItem } from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
+import { PageHeader } from "../components/PageHeader";
+import { TableToolbar } from "../components/TableToolbar";
+import { EmptyState } from "../components/EmptyState";
+import { CardTable } from "../components/CardTable";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createProduct, deleteProduct, listProducts, updateProduct } from "../api/products";
@@ -20,7 +24,7 @@ const emptyForm: Omit<Product, "id"> = {
 const Products: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
+  const { data, isLoading } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
   const [form, setForm] = useState<Omit<Product, "id">>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const compact = useMediaQuery("(max-width:900px)");
@@ -83,68 +87,72 @@ const Products: React.FC = () => {
       return `${p.name} ${p.sku} ${p.category || ""}`.toLowerCase().includes(term);
     });
   }, [data, query, category]);
+  const cardRows = filtered.map((row) => ({
+    key: row.id,
+    title: row.name,
+    subtitle: row.category || "Sin categoria",
+    right: (
+      <Box sx={{ textAlign: "right" }}>
+        <Typography variant="body2">#{row.sku}</Typography>
+        <Button size="small" onClick={() => { setEditingId(row.id); const { id, ...rest } = row as Product; setForm(rest); }}>
+          Editar
+        </Button>
+      </Box>
+    ),
+    fields: [
+      { label: "Precio", value: row.price },
+      { label: "Stock", value: row.stock },
+    ],
+  }));
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <CategoryIcon color="primary" />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                Productos
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Catalogo, precios y control de stock minimo.
-              </Typography>
-            </Box>
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
-            <Chip label={`Total: ${filtered.length}`} size="small" />
-            <Chip label={`Categorias: ${categories.length}`} size="small" />
-          </Stack>
-        </Stack>
-      </Paper>
+      <PageHeader
+        title="Productos"
+        subtitle="Catalogo, precios y control de stock minimo."
+        icon={<CategoryIcon color="primary" />}
+        chips={[`Total: ${filtered.length}`, `Categorias: ${categories.length}`]}
+      />
+
+      <TableToolbar title="Filtro rapido" subtitle="Busca por SKU, nombre o categoria.">
+        <TextField
+          label="Buscar"
+          size="small"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          sx={{ maxWidth: 320 }}
+          placeholder="SKU o nombre"
+        />
+        <TextField
+          select
+          label="Categoria"
+          size="small"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          sx={{ minWidth: 200 }}
+          helperText="Filtra por categoria"
+        >
+          <MenuItem value="">Todas</MenuItem>
+          {categories.map((c) => (
+            <MenuItem key={c} value={c}>{c}</MenuItem>
+          ))}
+        </TextField>
+      </TableToolbar>
 
       <Paper sx={{ p: 2 }}>
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
-          <TextField
-            label="Buscar"
-            size="small"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            sx={{ maxWidth: 320 }}
+        {isLoading && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Cargando productos...
+          </Typography>
+        )}
+        {!isLoading && filtered.length === 0 ? (
+          <EmptyState
+            title="Sin productos"
+            description="No hay productos con ese filtro."
+            icon={<CategoryIcon color="disabled" />}
           />
-          <TextField
-            select
-            label="Categoria"
-            size="small"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            sx={{ minWidth: 200 }}
-          >
-            <MenuItem value="">Todas</MenuItem>
-            {categories.map((c) => (
-              <MenuItem key={c} value={c}>{c}</MenuItem>
-            ))}
-          </TextField>
-        </Box>
-        {compact ? (
-          <Box sx={{ display: "grid", gap: 1 }}>
-            {filtered.map((row) => (
-              <Paper key={row.id} sx={{ p: 1.5 }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <Typography sx={{ fontWeight: 600 }}>{row.name}</Typography>
-                  <Typography variant="body2">#{row.sku}</Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary">{row.category}</Typography>
-                <Typography variant="body2">Precio: {row.price} | Stock: {row.stock}</Typography>
-                <Box sx={{ mt: 1 }}>
-                  <Button size="small" onClick={() => { setEditingId(row.id); const { id, ...rest } = row as Product; setForm(rest); }}>Editar</Button>
-                </Box>
-              </Paper>
-            ))}
-          </Box>
+        ) : compact ? (
+          <CardTable rows={cardRows} />
         ) : (
           <div style={{ height: 320, width: "100%" }}>
             <DataGrid
@@ -181,6 +189,7 @@ const Products: React.FC = () => {
                   [key]: typeof value === "number" ? Number(e.target.value) : e.target.value,
                 }))
               }
+              helperText={key === "sku" ? "Unico" : key === "stock_min" ? "Nivel minimo" : ""}
             />
           ))}
         </Box>

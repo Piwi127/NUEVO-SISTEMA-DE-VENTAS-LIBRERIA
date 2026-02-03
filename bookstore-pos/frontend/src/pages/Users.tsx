@@ -1,6 +1,8 @@
 ﻿import React, { useState } from "react";
-import { Box, Button, MenuItem, Paper, TextField, Typography, Stack, Chip, Table, TableHead, TableRow, TableCell, TableBody } from "@mui/material";
+import { Box, Button, MenuItem, Paper, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
+import { PageHeader } from "../components/PageHeader";
+import { EmptyState } from "../components/EmptyState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createUser, listUsers, updateUser, updateUserPassword, updateUserStatus, unlockUser, setupUser2FA, confirmUser2FA, resetUser2FA } from "../api/users";
 import { User } from "../types/dto";
@@ -69,24 +71,12 @@ const Users: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <GroupIcon color="primary" />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                Usuarios
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Roles, estados y 2FA.
-              </Typography>
-            </Box>
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
-            <Chip label={`Total: ${data?.length ?? 0}`} size="small" />
-          </Stack>
-        </Stack>
-      </Paper>
+      <PageHeader
+        title="Usuarios"
+        subtitle="Roles, estados y 2FA."
+        icon={<GroupIcon color="primary" />}
+        chips={[`Total: ${data?.length ?? 0}`]}
+      />
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
@@ -94,49 +84,42 @@ const Users: React.FC = () => {
         </Typography>
         {isLoading ? (
           <Typography variant="body2" color="text.secondary">Cargando usuarios...</Typography>
+        ) : (data || []).length === 0 ? (
+          <EmptyState title="Sin usuarios" description="No hay usuarios registrados." icon={<GroupIcon color="disabled" />} />
         ) : (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Usuario</TableCell>
-              <TableCell>Rol</TableCell>
-              <TableCell>Estado</TableCell>
-              <TableCell>2FA</TableCell>
-              <TableCell>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {(data || []).map((u) => {
-              const locked = u.locked_until && new Date(u.locked_until).getTime() > Date.now();
-              return (
-                <TableRow key={u.id}>
-                  <TableCell>{u.username}</TableCell>
-                  <TableCell>{u.role}</TableCell>
-                  <TableCell>{u.is_active ? "Activo" : "Inactivo"} {locked ? "· Bloqueado" : ""}</TableCell>
-                  <TableCell>{u.twofa_enabled ? "Activo" : "No"}</TableCell>
-                  <TableCell>
-                    <Button size="small" onClick={() => { setEditingId(u.id); setForm({ username: u.username, role: u.role, is_active: u.is_active, password: "" }); }}>Editar</Button>
-                    <Button size="small" onClick={() => handleStatus(u.id, u.is_active)}>
-                      {u.is_active ? "Desactivar" : "Activar"}
-                    </Button>
-                    <Button size="small" onClick={() => handleUnlock(u.id)} disabled={!locked}>Desbloquear</Button>
-                    <Button size="small" onClick={() => handleSetup2FA(u.id)}>Config 2FA</Button>
-                    <Button size="small" onClick={() => handleReset2FA(u.id)}>Reset 2FA</Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {(data || []).length === 0 && (
+          <Table size="small">
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={5}>
-                  <Typography variant="body2" color="text.secondary">
-                    No hay usuarios registrados.
-                  </Typography>
-                </TableCell>
+                <TableCell>Usuario</TableCell>
+                <TableCell>Rol</TableCell>
+                <TableCell>Estado</TableCell>
+                <TableCell>2FA</TableCell>
+                <TableCell>Acciones</TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {(data || []).map((u) => {
+                const locked = u.locked_until && new Date(u.locked_until).getTime() > Date.now();
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell>{u.username}</TableCell>
+                    <TableCell>{u.role}</TableCell>
+                    <TableCell>{u.is_active ? "Activo" : "Inactivo"} {locked ? "· Bloqueado" : ""}</TableCell>
+                    <TableCell>{u.twofa_enabled ? "Activo" : "No"}</TableCell>
+                    <TableCell>
+                      <Button size="small" onClick={() => { setEditingId(u.id); setForm({ username: u.username, role: u.role, is_active: u.is_active, password: "" }); }}>Editar</Button>
+                      <Button size="small" onClick={() => handleStatus(u.id, u.is_active)}>
+                        {u.is_active ? "Desactivar" : "Activar"}
+                      </Button>
+                      <Button size="small" onClick={() => handleUnlock(u.id)} disabled={!locked}>Desbloquear</Button>
+                      <Button size="small" onClick={() => handleSetup2FA(u.id)}>Config 2FA</Button>
+                      <Button size="small" onClick={() => handleReset2FA(u.id)}>Reset 2FA</Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </Paper>
 

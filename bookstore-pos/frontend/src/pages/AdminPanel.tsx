@@ -25,6 +25,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import SecurityIcon from "@mui/icons-material/Security";
 import SettingsIcon from "@mui/icons-material/Settings";
 import HistoryIcon from "@mui/icons-material/History";
+import { PageHeader } from "../components/PageHeader";
 import { useQuery } from "@tanstack/react-query";
 import { useSettings } from "../store/useSettings";
 import { getSettings, updateSettings, downloadBackup } from "../api/settings";
@@ -244,24 +245,21 @@ const AdminPanel: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: 0.4 }}>
-            Administracion
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Configuracion corporativa, seguridad y control operativo.
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
-          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackup}>
-            Backup
-          </Button>
-          <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
-            Guardar cambios
-          </Button>
-        </Stack>
-      </Stack>
+      <PageHeader
+        title="Administracion"
+        subtitle="Configuracion corporativa, seguridad y control operativo."
+        icon={<SettingsIcon color="primary" />}
+        right={
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackup}>
+              Backup
+            </Button>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
+              Guardar cambios
+            </Button>
+          </Stack>
+        }
+      />
 
       <Paper sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>

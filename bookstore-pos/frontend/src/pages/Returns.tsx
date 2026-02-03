@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Button, Paper, TextField, Typography, Stack, Chip } from "@mui/material";
 import ReplayIcon from "@mui/icons-material/Replay";
+import { PageHeader } from "../components/PageHeader";
 import { returnSale } from "../api/returns";
 import { useToast } from "../components/ToastProvider";
 
@@ -22,22 +23,12 @@ const Returns: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <ReplayIcon color="primary" />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                Devoluciones
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Anulaciones y notas de credito.
-              </Typography>
-            </Box>
-          </Stack>
-          <Chip label="Revision requerida" size="small" sx={{ ml: { md: "auto" } }} />
-        </Stack>
-      </Paper>
+      <PageHeader
+        title="Devoluciones"
+        subtitle="Anulaciones y notas de credito."
+        icon={<ReplayIcon color="primary" />}
+        chips={["Revision requerida"]}
+      />
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Devolucion / Nota de credito</Typography>

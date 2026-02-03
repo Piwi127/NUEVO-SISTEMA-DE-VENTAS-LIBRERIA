@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import DownloadIcon from "@mui/icons-material/Download";
+import { PageHeader } from "../components/PageHeader";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { listProducts } from "../api/products";
@@ -215,25 +216,12 @@ const Inventory: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Inventory2Icon color="primary" />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                Inventario
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Carga masiva, operaciones y kardex.
-              </Typography>
-            </Box>
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
-            <Chip label={`Rol: ${role}`} size="small" />
-            <Chip label={`Productos: ${products?.length ?? 0}`} size="small" />
-          </Stack>
-        </Stack>
-      </Paper>
+      <PageHeader
+        title="Inventario"
+        subtitle="Carga masiva, operaciones y kardex."
+        icon={<Inventory2Icon color="primary" />}
+        chips={[`Rol: ${role}`, `Productos: ${products?.length ?? 0}`]}
+      />
 
       <Paper sx={{ p: 1 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" allowScrollButtonsMobile>

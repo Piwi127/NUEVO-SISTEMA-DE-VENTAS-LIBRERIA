@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, TextField, Typography, MenuItem, Table, TableHead, TableRow, TableCell, TableBody, Stack, Chip } from "@mui/material";
+import { Box, Button, Paper, TextField, Typography, MenuItem, Table, TableHead, TableRow, TableCell, TableBody } from "@mui/material";
 import PriceChangeIcon from "@mui/icons-material/PriceChange";
+import { PageHeader } from "../components/PageHeader";
+import { EmptyState } from "../components/EmptyState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listPriceLists, createPriceList, getPriceListItems, replacePriceListItems } from "../api/priceLists";
 import { listProducts } from "../api/products";
@@ -45,25 +47,12 @@ const PriceLists: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <PriceChangeIcon color="primary" />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                Listas de precio
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Gestion de precios por segmentos.
-              </Typography>
-            </Box>
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
-            <Chip label={`Listas: ${lists?.length ?? 0}`} size="small" />
-            <Chip label={`Productos: ${products?.length ?? 0}`} size="small" />
-          </Stack>
-        </Stack>
-      </Paper>
+      <PageHeader
+        title="Listas de precio"
+        subtitle="Gestion de precios por segmentos."
+        icon={<PriceChangeIcon color="primary" />}
+        chips={[`Listas: ${lists?.length ?? 0}`, `Productos: ${products?.length ?? 0}`]}
+      />
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Nueva lista</Typography>
@@ -84,9 +73,9 @@ const PriceLists: React.FC = () => {
           </Typography>
         )}
         {!loadingLists && (lists || []).length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            No hay listas creadas.
-          </Typography>
+          <Box sx={{ mt: 2 }}>
+            <EmptyState title="Sin listas" description="No hay listas creadas." icon={<PriceChangeIcon color="disabled" />} />
+          </Box>
         )}
       </Paper>
 
@@ -132,31 +121,28 @@ const PriceLists: React.FC = () => {
           </Typography>
         )}
 
-        <Table size="small" sx={{ mt: 2 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>Producto</TableCell>
-              <TableCell>Precio</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((it, idx) => (
-              <TableRow key={idx}>
-                <TableCell>{it.product_id}</TableCell>
-                <TableCell>{it.price}</TableCell>
-              </TableRow>
-            ))}
-            {items.length === 0 && (
+        {selected && items.length === 0 ? (
+          <Box sx={{ mt: 2 }}>
+            <EmptyState title="Sin items" description="Agrega productos a esta lista de precio." icon={<PriceChangeIcon color="disabled" />} />
+          </Box>
+        ) : (
+          <Table size="small" sx={{ mt: 2 }}>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={2}>
-                  <Typography variant="body2" color="text.secondary">
-                    Sin items en la lista.
-                  </Typography>
-                </TableCell>
+                <TableCell>Producto</TableCell>
+                <TableCell>Precio</TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {items.map((it, idx) => (
+                <TableRow key={idx}>
+                  <TableCell>{it.product_id}</TableCell>
+                  <TableCell>{it.price}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Paper>
     </Box>
   );

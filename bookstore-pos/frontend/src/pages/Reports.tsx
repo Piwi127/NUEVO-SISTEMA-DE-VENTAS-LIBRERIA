@@ -20,6 +20,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import DownloadIcon from "@mui/icons-material/Download";
+import { PageHeader } from "../components/PageHeader";
 import { getDailyReport, getLowStock, getTopProducts, exportDaily, exportTop, exportLow } from "../api/reports";
 import { todayISO } from "../utils/dates";
 import { formatMoney } from "../utils/money";
@@ -53,22 +54,12 @@ const Reports: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <AssessmentIcon color="primary" />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                Reportes ejecutivos
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Indicadores, exportaciones y stock critico.
-              </Typography>
-            </Box>
-          </Stack>
-          <Chip label="Actualizado bajo demanda" size="small" sx={{ ml: { md: "auto" } }} />
-        </Stack>
-      </Paper>
+      <PageHeader
+        title="Reportes ejecutivos"
+        subtitle="Indicadores, exportaciones y stock critico."
+        icon={<AssessmentIcon color="primary" />}
+        chips={["Actualizado bajo demanda"]}
+      />
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6">Reporte diario</Typography>

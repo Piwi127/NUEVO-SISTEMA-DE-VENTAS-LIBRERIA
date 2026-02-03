@@ -71,7 +71,14 @@ export const theme = createTheme({
       },
     },
     MuiButton: {
+      defaultProps: {
+        size: "medium",
+      },
       styleOverrides: {
+        root: {
+          minHeight: 40,
+          borderRadius: 12,
+        },
         contained: {
           boxShadow: "0 10px 20px rgba(11, 30, 59, 0.2)",
         },
