@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, TextField, Typography, useMediaQuery } from "@mui/material";
+import { Box, Button, Paper, TextField, Typography, useMediaQuery, Stack, Chip } from "@mui/material";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createSupplier, deleteSupplier, listSuppliers, updateSupplier } from "../api/suppliers";
 import { Supplier } from "../types/dto";
@@ -37,6 +38,25 @@ const Suppliers: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <LocalShippingIcon color="primary" />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                Proveedores
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Directorio y contacto comercial.
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
+            <Chip label={`Total: ${data?.length ?? 0}`} size="small" />
+          </Stack>
+        </Stack>
+      </Paper>
+
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Proveedores

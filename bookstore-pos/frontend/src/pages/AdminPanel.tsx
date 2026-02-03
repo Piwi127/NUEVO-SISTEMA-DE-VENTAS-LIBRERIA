@@ -1,5 +1,30 @@
 import React, { useState } from "react";
-import { Box, Button, Checkbox, FormControlLabel, Grid, MenuItem, Paper, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody, Divider } from "@mui/material";
+import {
+  Box,
+  Button,
+  Checkbox,
+  FormControlLabel,
+  Grid,
+  MenuItem,
+  Paper,
+  TextField,
+  Typography,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Stack,
+  Chip,
+  Tabs,
+  Tab,
+  IconButton,
+} from "@mui/material";
+import DownloadIcon from "@mui/icons-material/Download";
+import SaveIcon from "@mui/icons-material/Save";
+import SecurityIcon from "@mui/icons-material/Security";
+import SettingsIcon from "@mui/icons-material/Settings";
+import HistoryIcon from "@mui/icons-material/History";
 import { useQuery } from "@tanstack/react-query";
 import { useSettings } from "../store/useSettings";
 import { getSettings, updateSettings, downloadBackup } from "../api/settings";
@@ -79,6 +104,7 @@ const AdminPanel: React.FC = () => {
   const [audit, setAudit] = useState<any[]>([]);
   const [otpSecret, setOtpSecret] = useState("");
   const [otpCode, setOtpCode] = useState("");
+  const [tab, setTab] = useState(0);
 
   const { showToast } = useToast();
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses });
@@ -218,132 +244,186 @@ const AdminPanel: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Configuracion general</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <TextField fullWidth label="Nombre del proyecto" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField fullWidth label="Logo URL" value={logoDraft} onChange={(e) => setLogoDraft(e.target.value)} />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField fullWidth label="Direccion" value={addressDraft} onChange={(e) => setAddressDraft(e.target.value)} />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField fullWidth label="Telefono" value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value)} />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField fullWidth label="RUC" value={taxIdDraft} onChange={(e) => setTaxIdDraft(e.target.value)} />
-          </Grid>
-        </Grid>
-      </Paper>
-
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Operacion y facturacion</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
-            <TextField select fullWidth label="Moneda" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
-              <MenuItem value="PEN">Soles (PEN)</MenuItem>
-              <MenuItem value="USD">Dolar (USD)</MenuItem>
-              <MenuItem value="EUR">Euro (EUR)</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <TextField fullWidth label="Impuesto (%)" type="number" value={taxDraft} onChange={(e) => setTaxDraft(Number(e.target.value))} />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <FormControlLabel control={<Checkbox checked={taxIncluded} onChange={(e) => setTaxIncluded(e.target.checked)} />} label="Impuesto incluido" />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <TextField fullWidth label="Metodos de pago (CSV)" value={paymentDraft} onChange={(e) => setPaymentDraft(e.target.value)} />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <TextField fullWidth label="Serie de boleta" value={invoicePrefixDraft} onChange={(e) => setInvoicePrefixDraft(e.target.value)} />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <TextField fullWidth label="Correlativo" type="number" value={invoiceNextDraft} onChange={(e) => setInvoiceNextDraft(Number(e.target.value))} />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <TextField fullWidth label="Ancho papel (mm)" type="number" value={paperWidthDraft} onChange={(e) => setPaperWidthDraft(Number(e.target.value))} />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <TextField
-              select
-              fullWidth
-              label="Almacen por defecto"
-              value={defaultWarehouseDraft}
-              onChange={(e) => setDefaultWarehouseDraft(e.target.value === "" ? "" : Number(e.target.value))}
-            >
-              <MenuItem value="">Sin asignar</MenuItem>
-              {(warehouses || []).map((w) => (
-                <MenuItem key={w.id} value={w.id}>
-                  {w.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              multiline
-              minRows={3}
-              label="Encabezado ticket"
-              value={receiptHeaderDraft}
-              onChange={(e) => setReceiptHeaderDraft(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              multiline
-              minRows={3}
-              label="Pie de ticket"
-              value={receiptFooterDraft}
-              onChange={(e) => setReceiptFooterDraft(e.target.value)}
-            />
-          </Grid>
-        </Grid>
-        <Box sx={{ mt: 2 }}>
-          <Button variant="contained" onClick={handleSave}>Guardar configuracion</Button>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: 0.4 }}>
+            Administracion
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Configuracion corporativa, seguridad y control operativo.
+          </Typography>
         </Box>
-      </Paper>
+        <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackup}>
+            Backup
+          </Button>
+          <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
+            Guardar cambios
+          </Button>
+        </Stack>
+      </Stack>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Seguridad</Typography>
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-          <Button variant="outlined" onClick={handleSetup2fa}>Generar secreto</Button>
-          {otpSecret && <TextField label="Secreto" value={otpSecret} />}
-          <TextField label="Codigo" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
-          <Button variant="contained" onClick={handleConfirm2fa}>Activar 2FA</Button>
-        </Box>
-      </Paper>
+      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <SettingsIcon color="primary" />
+          <Typography variant="h6">Panel de configuracion</Typography>
+          <Chip size="small" label="Sistema" sx={{ ml: "auto" }} />
+        </Stack>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab label="General" />
+          <Tab label="Facturacion" />
+          <Tab label="Operaciones" />
+        </Tabs>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Permisos por rol</Typography>
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}>
-          <TextField select label="Rol" value={role} onChange={(e) => setRole(e.target.value)}>
-            <MenuItem value="cashier">cashier</MenuItem>
-            <MenuItem value="stock">stock</MenuItem>
-          </TextField>
-          <Button variant="contained" onClick={handleSavePerms}>Guardar permisos</Button>
-        </Box>
-        <Grid container spacing={1}>
-          {PERMISSIONS.map((p) => (
-            <Grid item xs={12} md={4} key={p}>
-              <FormControlLabel control={<Checkbox checked={rolePerms.includes(p)} onChange={() => togglePerm(p)} />} label={p} />
+        {tab === 0 && (
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Nombre del proyecto" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} />
             </Grid>
-          ))}
-        </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Logo URL" value={logoDraft} onChange={(e) => setLogoDraft(e.target.value)} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Direccion" value={addressDraft} onChange={(e) => setAddressDraft(e.target.value)} />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField fullWidth label="Telefono" value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value)} />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField fullWidth label="RUC" value={taxIdDraft} onChange={(e) => setTaxIdDraft(e.target.value)} />
+            </Grid>
+          </Grid>
+        )}
+
+        {tab === 1 && (
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField select fullWidth label="Moneda" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
+                <MenuItem value="PEN">Soles (PEN)</MenuItem>
+                <MenuItem value="USD">Dolar (USD)</MenuItem>
+                <MenuItem value="EUR">Euro (EUR)</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="Impuesto (%)" type="number" value={taxDraft} onChange={(e) => setTaxDraft(Number(e.target.value))} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControlLabel control={<Checkbox checked={taxIncluded} onChange={(e) => setTaxIncluded(e.target.checked)} />} label="Impuesto incluido" />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="Metodos de pago (CSV)" value={paymentDraft} onChange={(e) => setPaymentDraft(e.target.value)} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="Serie de boleta" value={invoicePrefixDraft} onChange={(e) => setInvoicePrefixDraft(e.target.value)} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="Correlativo" type="number" value={invoiceNextDraft} onChange={(e) => setInvoiceNextDraft(Number(e.target.value))} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="Ancho papel (mm)" type="number" value={paperWidthDraft} onChange={(e) => setPaperWidthDraft(Number(e.target.value))} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                select
+                fullWidth
+                label="Almacen por defecto"
+                value={defaultWarehouseDraft}
+                onChange={(e) => setDefaultWarehouseDraft(e.target.value === "" ? "" : Number(e.target.value))}
+              >
+                <MenuItem value="">Sin asignar</MenuItem>
+                {(warehouses || []).map((w) => (
+                  <MenuItem key={w.id} value={w.id}>
+                    {w.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Encabezado ticket"
+                value={receiptHeaderDraft}
+                onChange={(e) => setReceiptHeaderDraft(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Pie de ticket"
+                value={receiptFooterDraft}
+                onChange={(e) => setReceiptFooterDraft(e.target.value)}
+              />
+            </Grid>
+          </Grid>
+        )}
+
+        {tab === 2 && (
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Notas internas" placeholder="Politicas, turnos, etc." />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Contacto de soporte" placeholder="support@empresa.com" />
+            </Grid>
+          </Grid>
+        )}
       </Paper>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Auditoria</Typography>
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-          <Button variant="outlined" onClick={loadAudit}>Cargar logs</Button>
-          <Typography variant="body2" color="text.secondary">Se muestran los 200 ultimos eventos.</Typography>
-        </Box>
-        <Table size="small" sx={{ mt: 2 }}>
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+              <SecurityIcon color="primary" />
+              <Typography variant="h6">Seguridad</Typography>
+            </Stack>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="center">
+              <Button variant="outlined" onClick={handleSetup2fa}>Generar secreto</Button>
+              {otpSecret && <Chip label={`Secreto: ${otpSecret}`} size="small" />}
+            </Stack>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mt: 2 }}>
+              <TextField label="Codigo" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
+              <Button variant="contained" onClick={handleConfirm2fa}>Activar 2FA</Button>
+            </Stack>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+              <SecurityIcon color="primary" />
+              <Typography variant="h6">Permisos por rol</Typography>
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+              <TextField select label="Rol" value={role} onChange={(e) => setRole(e.target.value)}>
+                <MenuItem value="cashier">cashier</MenuItem>
+                <MenuItem value="stock">stock</MenuItem>
+              </TextField>
+              <Button variant="contained" onClick={handleSavePerms}>Guardar permisos</Button>
+            </Stack>
+            <Grid container spacing={1}>
+              {PERMISSIONS.map((p) => (
+                <Grid item xs={12} md={4} key={p}>
+                  <FormControlLabel control={<Checkbox checked={rolePerms.includes(p)} onChange={() => togglePerm(p)} />} label={p} />
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      <Paper sx={{ p: 3 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <HistoryIcon color="primary" />
+          <Typography variant="h6">Auditoria</Typography>
+          <IconButton sx={{ ml: "auto" }} size="small" onClick={loadAudit}>
+            <DownloadIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+        <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>ID</TableCell>
@@ -367,13 +447,6 @@ const AdminPanel: React.FC = () => {
             ))}
           </TableBody>
         </Table>
-      </Paper>
-
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Herramientas</Typography>
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <Button variant="outlined" onClick={handleBackup}>Descargar backup</Button>
-        </Box>
       </Paper>
     </Box>
   );

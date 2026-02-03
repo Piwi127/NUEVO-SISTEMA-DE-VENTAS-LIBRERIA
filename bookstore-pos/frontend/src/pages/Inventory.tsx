@@ -1,5 +1,26 @@
 import React, { useState } from "react";
-import { Box, Button, MenuItem, Paper, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody, Divider, Chip, Tabs, Tab, Grid, useMediaQuery } from "@mui/material";
+import {
+  Box,
+  Button,
+  MenuItem,
+  Paper,
+  TextField,
+  Typography,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Divider,
+  Chip,
+  Tabs,
+  Tab,
+  Grid,
+  useMediaQuery,
+  Stack,
+} from "@mui/material";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
+import DownloadIcon from "@mui/icons-material/Download";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { listProducts } from "../api/products";
@@ -194,6 +215,26 @@ const Inventory: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Inventory2Icon color="primary" />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                Inventario
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Carga masiva, operaciones y kardex.
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
+            <Chip label={`Rol: ${role}`} size="small" />
+            <Chip label={`Productos: ${products?.length ?? 0}`} size="small" />
+          </Stack>
+        </Stack>
+      </Paper>
+
       <Paper sx={{ p: 1 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" allowScrollButtonsMobile>
           <Tab label="Carga masiva" />
@@ -206,8 +247,8 @@ const Inventory: React.FC = () => {
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Carga masiva</Typography>
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-            <Button variant="outlined" onClick={handleDownload}>Plantilla CSV</Button>
-            <Button variant="outlined" onClick={handleDownloadXlsx}>Plantilla XLSX</Button>
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleDownload}>Plantilla CSV</Button>
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleDownloadXlsx}>Plantilla XLSX</Button>
             <TextField type="file" inputProps={{ accept: ".csv,.xlsx" }} onChange={(e) => handleFileChange(e.target.files?.[0] || null)} />
             <Button variant="contained" onClick={handleUpload} disabled={!file}>Subir archivo</Button>
             <Chip label={`Columnas: ${REQUIRED.join(", ")}`} size="small" />

@@ -1,6 +1,25 @@
 import React, { useMemo, useState } from "react";
-import { Box, Button, Paper, TextField, Typography, useMediaQuery, Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import {
+  Box,
+  Button,
+  Paper,
+  TextField,
+  Typography,
+  useMediaQuery,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Stack,
+  Chip,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+} from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import AssessmentIcon from "@mui/icons-material/Assessment";
+import DownloadIcon from "@mui/icons-material/Download";
 import { getDailyReport, getLowStock, getTopProducts, exportDaily, exportTop, exportLow } from "../api/reports";
 import { todayISO } from "../utils/dates";
 import { formatMoney } from "../utils/money";
@@ -34,6 +53,23 @@ const Reports: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <AssessmentIcon color="primary" />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                Reportes ejecutivos
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Indicadores, exportaciones y stock critico.
+              </Typography>
+            </Box>
+          </Stack>
+          <Chip label="Actualizado bajo demanda" size="small" sx={{ ml: { md: "auto" } }} />
+        </Stack>
+      </Paper>
+
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6">Reporte diario</Typography>
         <Accordion sx={{ mt: 1 }} defaultExpanded={!compact}>
@@ -44,7 +80,13 @@ const Reports: React.FC = () => {
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
               <TextField type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               <Button variant="contained" onClick={loadDaily}>Consultar</Button>
-              <Button variant="outlined" onClick={async () => download(await exportDaily(date), "reporte_diario.csv")}>Exportar CSV</Button>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={async () => download(await exportDaily(date), "reporte_diario.csv")}
+              >
+                Exportar CSV
+              </Button>
             </Box>
           </AccordionDetails>
         </Accordion>
@@ -68,7 +110,13 @@ const Reports: React.FC = () => {
               <TextField type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
               <TextField type="date" value={to} onChange={(e) => setTo(e.target.value)} />
               <Button variant="contained" onClick={loadTop}>Consultar</Button>
-              <Button variant="outlined" onClick={async () => download(await exportTop(from, to), "top_productos.csv")}>Exportar CSV</Button>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={async () => download(await exportTop(from, to), "top_productos.csv")}
+              >
+                Exportar CSV
+              </Button>
             </Box>
           </AccordionDetails>
         </Accordion>
@@ -90,9 +138,24 @@ const Reports: React.FC = () => {
             ))}
           </Box>
         ) : (
-          top.map((t, idx) => (
-            <Typography key={idx} variant="body2">{t.name} - {t.qty_sold} - {t.total_sold}</Typography>
-          ))
+          <Table size="small" sx={{ mt: 2 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Producto</TableCell>
+                <TableCell align="right">Cantidad</TableCell>
+                <TableCell align="right">Total</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {top.map((t, idx) => (
+                <TableRow key={idx}>
+                  <TableCell>{t.name}</TableCell>
+                  <TableCell align="right">{t.qty_sold}</TableCell>
+                  <TableCell align="right">{formatMoney(t.total_sold)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </Paper>
 
@@ -105,7 +168,13 @@ const Reports: React.FC = () => {
           <AccordionDetails>
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
               <Button variant="contained" onClick={loadLow}>Consultar</Button>
-              <Button variant="outlined" onClick={async () => download(await exportLow(), "stock_bajo.csv")}>Exportar CSV</Button>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={async () => download(await exportLow(), "stock_bajo.csv")}
+              >
+                Exportar CSV
+              </Button>
             </Box>
           </AccordionDetails>
         </Accordion>
@@ -120,9 +189,26 @@ const Reports: React.FC = () => {
             ))}
           </Box>
         ) : (
-          low.map((l, idx) => (
-            <Typography key={idx} variant="body2">{l.sku} - {l.name} - {l.stock}/{l.stock_min}</Typography>
-          ))
+          <Table size="small" sx={{ mt: 2 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>SKU</TableCell>
+                <TableCell>Producto</TableCell>
+                <TableCell align="right">Stock</TableCell>
+                <TableCell align="right">Min</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {low.map((l, idx) => (
+                <TableRow key={idx}>
+                  <TableCell>{l.sku}</TableCell>
+                  <TableCell>{l.name}</TableCell>
+                  <TableCell align="right">{l.stock}</TableCell>
+                  <TableCell align="right">{l.stock_min}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
         {lowCount > 0 && (
           <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(3, 1fr)" }}>

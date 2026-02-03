@@ -24,6 +24,7 @@ async def test_app():
     import app.core.deps as deps
     import app.main as main
     import app.routers.sales as sales
+    from app.db import models as db_models  # noqa: F401
 
     db_path = os.path.join(tempfile.gettempdir(), "bookstore_test.db")
     if os.path.exists(db_path):

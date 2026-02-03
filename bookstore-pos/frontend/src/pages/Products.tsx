@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Box, Button, Paper, TextField, Typography, useMediaQuery, MenuItem } from "@mui/material";
+import { Box, Button, Paper, TextField, Typography, useMediaQuery, MenuItem, Stack, Chip } from "@mui/material";
+import CategoryIcon from "@mui/icons-material/Category";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createProduct, deleteProduct, listProducts, updateProduct } from "../api/products";
@@ -85,10 +86,27 @@ const Products: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <CategoryIcon color="primary" />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                Productos
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Catalogo, precios y control de stock minimo.
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
+            <Chip label={`Total: ${filtered.length}`} size="small" />
+            <Chip label={`Categorias: ${categories.length}`} size="small" />
+          </Stack>
+        </Stack>
+      </Paper>
+
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Productos
-        </Typography>
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
           <TextField
             label="Buscar"

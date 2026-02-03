@@ -2,6 +2,9 @@
 
 ## Checklist rapido
 - Login admin/cashier/stock y acceso a menus segun permisos.
+- Auth/Seguridad:
+  - Login fallido incrementa intentos y bloqueo temporal.
+  - 2FA: setup, confirm, login con OTP.
 - Caja:
   - Abrir caja, movimiento, cerrar caja.
   - Verificar auditoria en eventos de caja.
@@ -16,6 +19,16 @@
 - Compras:
   - Crear OC, cerrar OC, verificar estado CLOSED.
   - Historial de compras y exportacion CSV.
+- Devoluciones:
+  - Anular venta y recuperar stock.
+- Productos/Clientes/Proveedores:
+  - CRUD completo y filtros/busqueda.
+- Listas de precios:
+  - Crear lista, reemplazar items y validar en ventas.
+- Promociones:
+  - Crear promo y aplicar a venta.
+- Almacenes:
+  - CRUD, transferencias, conteo, lotes/batches.
 - Reportes:
   - KPI, top/low stock, filtros.
 - Auditoria:
@@ -25,4 +38,3 @@
 - Migraciones aplicadas: `alembic upgrade head`.
 - Compilacion python (sin errores):
   - `python -m compileall app`
-

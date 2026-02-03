@@ -11,6 +11,8 @@ import {
   ListItemIcon,
   Box,
   Button,
+  Chip,
+  Divider,
   useMediaQuery,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -27,26 +29,46 @@ import CampaignIcon from "@mui/icons-material/Campaign";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import GroupIcon from "@mui/icons-material/Group";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { useSettings } from "../store/useSettings";
 import { getPublicSettings } from "../api/settings";
 
-const menuItems = [
-  { label: "POS", path: "/pos", roles: ["admin", "cashier"], icon: <PointOfSaleIcon fontSize="small" /> },
-  { label: "Ventas", path: "/sales-history", roles: ["admin", "cashier"], icon: <ReceiptLongIcon fontSize="small" /> },
-  { label: "Devoluciones", path: "/returns", roles: ["admin", "cashier"], icon: <ReplayIcon fontSize="small" /> },
-  { label: "Caja", path: "/cash", roles: ["admin", "cashier"], icon: <AccountBalanceIcon fontSize="small" /> },
-  { label: "Clientes", path: "/customers", roles: ["admin", "cashier"], icon: <PeopleAltIcon fontSize="small" /> },
-  { label: "Productos", path: "/products", roles: ["admin", "stock"], icon: <CategoryIcon fontSize="small" /> },
-  { label: "Inventario", path: "/inventory", roles: ["admin", "stock"], icon: <Inventory2Icon fontSize="small" /> },
-  { label: "Compras", path: "/purchases", roles: ["admin", "stock"], icon: <LocalShippingIcon fontSize="small" /> },
-  { label: "Proveedores", path: "/suppliers", roles: ["admin", "stock"], icon: <LocalShippingIcon fontSize="small" /> },
-  { label: "Listas de precio", path: "/price-lists", roles: ["admin"], icon: <PriceChangeIcon fontSize="small" /> },
-  { label: "Promociones", path: "/promotions", roles: ["admin"], icon: <CampaignIcon fontSize="small" /> },
-  { label: "Reportes", path: "/reports", roles: ["admin"], icon: <AssessmentIcon fontSize="small" /> },
-  { label: "Usuarios", path: "/users", roles: ["admin"], icon: <GroupIcon fontSize="small" /> },
-  { label: "Administracion", path: "/admin", roles: ["admin"], icon: <AdminPanelSettingsIcon fontSize="small" /> },
+const menuSections = [
+  {
+    title: "Operacion",
+    items: [
+      { label: "POS", path: "/pos", roles: ["admin", "cashier"], icon: <PointOfSaleIcon fontSize="small" /> },
+      { label: "Ventas", path: "/sales-history", roles: ["admin", "cashier"], icon: <ReceiptLongIcon fontSize="small" /> },
+      { label: "Devoluciones", path: "/returns", roles: ["admin", "cashier"], icon: <ReplayIcon fontSize="small" /> },
+      { label: "Caja", path: "/cash", roles: ["admin", "cashier"], icon: <AccountBalanceIcon fontSize="small" /> },
+      { label: "Clientes", path: "/customers", roles: ["admin", "cashier"], icon: <PeopleAltIcon fontSize="small" /> },
+    ],
+  },
+  {
+    title: "Inventario y compras",
+    items: [
+      { label: "Productos", path: "/products", roles: ["admin", "stock"], icon: <CategoryIcon fontSize="small" /> },
+      { label: "Inventario", path: "/inventory", roles: ["admin", "stock"], icon: <Inventory2Icon fontSize="small" /> },
+      { label: "Compras", path: "/purchases", roles: ["admin", "stock"], icon: <LocalShippingIcon fontSize="small" /> },
+      { label: "Proveedores", path: "/suppliers", roles: ["admin", "stock"], icon: <LocalShippingIcon fontSize="small" /> },
+    ],
+  },
+  {
+    title: "Gestion comercial",
+    items: [
+      { label: "Listas de precio", path: "/price-lists", roles: ["admin"], icon: <PriceChangeIcon fontSize="small" /> },
+      { label: "Promociones", path: "/promotions", roles: ["admin"], icon: <CampaignIcon fontSize="small" /> },
+      { label: "Reportes", path: "/reports", roles: ["admin"], icon: <AssessmentIcon fontSize="small" /> },
+    ],
+  },
+  {
+    title: "Administracion",
+    items: [
+      { label: "Usuarios", path: "/users", roles: ["admin"], icon: <GroupIcon fontSize="small" /> },
+      { label: "Administracion", path: "/admin", roles: ["admin"], icon: <AdminPanelSettingsIcon fontSize="small" /> },
+    ],
+  },
 ];
 
 export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
@@ -74,7 +96,13 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   } = useSettings();
   const navigate = useNavigate();
 
-  const filtered = menuItems.filter((item) => role && item.roles.includes(role));
+  const location = useLocation();
+  const filteredSections = menuSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => role && item.roles.includes(role)),
+    }))
+    .filter((section) => section.items.length > 0);
 
   useEffect(() => {
     const load = async () => {
@@ -128,7 +156,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
       }}
     >
       <AppBar position="static">
-        <Toolbar>
+        <Toolbar sx={{ gap: 1 }}>
           <IconButton edge="start" color="inherit" onClick={() => setOpen(true)}>
             <MenuIcon />
           </IconButton>
@@ -138,24 +166,58 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
             {projectName}
           </Typography>
-          <Typography variant="body2" sx={{ mr: 2, opacity: 0.9 }}>
-            {username} ? {role}
-          </Typography>
+          <Chip
+            label={`${username ?? ""} · ${role ?? ""}`}
+            size="small"
+            sx={{
+              bgcolor: "rgba(255,255,255,0.12)",
+              color: "white",
+              mr: 1.5,
+            }}
+          />
           <Button color="inherit" onClick={() => { logout(); navigate("/login"); }}>
             Salir
           </Button>
         </Toolbar>
       </AppBar>
       <Drawer open={open} onClose={() => setOpen(false)}>
-        <Box sx={{ width: compact ? 220 : 260 }} role="presentation" onClick={() => setOpen(false)}>
-          <List>
-            {filtered.map((item) => (
-              <ListItemButton key={item.path} component={RouterLink} to={item.path}>
-                <ListItemIcon sx={{ minWidth: 36, color: "text.secondary" }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItemButton>
-            ))}
-          </List>
+        <Box sx={{ width: compact ? 220 : 270, py: 1 }} role="presentation" onClick={() => setOpen(false)}>
+          <Box sx={{ px: 2.5, py: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ color: "rgba(230,237,247,0.72)", letterSpacing: 0.6 }}>
+              Menu
+            </Typography>
+          </Box>
+          {filteredSections.map((section) => (
+            <Box key={section.title} sx={{ pb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  px: 2.5,
+                  pb: 0.5,
+                  display: "block",
+                  color: "rgba(230,237,247,0.62)",
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                }}
+              >
+                {section.title}
+              </Typography>
+              <List disablePadding>
+                {section.items.map((item) => (
+                  <ListItemButton
+                    key={item.path}
+                    component={RouterLink}
+                    to={item.path}
+                    selected={location.pathname === item.path}
+                  >
+                    <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
+                    <ListItemText primary={item.label} />
+                  </ListItemButton>
+                ))}
+              </List>
+              <Divider sx={{ borderColor: "rgba(255,255,255,0.08)", mx: 2, mt: 1 }} />
+            </Box>
+          ))}
         </Box>
       </Drawer>
       <Box sx={{ p: { xs: 2, md: 3 } }}>{children}</Box>

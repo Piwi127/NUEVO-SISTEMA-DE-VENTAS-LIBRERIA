@@ -1,5 +1,23 @@
 import React, { useState } from "react";
-import { Box, Button, MenuItem, Paper, TextField, Typography, Table, TableBody, TableCell, TableHead, TableRow, Divider, useMediaQuery } from "@mui/material";
+import {
+  Box,
+  Button,
+  MenuItem,
+  Paper,
+  TextField,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Divider,
+  useMediaQuery,
+  Stack,
+  Chip,
+} from "@mui/material";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import DownloadIcon from "@mui/icons-material/Download";
 import { useQuery } from "@tanstack/react-query";
 import { listProducts } from "../api/products";
 import { listSuppliers } from "../api/suppliers";
@@ -71,6 +89,26 @@ const Purchases: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <LocalShippingIcon color="primary" />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                Compras
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Ordenes, recepcion y pagos a proveedor.
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
+            <Chip label={`OC abiertas: ${(orders || []).filter((o) => o.status === "OPEN").length}`} size="small" />
+            <Chip label={`Proveedores: ${suppliers?.length ?? 0}`} size="small" />
+          </Stack>
+        </Stack>
+      </Paper>
+
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Orden de compra</Typography>
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
@@ -194,6 +232,7 @@ const Purchases: React.FC = () => {
           </TextField>
           <Button
             variant="outlined"
+            startIcon={<DownloadIcon />}
             onClick={async () => {
               const blob = await exportPurchases({
                 from_date: histFrom || undefined,

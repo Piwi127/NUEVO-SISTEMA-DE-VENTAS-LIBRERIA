@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery } from "@mui/material";
+import { Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack, Chip } from "@mui/material";
+import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import * as QRCode from "qrcode";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProductSearch } from "../components/ProductSearch";
@@ -229,6 +231,26 @@ const POS: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <PointOfSaleIcon color="primary" />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                Punto de venta
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Cobro rapido, promociones y facturacion.
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
+            <Chip label={cash?.is_open ? "Caja abierta" : "Caja cerrada"} color={cash?.is_open ? "success" : "warning"} size="small" />
+            <Chip label={`Items: ${cart.items.length}`} size="small" />
+          </Stack>
+        </Stack>
+      </Paper>
+
       <Grid container spacing={2}>
         <Grid item xs={12} sm={4}>
           <KpiCard label="Venta" value={formatMoney(total)} accent="#0b1e3b" />
@@ -287,7 +309,10 @@ const POS: React.FC = () => {
         </Grid>
         <Grid item xs={12} md={5}>
           <Paper sx={{ p: 2, height: "100%" }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>Carrito</Typography>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+              <ReceiptLongIcon color="primary" />
+              <Typography variant="h6">Carrito</Typography>
+            </Stack>
             <Cart />
             <Divider sx={{ my: 2 }} />
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", flexDirection: compact ? "column" : "row" }}>

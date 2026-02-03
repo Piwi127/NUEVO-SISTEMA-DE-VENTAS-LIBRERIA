@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Box, Button, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
+import { Box, Button, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery, Stack, Chip } from "@mui/material";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import { useQuery } from "@tanstack/react-query";
 import { listSales } from "../api/sales";
 import { todayISO } from "../utils/dates";
@@ -26,8 +27,27 @@ const SalesHistory: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <ReceiptLongIcon color="primary" />
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                Historial de ventas
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Filtros por fecha, estado y limites.
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
+            <Chip label={`Registros: ${data?.length ?? 0}`} size="small" />
+          </Stack>
+        </Stack>
+      </Paper>
+
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Historial de ventas</Typography>
+        <Typography variant="h6" sx={{ mb: 2 }}>Filtros</Typography>
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
           <TextField select label="Estado" value={status} onChange={(e) => setStatus(e.target.value)} sx={{ minWidth: 160 }}>
             <MenuItem value="">Todos</MenuItem>
@@ -36,12 +56,23 @@ const SalesHistory: React.FC = () => {
           </TextField>
           <TextField type="date" label="Desde" value={from} onChange={(e) => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
           <TextField type="date" label="Hasta" value={to} onChange={(e) => setTo(e.target.value)} InputLabelProps={{ shrink: true }} />
-          <TextField type="number" label="Limite" value={limit} onChange={(e) => setLimit(Number(e.target.value))} />
+          <TextField
+            type="number"
+            label="Limite"
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+            helperText="Max 500"
+          />
           <Button variant="contained" onClick={() => refetch()} disabled={isFetching}>Consultar</Button>
         </Box>
       </Paper>
 
       <Paper sx={{ p: 2 }}>
+        {isFetching && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Cargando ventas...
+          </Typography>
+        )}
         {compact ? (
           <Box sx={{ display: "grid", gap: 1 }}>
             {(data || []).map((s) => (
@@ -81,6 +112,15 @@ const SalesHistory: React.FC = () => {
                   <TableCell align="right">{formatMoney(s.total)}</TableCell>
                 </TableRow>
               ))}
+              {(data || []).length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <Typography variant="body2" color="text.secondary">
+                      No hay ventas en el rango seleccionado.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         )}
