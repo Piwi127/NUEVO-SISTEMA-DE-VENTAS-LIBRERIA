@@ -26,6 +26,9 @@ import SecurityIcon from "@mui/icons-material/Security";
 import SettingsIcon from "@mui/icons-material/Settings";
 import HistoryIcon from "@mui/icons-material/History";
 import { PageHeader } from "../../components/PageHeader";
+import { LoadingState } from "../../components/LoadingState";
+import { ErrorState } from "../../components/ErrorState";
+import { EmptyState } from "../../components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
 import { useSettings } from "../../store/useSettings";
 import { getSettings, updateSettings, downloadBackup } from "../../api/settings";
@@ -108,12 +111,19 @@ const AdminPanel: React.FC = () => {
   const [otpSecret, setOtpSecret] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [tab, setTab] = useState(0);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsError, setSettingsError] = useState(false);
+  const [permsLoading, setPermsLoading] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState(false);
 
   const { showToast } = useToast();
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses, staleTime: 60_000 });
 
   React.useEffect(() => {
     const load = async () => {
+      setSettingsLoading(true);
+      setSettingsError(false);
       try {
         const s = await getSettings();
         setProjectName(s.project_name);
@@ -145,8 +155,10 @@ const AdminPanel: React.FC = () => {
         setReceiptFooterDraft(s.receipt_footer);
         setPaperWidthDraft(s.paper_width_mm);
         setDefaultWarehouseDraft(s.default_warehouse_id ?? "");
+        setSettingsLoading(false);
       } catch {
-        // ignore
+        setSettingsError(true);
+        setSettingsLoading(false);
       }
     };
     load();
@@ -154,11 +166,14 @@ const AdminPanel: React.FC = () => {
 
   React.useEffect(() => {
     const loadPerms = async () => {
+      setPermsLoading(true);
       try {
         const res = await getRolePermissions(role);
         setRolePerms(res.permissions);
       } catch {
         setRolePerms([]);
+      } finally {
+        setPermsLoading(false);
       }
     };
     loadPerms();
@@ -229,8 +244,16 @@ const AdminPanel: React.FC = () => {
   };
 
   const loadAudit = async () => {
-    const res = await listAuditLogs();
-    setAudit(res);
+    setAuditLoading(true);
+    setAuditError(false);
+    try {
+      const res = await listAuditLogs();
+      setAudit(res);
+    } catch {
+      setAuditError(true);
+    } finally {
+      setAuditLoading(false);
+    }
   };
 
   const handleSetup2fa = async () => {
@@ -251,6 +274,7 @@ const AdminPanel: React.FC = () => {
         title="Administracion"
         subtitle="Configuracion corporativa, seguridad y control operativo."
         icon={<SettingsIcon color="primary" />}
+        loading={settingsLoading || permsLoading || auditLoading}
         right={
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackup}>
@@ -262,6 +286,12 @@ const AdminPanel: React.FC = () => {
           </Stack>
         }
       />
+
+      {settingsError ? (
+        <Paper sx={{ p: 2 }}>
+          <ErrorState title="No se pudieron cargar configuraciones" onRetry={() => window.location.reload()} />
+        </Paper>
+      ) : null}
 
       <Paper sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
@@ -429,30 +459,38 @@ const AdminPanel: React.FC = () => {
             <DownloadIcon fontSize="small" />
           </IconButton>
         </Stack>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Usuario</TableCell>
-              <TableCell>Accion</TableCell>
-              <TableCell>Entidad</TableCell>
-              <TableCell>Detalle</TableCell>
-              <TableCell>Fecha</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {audit.map((a) => (
-              <TableRow key={a.id}>
-                <TableCell>{a.id}</TableCell>
-                <TableCell>{a.user_id ?? "-"}</TableCell>
-                <TableCell>{a.action}</TableCell>
-                <TableCell>{a.entity}#{a.entity_id}</TableCell>
-                <TableCell>{a.details}</TableCell>
-                <TableCell>{a.created_at}</TableCell>
+        {auditLoading ? (
+          <LoadingState title="Cargando auditoria..." />
+        ) : auditError ? (
+          <ErrorState title="No se pudo cargar auditoria" onRetry={loadAudit} />
+        ) : audit.length === 0 ? (
+          <EmptyState title="Sin registros" description="Ejecuta una acción o presiona recargar." icon={<HistoryIcon color="disabled" />} />
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Usuario</TableCell>
+                <TableCell>Accion</TableCell>
+                <TableCell>Entidad</TableCell>
+                <TableCell>Detalle</TableCell>
+                <TableCell>Fecha</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {audit.map((a) => (
+                <TableRow key={a.id}>
+                  <TableCell>{a.id}</TableCell>
+                  <TableCell>{a.user_id ?? "-"}</TableCell>
+                  <TableCell>{a.action}</TableCell>
+                  <TableCell>{a.entity}#{a.entity_id}</TableCell>
+                  <TableCell>{a.details}</TableCell>
+                  <TableCell>{a.created_at}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Paper>
     </Box>
   );

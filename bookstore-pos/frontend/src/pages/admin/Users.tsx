@@ -4,6 +4,8 @@ import GroupIcon from "@mui/icons-material/Group";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState } from "../../components/EmptyState";
 import { CardTable } from "../../components/CardTable";
+import { LoadingState } from "../../components/LoadingState";
+import { ErrorState } from "../../components/ErrorState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createUser, listUsers, updateUser, updateUserPassword, updateUserStatus, unlockUser, setupUser2FA, confirmUser2FA, resetUser2FA } from "../../api/users";
 import { User } from "../../types/dto";
@@ -20,7 +22,7 @@ const empty: Omit<User, "id"> & { password?: string } = {
 const Users: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ["users"], queryFn: listUsers });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["users"], queryFn: listUsers });
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<number | null>(null);
   const compact = useMediaQuery("(max-width:900px)");
@@ -69,6 +71,7 @@ const Users: React.FC = () => {
   };
 
   const handleStatus = async (id: number, is_active: boolean) => {
+    if (!window.confirm(is_active ? "¿Desactivar usuario?" : "¿Activar usuario?")) return;
     await updateUserStatus(id, !is_active);
     qc.invalidateQueries({ queryKey: ["users"] });
   };
@@ -102,6 +105,7 @@ const Users: React.FC = () => {
         subtitle="Roles, estados y 2FA."
         icon={<GroupIcon color="primary" />}
         chips={[`Total: ${data?.length ?? 0}`]}
+        loading={isLoading}
       />
 
       <Paper sx={{ p: 2 }}>
@@ -109,7 +113,9 @@ const Users: React.FC = () => {
           Usuarios
         </Typography>
         {isLoading ? (
-          <Typography variant="body2" color="text.secondary">Cargando usuarios...</Typography>
+          <LoadingState title="Cargando usuarios..." />
+        ) : isError ? (
+          <ErrorState title="No se pudieron cargar usuarios" onRetry={() => refetch()} />
         ) : (data || []).length === 0 ? (
           <EmptyState title="Sin usuarios" description="No hay usuarios registrados." icon={<GroupIcon color="disabled" />} />
         ) : isCompact ? (

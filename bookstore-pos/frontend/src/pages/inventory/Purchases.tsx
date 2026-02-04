@@ -19,6 +19,8 @@ import { PageHeader } from "../../components/PageHeader";
 import { TableToolbar } from "../../components/TableToolbar";
 import { EmptyState } from "../../components/EmptyState";
 import { CardTable } from "../../components/CardTable";
+import { LoadingState } from "../../components/LoadingState";
+import { ErrorState } from "../../components/ErrorState";
 import { useQuery } from "@tanstack/react-query";
 import { listProducts } from "../../api/products";
 import { listSuppliers } from "../../api/suppliers";
@@ -56,7 +58,7 @@ const Purchases: React.FC = () => {
   const [histFrom, setHistFrom] = useState("");
   const [histTo, setHistTo] = useState("");
   const [histSupplier, setHistSupplier] = useState<number | "">("");
-  const { data: purchases, isLoading: loadingPurchases, refetch: refetchPurchases } = useQuery({
+  const { data: purchases, isLoading: loadingPurchases, isError: purchasesError, refetch: refetchPurchases } = useQuery({
     queryKey: ["purchases-history", histFrom, histTo, histSupplier],
     queryFn: () =>
       listPurchases({
@@ -110,6 +112,7 @@ const Purchases: React.FC = () => {
           `OC abiertas: ${(orders || []).filter((o) => o.status === "OPEN").length}`,
           `Proveedores: ${suppliers?.length ?? 0}`,
         ]}
+        loading={loadingProducts || loadingSuppliers || loadingOrders || loadingPurchases}
       />
 
       <Paper sx={{ p: 2 }}>
@@ -322,12 +325,11 @@ const Purchases: React.FC = () => {
       </TableToolbar>
 
       <Paper sx={{ p: 2 }}>
-        {loadingPurchases && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Cargando historial...
-          </Typography>
-        )}
-        {!loadingPurchases && !hasPurchases ? (
+        {loadingPurchases ? (
+          <LoadingState title="Cargando historial..." />
+        ) : purchasesError ? (
+          <ErrorState title="No se pudo cargar historial" onRetry={() => refetchPurchases()} />
+        ) : !hasPurchases ? (
           <EmptyState
             title="Sin compras"
             description="No hay compras en el rango seleccionado."

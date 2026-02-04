@@ -4,6 +4,8 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { PageHeader } from "../../components/PageHeader";
 import { TableToolbar } from "../../components/TableToolbar";
 import { EmptyState } from "../../components/EmptyState";
+import { LoadingState } from "../../components/LoadingState";
+import { ErrorState } from "../../components/ErrorState";
 import { CardTable } from "../../components/CardTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createSupplier, deleteSupplier, listSuppliers, updateSupplier } from "../../api/suppliers";
@@ -16,7 +18,7 @@ const empty: Omit<Supplier, "id"> = { name: "", phone: "" };
 const Suppliers: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers, staleTime: 60_000 });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers, staleTime: 60_000 });
   const [form, setForm] = useState<Omit<Supplier, "id">>(empty);
   const [editingId, setEditingId] = useState<number | null>(null);
   const compact = useMediaQuery("(max-width:900px)");
@@ -57,6 +59,7 @@ const Suppliers: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
+    if (!window.confirm("¿Eliminar proveedor?")) return;
     await deleteSupplier(id);
     showToast({ message: "Proveedor eliminado", severity: "success" });
     qc.invalidateQueries({ queryKey: ["suppliers"] });
@@ -69,6 +72,7 @@ const Suppliers: React.FC = () => {
         subtitle="Directorio y contacto comercial."
         icon={<LocalShippingIcon color="primary" />}
         chips={[`Total: ${data?.length ?? 0}`]}
+        loading={isLoading}
       />
 
       <TableToolbar title="Proveedores" subtitle="Busqueda por nombre o telefono.">
@@ -83,12 +87,11 @@ const Suppliers: React.FC = () => {
       </TableToolbar>
 
       <Paper sx={{ p: 2 }}>
-        {isLoading && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Cargando proveedores...
-          </Typography>
-        )}
-        {!isLoading && filtered.length === 0 ? (
+        {isLoading ? (
+          <LoadingState title="Cargando proveedores..." />
+        ) : isError ? (
+          <ErrorState title="No se pudieron cargar proveedores" onRetry={() => refetch()} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             title="Sin proveedores"
             description="No hay proveedores con ese filtro."

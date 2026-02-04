@@ -43,9 +43,13 @@ const POS: React.FC = () => {
   const { showToast } = useToast();
   const qc = useQueryClient();
 
-  const { data: cash } = useQuery({ queryKey: ["cash-current"], queryFn: getCurrentCash, staleTime: 10_000 });
-  const { data: customers } = useQuery({ queryKey: ["customers"], queryFn: listCustomers, staleTime: 60_000 });
-  const { data: promos } = useQuery({ queryKey: ["promotions"], queryFn: listActivePromotions, staleTime: 60_000 });
+  const cashQuery = useQuery({ queryKey: ["cash-current"], queryFn: getCurrentCash, staleTime: 10_000 });
+  const customersQuery = useQuery({ queryKey: ["customers"], queryFn: listCustomers, staleTime: 60_000 });
+  const promosQuery = useQuery({ queryKey: ["promotions"], queryFn: listActivePromotions, staleTime: 60_000 });
+  const cash = cashQuery.data;
+  const customers = customersQuery.data;
+  const promos = promosQuery.data;
+  const isLoading = cashQuery.isLoading || customersQuery.isLoading || promosQuery.isLoading;
 
   const [customerId, setCustomerId] = useState<number | "">("");
   const [promoId, setPromoId] = useState<number | "">("");
@@ -240,7 +244,9 @@ const POS: React.FC = () => {
         chips={[
           cash?.is_open ? "Caja abierta" : "Caja cerrada",
           `Items: ${cart.items.length}`,
+          isCompact ? "Compacto" : "Normal",
         ]}
+        loading={isLoading}
       />
 
       <Grid container spacing={2}>
@@ -308,7 +314,7 @@ const POS: React.FC = () => {
             <Cart />
             <Divider sx={{ my: 2 }} />
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", flexDirection: isCompact ? "column" : "row" }}>
-              <Button fullWidth={isCompact} variant="contained" size="large" disabled={cart.items.length === 0} onClick={() => setPayOpen(true)}>
+              <Button fullWidth={isCompact} variant="contained" size="large" disabled={cart.items.length === 0 || !cash?.is_open} onClick={() => setPayOpen(true)}>
                 Cobrar
               </Button>
               <Button fullWidth={isCompact} variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>

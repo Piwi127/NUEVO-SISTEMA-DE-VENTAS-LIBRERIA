@@ -21,6 +21,8 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import DownloadIcon from "@mui/icons-material/Download";
 import { PageHeader } from "../../components/PageHeader";
+import { LoadingState } from "../../components/LoadingState";
+import { ErrorState } from "../../components/ErrorState";
 import { getDailyReport, getLowStock, getTopProducts, exportDaily, exportTop, exportLow } from "../../api/reports";
 import { todayISO } from "../../utils/dates";
 import { formatMoney } from "../../utils/money";
@@ -34,6 +36,12 @@ const Reports: React.FC = () => {
   const [daily, setDaily] = useState<any>(null);
   const [top, setTop] = useState<any[]>([]);
   const [low, setLow] = useState<any[]>([]);
+  const [loadingDaily, setLoadingDaily] = useState(false);
+  const [loadingTop, setLoadingTop] = useState(false);
+  const [loadingLow, setLoadingLow] = useState(false);
+  const [errorDaily, setErrorDaily] = useState(false);
+  const [errorTop, setErrorTop] = useState(false);
+  const [errorLow, setErrorLow] = useState(false);
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
@@ -42,9 +50,39 @@ const Reports: React.FC = () => {
   const topUnits = useMemo(() => top.reduce((acc, t) => acc + Number(t.qty_sold || 0), 0), [top]);
   const lowCount = useMemo(() => low.length, [low]);
 
-  const loadDaily = async () => setDaily(await getDailyReport(date));
-  const loadTop = async () => setTop(await getTopProducts(from, to));
-  const loadLow = async () => setLow(await getLowStock());
+  const loadDaily = async () => {
+    setLoadingDaily(true);
+    setErrorDaily(false);
+    try {
+      setDaily(await getDailyReport(date));
+    } catch {
+      setErrorDaily(true);
+    } finally {
+      setLoadingDaily(false);
+    }
+  };
+  const loadTop = async () => {
+    setLoadingTop(true);
+    setErrorTop(false);
+    try {
+      setTop(await getTopProducts(from, to));
+    } catch {
+      setErrorTop(true);
+    } finally {
+      setLoadingTop(false);
+    }
+  };
+  const loadLow = async () => {
+    setLoadingLow(true);
+    setErrorLow(false);
+    try {
+      setLow(await getLowStock());
+    } catch {
+      setErrorLow(true);
+    } finally {
+      setLoadingLow(false);
+    }
+  };
 
   const download = (blob: Blob, filename: string) => {
     const url = window.URL.createObjectURL(blob);
@@ -62,6 +100,7 @@ const Reports: React.FC = () => {
         subtitle="Indicadores, exportaciones y stock critico."
         icon={<AssessmentIcon color="primary" />}
         chips={["Actualizado bajo demanda"]}
+        loading={loadingDaily || loadingTop || loadingLow}
       />
 
       <Paper sx={{ p: 2 }}>
@@ -84,13 +123,17 @@ const Reports: React.FC = () => {
             </Box>
           </AccordionDetails>
         </Accordion>
-        {daily && (
+        {loadingDaily ? (
+          <LoadingState title="Cargando reporte diario..." rows={2} />
+        ) : errorDaily ? (
+          <ErrorState title="No se pudo cargar el reporte diario" onRetry={loadDaily} />
+        ) : daily ? (
           <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(3, 1fr)" }}>
             <KpiCard label="Ventas" value={`${daily.sales_count}`} accent="#0b1e3b" />
             <KpiCard label="Total" value={formatMoney(daily.total)} accent="#c9a227" />
             <KpiCard label="Fecha" value={date} accent="#2f4858" />
           </Box>
-        )}
+        ) : null}
       </Paper>
 
       <Paper sx={{ p: 2 }}>
@@ -114,14 +157,18 @@ const Reports: React.FC = () => {
             </Box>
           </AccordionDetails>
         </Accordion>
-        {(top.length > 0) && (
+        {loadingTop ? (
+          <LoadingState title="Cargando top productos..." rows={2} />
+        ) : errorTop ? (
+          <ErrorState title="No se pudo cargar top productos" onRetry={loadTop} />
+        ) : (top.length > 0) && (
           <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(3, 1fr)" }}>
             <KpiCard label="Items vendidos" value={`${topUnits}`} accent="#0b1e3b" />
             <KpiCard label="Total vendido" value={formatMoney(topTotal)} accent="#c9a227" />
             <KpiCard label="Rango" value={`${from} → ${to}`} accent="#2f4858" />
           </Box>
         )}
-        {isCompact ? (
+        {loadingTop || errorTop ? null : isCompact ? (
           <Box sx={{ display: "grid", gap: 1, mt: 2 }}>
             {top.map((t, idx) => (
               <Paper key={idx} sx={{ p: 1.5 }}>
@@ -172,7 +219,11 @@ const Reports: React.FC = () => {
             </Box>
           </AccordionDetails>
         </Accordion>
-        {isCompact ? (
+        {loadingLow ? (
+          <LoadingState title="Cargando stock bajo..." rows={2} />
+        ) : errorLow ? (
+          <ErrorState title="No se pudo cargar stock bajo" onRetry={loadLow} />
+        ) : isCompact ? (
           <Box sx={{ display: "grid", gap: 1, mt: 2 }}>
             {low.map((l, idx) => (
               <Paper key={idx} sx={{ p: 1.5 }}>

@@ -7,9 +7,10 @@ type PageHeaderProps = {
   icon?: React.ReactNode;
   chips?: Array<string>;
   right?: React.ReactNode;
+  loading?: boolean;
 };
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, icon, chips, right }) => {
+export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, icon, chips, right, loading }) => {
   return (
     <Paper sx={{ p: { xs: 2, md: 3 } }}>
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
@@ -27,6 +28,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, icon, c
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
+          {loading ? <Chip label="Cargando" size="small" color="default" /> : null}
           {(chips || []).map((c, i) => (
             <Chip key={i} label={c} size="small" />
           ))}

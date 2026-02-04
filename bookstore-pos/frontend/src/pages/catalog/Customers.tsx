@@ -4,6 +4,8 @@ import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import { PageHeader } from "../../components/PageHeader";
 import { TableToolbar } from "../../components/TableToolbar";
 import { EmptyState } from "../../components/EmptyState";
+import { LoadingState } from "../../components/LoadingState";
+import { ErrorState } from "../../components/ErrorState";
 import { CardTable } from "../../components/CardTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createCustomer, deleteCustomer, listCustomers, updateCustomer } from "../../api/customers";
@@ -17,7 +19,7 @@ const empty: Omit<Customer, "id"> = { name: "", phone: "", price_list_id: null }
 const Customers: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers, staleTime: 60_000 });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["customers"], queryFn: listCustomers, staleTime: 60_000 });
   const { data: lists } = useQuery({ queryKey: ["price-lists"], queryFn: listPriceLists });
   const [form, setForm] = useState<any>(empty);
   const [query, setQuery] = useState("");
@@ -59,6 +61,7 @@ const Customers: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
+    if (!window.confirm("¿Eliminar cliente?")) return;
     await deleteCustomer(id);
     showToast({ message: "Cliente eliminado", severity: "success" });
     qc.invalidateQueries({ queryKey: ["customers"] });
@@ -71,6 +74,7 @@ const Customers: React.FC = () => {
         subtitle="Gestion de contactos y listas de precio."
         icon={<PeopleAltIcon color="primary" />}
         chips={[`Total: ${data?.length ?? 0}`]}
+        loading={isLoading}
       />
 
       <TableToolbar title="Clientes" subtitle="Busqueda por nombre o telefono.">
@@ -85,12 +89,11 @@ const Customers: React.FC = () => {
       </TableToolbar>
 
       <Paper sx={{ p: 2 }}>
-        {isLoading && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Cargando clientes...
-          </Typography>
-        )}
-        {!isLoading && filtered.length === 0 ? (
+        {isLoading ? (
+          <LoadingState title="Cargando clientes..." />
+        ) : isError ? (
+          <ErrorState title="No se pudieron cargar clientes" onRetry={() => refetch()} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             title="Sin clientes"
             description="No hay clientes con ese filtro."

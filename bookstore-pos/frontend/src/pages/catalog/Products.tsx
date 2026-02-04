@@ -4,6 +4,8 @@ import CategoryIcon from "@mui/icons-material/Category";
 import { PageHeader } from "../../components/PageHeader";
 import { TableToolbar } from "../../components/TableToolbar";
 import { EmptyState } from "../../components/EmptyState";
+import { LoadingState } from "../../components/LoadingState";
+import { ErrorState } from "../../components/ErrorState";
 import { CardTable } from "../../components/CardTable";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,7 +27,7 @@ const emptyForm: Omit<Product, "id"> = {
 const Products: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ["products"], queryFn: () => listProducts(), staleTime: 60_000 });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["products"], queryFn: () => listProducts(), staleTime: 60_000 });
   const [form, setForm] = useState<Omit<Product, "id">>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const compact = useMediaQuery("(max-width:900px)");
@@ -67,6 +69,7 @@ const Products: React.FC = () => {
 
   const handleDelete = async () => {
     if (!editingId) return;
+    if (!window.confirm("¿Eliminar producto?")) return;
     await deleteProduct(editingId);
     showToast({ message: "Producto eliminado", severity: "success" });
     setForm(emptyForm);
@@ -115,6 +118,7 @@ const Products: React.FC = () => {
         subtitle="Catalogo, precios y control de stock minimo."
         icon={<CategoryIcon color="primary" />}
         chips={[`Total: ${filtered.length}`, `Categorias: ${categories.length}`]}
+        loading={isLoading}
       />
 
       <TableToolbar title="Filtro rapido" subtitle="Busca por SKU, nombre o categoria.">
@@ -143,12 +147,11 @@ const Products: React.FC = () => {
       </TableToolbar>
 
       <Paper sx={{ p: 2 }}>
-        {isLoading && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Cargando productos...
-          </Typography>
-        )}
-        {!isLoading && filtered.length === 0 ? (
+        {isLoading ? (
+          <LoadingState title="Cargando productos..." />
+        ) : isError ? (
+          <ErrorState title="No se pudieron cargar productos" onRetry={() => refetch()} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             title="Sin productos"
             description="No hay productos con ese filtro."

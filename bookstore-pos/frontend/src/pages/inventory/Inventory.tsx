@@ -22,6 +22,8 @@ import {
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import DownloadIcon from "@mui/icons-material/Download";
 import { PageHeader } from "../../components/PageHeader";
+import { LoadingState } from "../../components/LoadingState";
+import { ErrorState } from "../../components/ErrorState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { listProducts } from "../../api/products";
@@ -41,8 +43,12 @@ const Inventory: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { role } = useAuth();
-  const { data: products } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
-  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: () => listWarehouses() });
+  const productsQuery = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
+  const warehousesQuery = useQuery({ queryKey: ["warehouses"], queryFn: () => listWarehouses() });
+  const products = productsQuery.data;
+  const warehouses = warehousesQuery.data;
+  const baseLoading = productsQuery.isLoading || warehousesQuery.isLoading;
+  const baseError = productsQuery.isError || warehousesQuery.isError;
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
@@ -80,6 +86,40 @@ const Inventory: React.FC = () => {
   });
 
   const [tab, setTab] = useState(0);
+
+  if (baseError) {
+    return (
+      <Box sx={{ display: "grid", gap: 2 }}>
+        <PageHeader
+          title="Inventario"
+          subtitle="Carga masiva, operaciones y kardex."
+          icon={<Inventory2Icon color="primary" />}
+          chips={[`Rol: ${role}`, `Productos: ${products?.length ?? 0}`]}
+          loading={baseLoading}
+        />
+        <Paper sx={{ p: 2 }}>
+          <ErrorState title="No se pudo cargar inventario" onRetry={() => { productsQuery.refetch(); warehousesQuery.refetch(); }} />
+        </Paper>
+      </Box>
+    );
+  }
+
+  if (baseLoading) {
+    return (
+      <Box sx={{ display: "grid", gap: 2 }}>
+        <PageHeader
+          title="Inventario"
+          subtitle="Carga masiva, operaciones y kardex."
+          icon={<Inventory2Icon color="primary" />}
+          chips={[`Rol: ${role}`, `Productos: ${products?.length ?? 0}`]}
+          loading={baseLoading}
+        />
+        <Paper sx={{ p: 2 }}>
+          <LoadingState title="Cargando inventario..." rows={3} />
+        </Paper>
+      </Box>
+    );
+  }
 
   const handleSubmit = async () => {
     if (!productId) return;
@@ -224,6 +264,7 @@ const Inventory: React.FC = () => {
         subtitle="Carga masiva, operaciones y kardex."
         icon={<Inventory2Icon color="primary" />}
         chips={[`Rol: ${role}`, `Productos: ${products?.length ?? 0}`]}
+        loading={baseLoading}
       />
 
       <Paper sx={{ p: 1 }}>
