@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listSales } from "../api/sales";
 import { todayISO } from "../utils/dates";
 import { formatMoney } from "../utils/money";
+import { useSettings } from "../store/useSettings";
 
 const SalesHistory: React.FC = () => {
   const [status, setStatus] = useState<string>("");
@@ -16,6 +17,8 @@ const SalesHistory: React.FC = () => {
   const [to, setTo] = useState(todayISO());
   const [limit, setLimit] = useState(200);
   const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
 
   const params = useMemo(() => ({
     status: status || undefined,
@@ -84,7 +87,7 @@ const SalesHistory: React.FC = () => {
             onAction={() => refetch()}
             icon={<ReceiptLongIcon color="disabled" />}
           />
-        ) : compact ? (
+        ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
           <Table size="small">

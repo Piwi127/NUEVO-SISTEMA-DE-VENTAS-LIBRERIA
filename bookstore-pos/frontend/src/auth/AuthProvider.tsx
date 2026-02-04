@@ -1,16 +1,18 @@
 ﻿import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { logout as apiLogout } from "../api/auth";
 
 export type AuthState = {
-  token: string | null;
   username: string | null;
   role: string | null;
+  csrfToken?: string | null;
 };
 
 type AuthContextValue = AuthState & {
-  login: (token: string, username: string, role: string) => void;
+  login: (username: string, role: string, csrfToken?: string | null) => void;
   logout: () => void;
   refreshMe: () => Promise<void>;
+  ready: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -18,7 +20,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const STORAGE_KEY = "bookstore_auth";
 
 export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
-  const [state, setState] = useState<AuthState>({ token: null, username: null, role: null });
+  const [state, setState] = useState<AuthState>({ username: null, role: null, csrfToken: null });
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -32,26 +35,36 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
   }, []);
 
-  const login = (token: string, username: string, role: string) => {
-    const next = { token, username, role };
+  useEffect(() => {
+    refreshMe().catch(() => {
+      // ignore
+    }).finally(() => {
+      setReady(true);
+    });
+  }, []);
+
+  const login = (username: string, role: string, csrfToken?: string | null) => {
+    const next = { username, role, csrfToken: csrfToken ?? null };
     setState(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   };
 
   const logout = () => {
-    setState({ token: null, username: null, role: null });
+    apiLogout().catch(() => {
+      // ignore
+    });
+    setState({ username: null, role: null, csrfToken: null });
     localStorage.removeItem(STORAGE_KEY);
   };
 
   const refreshMe = async () => {
-    if (!state.token) return;
     const res = await api.get("/auth/me");
-    const next = { token: state.token, username: res.data.username, role: res.data.role };
+    const next = { username: res.data.username, role: res.data.role, csrfToken: state.csrfToken ?? null };
     setState(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   };
 
-  const value = useMemo(() => ({ ...state, login, logout, refreshMe }), [state]);
+  const value = useMemo(() => ({ ...state, login, logout, refreshMe, ready }), [state, ready]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

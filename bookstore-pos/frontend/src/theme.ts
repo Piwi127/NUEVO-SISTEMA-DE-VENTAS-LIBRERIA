@@ -52,9 +52,16 @@ export const theme = createTheme({
           borderRadius: 12,
           paddingTop: 10,
           paddingBottom: 10,
+          color: "#e6edf7",
+          "& .MuiListItemIcon-root": {
+            color: "rgba(230,237,247,0.82)",
+          },
           "&.Mui-selected, &.Mui-selected:hover": {
             background: "rgba(201, 162, 39, 0.18)",
             color: "#f7e7b7",
+            "& .MuiListItemIcon-root": {
+              color: "#f7e7b7",
+            },
           },
           "&:hover": {
             background: "rgba(255, 255, 255, 0.08)",
@@ -84,6 +91,17 @@ export const theme = createTheme({
         },
         outlined: {
           borderColor: "rgba(11, 30, 59, 0.25)",
+          background: "rgba(11, 30, 59, 0.04)",
+          "&:hover": {
+            background: "rgba(11, 30, 59, 0.08)",
+          },
+        },
+        text: {
+          color: "#0b1e3b",
+          background: "rgba(11, 30, 59, 0.06)",
+          "&:hover": {
+            background: "rgba(11, 30, 59, 0.12)",
+          },
         },
       },
     },

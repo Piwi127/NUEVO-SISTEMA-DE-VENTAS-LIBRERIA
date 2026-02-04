@@ -7,12 +7,12 @@ from io import StringIO
 
 from app.core.deps import get_db, get_current_user, require_permission, require_role
 from app.models.purchase import Purchase
-from app.schemas.purchase import PurchaseCreate, PurchaseOut
+from app.schemas.purchase import PurchaseCreate, PurchaseOut, PurchaseListOut
 from app.services.purchases_service import PurchasesService
 
 router = APIRouter(prefix="/purchases", tags=["purchases"], dependencies=[Depends(require_role("admin", "stock"))])
 
-@router.get("", response_model=list[PurchaseOut], dependencies=[Depends(require_permission("purchases.create"))])
+@router.get("", response_model=list[PurchaseListOut], dependencies=[Depends(require_permission("purchases.create"))])
 async def list_purchases(
     from_date: str | None = None,
     to: str | None = None,

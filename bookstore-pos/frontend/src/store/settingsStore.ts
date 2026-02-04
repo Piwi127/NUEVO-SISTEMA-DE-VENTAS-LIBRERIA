@@ -5,6 +5,7 @@ type SettingsState = {
   projectName: string;
   taxRate: number;
   taxIncluded: boolean;
+  compactMode: boolean;
   storeAddress: string;
   storePhone: string;
   storeTaxId: string;
@@ -27,6 +28,7 @@ const state: SettingsState = {
   projectName: "Bookstore POS",
   taxRate: 0,
   taxIncluded: false,
+  compactMode: false,
   storeAddress: "",
   storePhone: "",
   storeTaxId: "",
@@ -58,6 +60,7 @@ const load = () => {
     if (parsed.projectName) state.projectName = parsed.projectName;
     if (typeof parsed.taxRate === "number") state.taxRate = parsed.taxRate;
     if (typeof parsed.taxIncluded === "boolean") state.taxIncluded = parsed.taxIncluded;
+    if (typeof parsed.compactMode === "boolean") state.compactMode = parsed.compactMode;
     if (typeof parsed.storeAddress === "string") state.storeAddress = parsed.storeAddress;
     if (typeof parsed.storePhone === "string") state.storePhone = parsed.storePhone;
     if (typeof parsed.storeTaxId === "string") state.storeTaxId = parsed.storeTaxId;
@@ -100,6 +103,11 @@ export const settingsStore = {
   },
   setTaxIncluded: (taxIncluded: boolean) => {
     state.taxIncluded = taxIncluded;
+    persist();
+    emit();
+  },
+  setCompactMode: (compactMode: boolean) => {
+    state.compactMode = compactMode;
     persist();
     emit();
   },

@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_permission, require_role
+from app.models.supplier import Supplier
 from app.schemas.supplier import SupplierCreate, SupplierOut, SupplierUpdate
 from app.services.suppliers_service import SuppliersService
 
@@ -10,8 +11,13 @@ router = APIRouter(prefix="/suppliers", tags=["suppliers"], dependencies=[Depend
 
 
 @router.get("", response_model=list[SupplierOut], dependencies=[Depends(require_permission("suppliers.write"))])
-async def list_suppliers(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Supplier).order_by(Supplier.id))
+async def list_suppliers(
+    limit: int = 200,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Supplier).order_by(Supplier.id).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 

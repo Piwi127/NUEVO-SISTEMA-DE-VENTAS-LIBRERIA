@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+from time import time
 
 from app.core.config import settings
 from app.routers import (
@@ -39,15 +42,60 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Bookstore POS API", lifespan=lifespan)
 
+if settings.environment.lower() in {"prod", "production"} and settings.jwt_secret == "change_me_super_secret":
+    raise RuntimeError("JWT_SECRET debe configurarse en producción")
+
+_rate_state: dict[str, tuple[int, float]] = {}
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        ip = request.client.host if request.client else "unknown"
+        now = time()
+        count, start = _rate_state.get(ip, (0, now))
+        if now - start >= 60:
+            count, start = 0, now
+        count += 1
+        _rate_state[ip] = (count, start)
+        if settings.rate_limit_per_minute > 0 and count > settings.rate_limit_per_minute:
+            return Response(content="Rate limit exceeded", status_code=429)
+        return await call_next(request)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "same-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5173 http://127.0.0.1:5173"
+        return response
+
+class CsrfMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        if request.url.path in {"/auth/login", "/auth/logout", "/auth/2fa/setup", "/auth/2fa/confirm"}:
+            return await call_next(request)
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            has_auth_header = bool(request.headers.get("authorization"))
+            if not has_auth_header and request.cookies.get(settings.auth_cookie_name):
+                csrf_cookie = request.cookies.get(settings.csrf_cookie_name)
+                csrf_header = request.headers.get(settings.csrf_header_name)
+                if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+                    return Response(content="CSRF token missing or invalid", status_code=403)
+        return await call_next(request)
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
-origin_regex = r"^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$"
+app.add_middleware(CsrfMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins or ["*"],
-    allow_origin_regex=origin_regex,
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"] ,
-    allow_headers=["*"] ,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth.router)
@@ -75,4 +123,14 @@ app.include_router(printing.router)
 
 @app.get("/")
 async def root():
+    return {"status": "ok"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+@app.get("/healthz")
+async def healthz():
     return {"status": "ok"}

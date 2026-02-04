@@ -32,19 +32,20 @@ const makeSessionId = () => {
 
 const POS: React.FC = () => {
   const cart = useCartStore();
-  const { taxRate, taxIncluded, paymentMethods } = useSettings();
+  const { taxRate, taxIncluded, paymentMethods, compactMode } = useSettings();
   const discount = cart.discount;
   const { subtotal, total, tax } = calcTotals(cart.items, discount, taxRate, taxIncluded);
   const compact = useMediaQuery("(max-width:900px)");
+  const isCompact = compactMode || compact;
   const [payOpen, setPayOpen] = useState(false);
   const [sessionId] = useState(() => makeSessionId());
   const wsRef = useRef<WebSocket | null>(null);
   const { showToast } = useToast();
   const qc = useQueryClient();
 
-  const { data: cash } = useQuery({ queryKey: ["cash-current"], queryFn: getCurrentCash });
-  const { data: customers } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
-  const { data: promos } = useQuery({ queryKey: ["promotions"], queryFn: listActivePromotions });
+  const { data: cash } = useQuery({ queryKey: ["cash-current"], queryFn: getCurrentCash, staleTime: 10_000 });
+  const { data: customers } = useQuery({ queryKey: ["customers"], queryFn: listCustomers, staleTime: 60_000 });
+  const { data: promos } = useQuery({ queryKey: ["promotions"], queryFn: listActivePromotions, staleTime: 60_000 });
 
   const [customerId, setCustomerId] = useState<number | "">("");
   const [promoId, setPromoId] = useState<number | "">("");
@@ -255,7 +256,7 @@ const POS: React.FC = () => {
       </Grid>
 
       <Paper sx={{ p: 2 }}>
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", flexDirection: compact ? "column" : "row" }}>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", flexDirection: isCompact ? "column" : "row" }}>
           <TextField
             inputRef={barcodeRef}
             label="Escaner (SKU)"
@@ -266,14 +267,14 @@ const POS: React.FC = () => {
                 (e.target as HTMLInputElement).value = "";
               }
             }}
-            sx={{ minWidth: 260, maxWidth: 360, width: compact ? "100%" : "auto" }}
+            sx={{ minWidth: 260, maxWidth: 360, width: isCompact ? "100%" : "auto" }}
           />
           <TextField
             select
             label="Cliente"
             value={customerId}
             onChange={(e) => setCustomerId(Number(e.target.value))}
-            sx={{ minWidth: 220, width: compact ? "100%" : "auto" }}
+            sx={{ minWidth: 220, width: isCompact ? "100%" : "auto" }}
           >
             <MenuItem value="">Sin cliente</MenuItem>
             {(customers || []).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
@@ -283,7 +284,7 @@ const POS: React.FC = () => {
             label="Promo"
             value={promoId}
             onChange={(e) => setPromoId(Number(e.target.value))}
-            sx={{ minWidth: 220, width: compact ? "100%" : "auto" }}
+            sx={{ minWidth: 220, width: isCompact ? "100%" : "auto" }}
           >
             <MenuItem value="">Sin promo</MenuItem>
             {(promos || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
@@ -306,14 +307,14 @@ const POS: React.FC = () => {
             </Stack>
             <Cart />
             <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", flexDirection: compact ? "column" : "row" }}>
-              <Button fullWidth={compact} variant="contained" size="large" disabled={cart.items.length === 0} onClick={() => setPayOpen(true)}>
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", flexDirection: isCompact ? "column" : "row" }}>
+              <Button fullWidth={isCompact} variant="contained" size="large" disabled={cart.items.length === 0} onClick={() => setPayOpen(true)}>
                 Cobrar
               </Button>
-              <Button fullWidth={compact} variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>
+              <Button fullWidth={isCompact} variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>
                 Imprimir ticket
               </Button>
-              <Button fullWidth={compact} variant="outlined" disabled={!lastSaleId} onClick={handleEscpos}>
+              <Button fullWidth={isCompact} variant="outlined" disabled={!lastSaleId} onClick={handleEscpos}>
                 Descargar ESC/POS
               </Button>
             </Box>

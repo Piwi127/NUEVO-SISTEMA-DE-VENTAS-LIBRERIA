@@ -62,6 +62,8 @@ const AdminPanel: React.FC = () => {
     setTaxRate,
     taxIncluded,
     setTaxIncluded,
+    compactMode,
+    setCompactMode,
     storeAddress,
     setStoreAddress,
     storePhone,
@@ -108,7 +110,7 @@ const AdminPanel: React.FC = () => {
   const [tab, setTab] = useState(0);
 
   const { showToast } = useToast();
-  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses });
+  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses, staleTime: 60_000 });
 
   React.useEffect(() => {
     const load = async () => {
@@ -366,6 +368,12 @@ const AdminPanel: React.FC = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField fullWidth label="Contacto de soporte" placeholder="support@empresa.com" />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControlLabel
+                control={<Checkbox checked={compactMode} onChange={(e) => setCompactMode(e.target.checked)} />}
+                label="Modo compacto forzado (UI)"
+              />
             </Grid>
           </Grid>
         )}

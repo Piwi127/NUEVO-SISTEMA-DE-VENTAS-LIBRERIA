@@ -9,16 +9,19 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createSupplier, deleteSupplier, listSuppliers, updateSupplier } from "../api/suppliers";
 import { Supplier } from "../types/dto";
 import { useToast } from "../components/ToastProvider";
+import { useSettings } from "../store/useSettings";
 
 const empty: Omit<Supplier, "id"> = { name: "", phone: "" };
 
 const Suppliers: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers });
+  const { data, isLoading } = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers, staleTime: 60_000 });
   const [form, setForm] = useState<Omit<Supplier, "id">>(empty);
   const [editingId, setEditingId] = useState<number | null>(null);
   const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
   const [query, setQuery] = useState("");
   const filtered = (data || []).filter((c) => {
     const term = query.trim().toLowerCase();
@@ -91,7 +94,7 @@ const Suppliers: React.FC = () => {
             description="No hay proveedores con ese filtro."
             icon={<LocalShippingIcon color="disabled" />}
           />
-        ) : compact ? (
+        ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
           filtered.map((c) => (

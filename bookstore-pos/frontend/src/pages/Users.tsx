@@ -1,12 +1,14 @@
 ﻿import React, { useState } from "react";
-import { Box, Button, MenuItem, Paper, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody } from "@mui/material";
+import { Box, Button, MenuItem, Paper, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody, useMediaQuery } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
+import { CardTable } from "../components/CardTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createUser, listUsers, updateUser, updateUserPassword, updateUserStatus, unlockUser, setupUser2FA, confirmUser2FA, resetUser2FA } from "../api/users";
 import { User } from "../types/dto";
 import { useToast } from "../components/ToastProvider";
+import { useSettings } from "../store/useSettings";
 
 const empty: Omit<User, "id"> & { password?: string } = {
   username: "",
@@ -21,6 +23,30 @@ const Users: React.FC = () => {
   const { data, isLoading } = useQuery({ queryKey: ["users"], queryFn: listUsers });
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
+  const cardRows = (data || []).map((u) => {
+    const locked = u.locked_until && new Date(u.locked_until).getTime() > Date.now();
+    return {
+      key: u.id,
+      title: u.username,
+      subtitle: u.role,
+      right: (
+        <Box sx={{ display: "grid", gap: 0.5, textAlign: "right" }}>
+          <Typography sx={{ fontWeight: 600 }}>{u.is_active ? "Activo" : "Inactivo"}</Typography>
+          <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+            <Button size="small" onClick={() => { setEditingId(u.id); setForm({ username: u.username, role: u.role, is_active: u.is_active, password: "" }); }}>Editar</Button>
+            <Button size="small" onClick={() => handleStatus(u.id, u.is_active)}>{u.is_active ? "Desactivar" : "Activar"}</Button>
+          </Box>
+        </Box>
+      ),
+      fields: [
+        { label: "2FA", value: u.twofa_enabled ? "Activo" : "No" },
+        { label: "Bloqueo", value: locked ? "Bloqueado" : "OK" },
+      ],
+    };
+  });
 
   const handleSubmit = async () => {
     try {
@@ -86,6 +112,8 @@ const Users: React.FC = () => {
           <Typography variant="body2" color="text.secondary">Cargando usuarios...</Typography>
         ) : (data || []).length === 0 ? (
           <EmptyState title="Sin usuarios" description="No hay usuarios registrados." icon={<GroupIcon color="disabled" />} />
+        ) : isCompact ? (
+          <CardTable rows={cardRows} />
         ) : (
           <Table size="small">
             <TableHead>

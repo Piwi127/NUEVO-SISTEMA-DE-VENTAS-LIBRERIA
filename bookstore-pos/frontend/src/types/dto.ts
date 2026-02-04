@@ -80,13 +80,39 @@ export type CashSummary = {
 
 export type SaleResponse = {
   id: number;
+  subtotal: number;
+  tax: number;
+  discount: number;
   total: number;
-  invoice_number?: string;
+  invoice_number: string;
+  status: string;
+  promotion_id?: number | null;
+  price_list_id?: number | null;
+};
+
+export type SaleListResponse = {
+  id: number;
+  user_id: number;
+  customer_id?: number | null;
+  status: string;
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+  invoice_number: string;
+  created_at: string;
 };
 
 export type PurchaseResponse = {
   id: number;
   total: number;
+};
+
+export type PurchaseListResponse = {
+  id: number;
+  supplier_id: number;
+  total: number;
+  created_at: string;
 };
 
 export type DailyReport = {

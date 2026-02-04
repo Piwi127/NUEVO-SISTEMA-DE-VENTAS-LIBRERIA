@@ -18,7 +18,7 @@ const Login: React.FC = () => {
   const onSubmit = async (data: FormData) => {
     try {
       const res = await login(data.username, data.password, data.otp);
-      doLogin(res.access_token, res.username, res.role);
+      doLogin(res.username, res.role, res.csrf_token || null);
       navigate("/pos");
     } catch (err: any) {
       const detail = err?.response?.data?.detail;

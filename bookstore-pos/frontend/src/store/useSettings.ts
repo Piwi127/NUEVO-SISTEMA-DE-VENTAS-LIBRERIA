@@ -9,6 +9,7 @@ export const useSettings = () => {
     setProjectName: settingsStore.setProjectName,
     setTaxRate: settingsStore.setTaxRate,
     setTaxIncluded: settingsStore.setTaxIncluded,
+    setCompactMode: settingsStore.setCompactMode,
     setStoreAddress: settingsStore.setStoreAddress,
     setStorePhone: settingsStore.setStorePhone,
     setStoreTaxId: settingsStore.setStoreTaxId,
@@ -25,6 +26,7 @@ export const useSettings = () => {
     projectName: string;
     taxRate: number;
     taxIncluded: boolean;
+    compactMode: boolean;
     storeAddress: string;
     storePhone: string;
     storeTaxId: string;
@@ -40,6 +42,7 @@ export const useSettings = () => {
     setProjectName: (n: string) => void;
     setTaxRate: (n: number) => void;
     setTaxIncluded: (n: boolean) => void;
+    setCompactMode: (n: boolean) => void;
     setStoreAddress: (n: string) => void;
     setStorePhone: (n: string) => void;
     setStoreTaxId: (n: string) => void;

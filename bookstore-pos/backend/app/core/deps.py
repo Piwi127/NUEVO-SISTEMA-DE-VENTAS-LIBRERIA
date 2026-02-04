@@ -1,15 +1,16 @@
 from collections.abc import AsyncGenerator, Callable
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_token
+from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.models.user import User
 from app.models.permission import RolePermission
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -18,10 +19,17 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    token = credentials.credentials
+    token = None
+    if credentials:
+        token = credentials.credentials
+    if not token:
+        token = request.cookies.get(settings.auth_cookie_name)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido")
     try:
         payload = decode_token(token)
         username = payload.get("sub")
@@ -55,7 +63,7 @@ def require_permission(*permissions: str) -> Callable:
         result = await db.execute(select(RolePermission.permission).where(RolePermission.role == current_user.role))
         allowed = {row[0] for row in result.all()}
         if not allowed:
-            return current_user
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permisos")
         for perm in permissions:
             if perm not in allowed:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permisos")

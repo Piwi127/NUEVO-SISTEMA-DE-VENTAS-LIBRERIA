@@ -30,6 +30,7 @@ import { listWarehouses, createWarehouse, createTransfer, createBatch, createCou
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthProvider";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useSettings } from "../store/useSettings";
 
 const REQUIRED = ["sku", "name", "category", "price", "cost", "stock", "stock_min"];
 const PREVIEW_LIMIT = 15;
@@ -43,6 +44,8 @@ const Inventory: React.FC = () => {
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: () => listWarehouses() });
   const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
 
   const [productId, setProductId] = useState<number | "">("");
   const [qty, setQty] = useState(0);
@@ -245,7 +248,7 @@ const Inventory: React.FC = () => {
           {preview.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>Vista previa (primeras {PREVIEW_LIMIT} filas)</Typography>
-              {compact ? (
+              {isCompact ? (
                 <Box sx={{ display: "grid", gap: 1 }}>
                   {preview.map((row, idx) => (
                     <Paper key={idx} sx={{ p: 1.5 }}>
@@ -316,7 +319,7 @@ const Inventory: React.FC = () => {
           <Grid item xs={12} md={7}>
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>Transferencias</Typography>
-              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
+              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
                 <TextField select label="Almacen origen" value={fromWh} onChange={(e) => setFromWh(Number(e.target.value))}>
                   {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
                 </TextField>
@@ -333,7 +336,7 @@ const Inventory: React.FC = () => {
 
             <Paper sx={{ p: 2, mt: 2 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>Lotes</Typography>
-              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
+              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
                 <TextField select label="Almacen" value={batchWh} onChange={(e) => setBatchWh(Number(e.target.value))}>
                   {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
                 </TextField>
@@ -349,7 +352,7 @@ const Inventory: React.FC = () => {
 
             <Paper sx={{ p: 2, mt: 2 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>Conteo ciclico</Typography>
-              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
+              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
                 <TextField select label="Almacen" value={countWh} onChange={(e) => setCountWh(Number(e.target.value))}>
                   {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
                 </TextField>
@@ -368,7 +371,7 @@ const Inventory: React.FC = () => {
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6">Kardex</Typography>
           <Divider sx={{ my: 2 }} />
-          {compact ? (
+          {isCompact ? (
             <Box sx={{ display: "grid", gap: 1, maxHeight: 320, overflow: "auto" }}>
               {(kardex || []).map((k) => (
                 <Paper key={k.id} sx={{ p: 1.5 }}>

@@ -4,8 +4,9 @@ import pytest
 async def _login_admin(client):
     resp = await client.post("/auth/login", json={"username": "admin", "password": "admin123"})
     assert resp.status_code == 200
-    data = resp.json()
-    return data["access_token"]
+    csrf = resp.cookies.get("csrf_token")
+    assert csrf
+    return {"X-CSRF-Token": csrf}
 
 
 @pytest.mark.asyncio
@@ -19,14 +20,13 @@ async def test_public_settings(client):
 
 @pytest.mark.asyncio
 async def test_login_admin(client):
-    token = await _login_admin(client)
-    assert token
+    headers = await _login_admin(client)
+    assert headers.get("X-CSRF-Token")
 
 
 @pytest.mark.asyncio
 async def test_product_sale_flow(client):
-    token = await _login_admin(client)
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = await _login_admin(client)
 
     product_payload = {
         "sku": "BK-TEST-001",
@@ -74,8 +74,7 @@ async def test_product_sale_flow(client):
 
 @pytest.mark.asyncio
 async def test_audit_log_contains_entries(client):
-    token = await _login_admin(client)
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = await _login_admin(client)
     resp = await client.get("/audit", headers=headers)
     assert resp.status_code == 200
     assert len(resp.json()) >= 1

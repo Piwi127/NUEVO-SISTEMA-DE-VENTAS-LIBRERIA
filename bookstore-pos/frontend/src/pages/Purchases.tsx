@@ -26,13 +26,16 @@ import { createPurchaseOrder, receivePurchaseOrder, supplierPayment, listPurchas
 import { listPurchases, exportPurchases } from "../api/purchases";
 import { useToast } from "../components/ToastProvider";
 import { formatMoney } from "../utils/money";
+import { useSettings } from "../store/useSettings";
 
 const Purchases: React.FC = () => {
-  const { data: products, isLoading: loadingProducts } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
-  const { data: suppliers, isLoading: loadingSuppliers } = useQuery({ queryKey: ["suppliers"], queryFn: () => listSuppliers() });
-  const { data: orders, isLoading: loadingOrders } = useQuery({ queryKey: ["purchase-orders"], queryFn: () => listPurchaseOrders() });
+  const { data: products, isLoading: loadingProducts } = useQuery({ queryKey: ["products"], queryFn: () => listProducts(), staleTime: 60_000 });
+  const { data: suppliers, isLoading: loadingSuppliers } = useQuery({ queryKey: ["suppliers"], queryFn: () => listSuppliers(), staleTime: 60_000 });
+  const { data: orders, isLoading: loadingOrders } = useQuery({ queryKey: ["purchase-orders"], queryFn: () => listPurchaseOrders(), staleTime: 30_000 });
   const { showToast } = useToast();
   const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
 
   const [supplierId, setSupplierId] = useState<number | "">("");
   const [productId, setProductId] = useState<number | "">("");
@@ -332,7 +335,7 @@ const Purchases: React.FC = () => {
             onAction={() => refetchPurchases()}
             icon={<LocalShippingIcon color="disabled" />}
           />
-        ) : compact ? (
+        ) : isCompact ? (
           <CardTable rows={purchaseRows} />
         ) : (
           <Table size="small">

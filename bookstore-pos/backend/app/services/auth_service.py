@@ -39,6 +39,11 @@ class AuthService:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="2FA_REQUIRED")
             totp = pyotp.TOTP(user.twofa_secret)
             if not totp.verify(data.otp):
+                user.failed_attempts += 1
+                if user.failed_attempts >= LOCK_THRESHOLD:
+                    user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)
+                    user.failed_attempts = 0
+                await self.db.commit()
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP invalido")
 
         user.failed_attempts = 0

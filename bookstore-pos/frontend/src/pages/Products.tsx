@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createProduct, deleteProduct, listProducts, updateProduct } from "../api/products";
 import { Product } from "../types/dto";
 import { useToast } from "../components/ToastProvider";
+import { useSettings } from "../store/useSettings";
 
 const emptyForm: Omit<Product, "id"> = {
   sku: "",
@@ -24,10 +25,12 @@ const emptyForm: Omit<Product, "id"> = {
 const Products: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
+  const { data, isLoading } = useQuery({ queryKey: ["products"], queryFn: () => listProducts(), staleTime: 60_000 });
   const [form, setForm] = useState<Omit<Product, "id">>(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
 
@@ -151,7 +154,7 @@ const Products: React.FC = () => {
             description="No hay productos con ese filtro."
             icon={<CategoryIcon color="disabled" />}
           />
-        ) : compact ? (
+        ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
           <div style={{ height: 320, width: "100%" }}>

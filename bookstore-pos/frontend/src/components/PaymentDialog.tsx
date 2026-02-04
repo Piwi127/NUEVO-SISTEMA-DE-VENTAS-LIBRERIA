@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Typography } from "@mui/material";
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Typography, useMediaQuery, Stack } from "@mui/material";
 import { formatMoney } from "../utils/money";
+import { useSettings } from "../store/useSettings";
 
 export type Payment = { method: string; amount: number };
 
@@ -14,6 +15,9 @@ type Props = {
 
 export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, onConfirm }) => {
   const [amounts, setAmounts] = useState<Record<string, number>>({});
+  const { compactMode } = useSettings();
+  const compact = useMediaQuery("(max-width:900px)");
+  const isCompact = compactMode || compact;
 
   useEffect(() => {
     if (open) {
@@ -56,16 +60,17 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" fullScreen={isCompact}>
       <DialogTitle>Pago</DialogTitle>
       <DialogContent>
         <Typography sx={{ mb: 2 }}>Total: {formatMoney(total)}</Typography>
-        <Box sx={{ display: "grid", gap: 2 }}>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(2, 1fr)" }}>
           {methods.map((m) => (
             <TextField
               key={m}
               label={m}
               type="number"
+              size={isCompact ? "small" : "medium"}
               value={amounts[m] || 0}
               onChange={(e) =>
                 setAmounts((prev) => ({
@@ -76,7 +81,7 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
             />
           ))}
         </Box>
-        <Box sx={{ mt: 2, display: "flex", gap: 2 }}>
+        <Box sx={{ mt: 2, display: "flex", gap: 2, flexWrap: "wrap" }}>
           {methods.includes("CASH") ? (
             <Button variant="outlined" onClick={handleExact}>
               Pagar exacto
@@ -93,10 +98,23 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
         ) : null}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button onClick={handleConfirm} variant="contained" disabled={!valid}>
-          Confirmar
-        </Button>
+        {isCompact ? (
+          <Stack direction="column" spacing={1} sx={{ width: "100%", px: 2, pb: 2 }}>
+            <Button onClick={handleConfirm} variant="contained" disabled={!valid} fullWidth>
+              Confirmar
+            </Button>
+            <Button onClick={onClose} variant="outlined" fullWidth>
+              Cancelar
+            </Button>
+          </Stack>
+        ) : (
+          <>
+            <Button onClick={onClose}>Cancelar</Button>
+            <Button onClick={handleConfirm} variant="contained" disabled={!valid}>
+              Confirmar
+            </Button>
+          </>
+        )}
       </DialogActions>
     </Dialog>
   );

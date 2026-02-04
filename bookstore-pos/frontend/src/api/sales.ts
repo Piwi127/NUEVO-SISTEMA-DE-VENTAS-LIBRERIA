@@ -1,5 +1,5 @@
 import { api } from "./client";
-import { SaleResponse } from "../types/dto";
+import { SaleResponse, SaleListResponse } from "../types/dto";
 
 export const createSale = async (data: {
   customer_id?: number | null;
@@ -29,5 +29,5 @@ export const listSales = async (params: {
   limit?: number;
 }) => {
   const res = await api.get("/sales", { params });
-  return res.data as any[];
+  return res.data as SaleListResponse[];
 };

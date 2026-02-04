@@ -16,6 +16,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import LogoutIcon from "@mui/icons-material/Logout";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ReplayIcon from "@mui/icons-material/Replay";
@@ -33,6 +34,7 @@ import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { useSettings } from "../store/useSettings";
 import { getPublicSettings } from "../api/settings";
+import { api } from "../api/client";
 
 const menuSections = [
   {
@@ -74,10 +76,12 @@ const menuSections = [
 export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [open, setOpen] = useState(false);
   const compact = useMediaQuery("(max-width:900px)");
+  const [healthOk, setHealthOk] = useState(true);
   const { role, username, logout } = useAuth();
   const {
     projectName,
     logoUrl,
+    compactMode,
     setProjectName,
     setCurrency,
     setTaxRate,
@@ -146,6 +150,24 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
     setDefaultWarehouseId,
   ]);
 
+  useEffect(() => {
+    let mounted = true;
+    const check = async () => {
+      try {
+        await api.get("/healthz");
+        if (mounted) setHealthOk(true);
+      } catch {
+        if (mounted) setHealthOk(false);
+      }
+    };
+    check();
+    const timer = window.setInterval(check, 30000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   return (
     <Box
       sx={{
@@ -175,9 +197,31 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
               mr: 1.5,
             }}
           />
-          <Button color="inherit" onClick={() => { logout(); navigate("/login"); }}>
-            Salir
-          </Button>
+          <IconButton
+            color="inherit"
+            onClick={() => { logout(); navigate("/login"); }}
+            sx={{ mr: 1 }}
+            aria-label="Cerrar sesion"
+          >
+            <LogoutIcon />
+          </IconButton>
+          {!healthOk ? (
+            <Chip
+              label="API offline"
+              size="small"
+              color="secondary"
+              sx={{ mr: 1.5 }}
+            />
+          ) : null}
+          {compactMode ? (
+            <Chip
+              label="Compacto"
+              size="small"
+              color="secondary"
+              sx={{ mr: 1.5 }}
+            />
+          ) : null}
+          
         </Toolbar>
       </AppBar>
       <Drawer open={open} onClose={() => setOpen(false)}>
@@ -211,7 +255,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                     selected={location.pathname === item.path}
                   >
                     <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
-                    <ListItemText primary={item.label} />
+                    <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 14, fontWeight: 600 }} />
                   </ListItemButton>
                 ))}
               </List>

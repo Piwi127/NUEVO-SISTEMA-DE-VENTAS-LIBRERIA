@@ -8,14 +8,15 @@ import { calcTotals } from "../utils/totals";
 
 export const Cart: React.FC = () => {
   const cart = useCartStore();
-  const { currency, taxRate, taxIncluded } = useSettings();
+  const { currency, taxRate, taxIncluded, compactMode } = useSettings();
   const compact = useMediaQuery("(max-width:900px)");
+  const isCompact = compactMode || compact;
   const discount = cart.discount;
   const { subtotal, total, tax } = calcTotals(cart.items, discount, taxRate, taxIncluded);
 
   return (
     <Box>
-      {compact ? (
+      {isCompact ? (
         <Box sx={{ display: "grid", gap: 1 }}>
           {cart.items.map((item) => (
             <Paper key={item.product_id} sx={{ p: 1.5, display: "grid", gap: 1 }}>

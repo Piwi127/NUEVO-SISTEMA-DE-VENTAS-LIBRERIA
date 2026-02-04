@@ -10,18 +10,21 @@ import { createCustomer, deleteCustomer, listCustomers, updateCustomer } from ".
 import { listPriceLists } from "../api/priceLists";
 import { Customer } from "../types/dto";
 import { useToast } from "../components/ToastProvider";
+import { useSettings } from "../store/useSettings";
 
 const empty: Omit<Customer, "id"> = { name: "", phone: "", price_list_id: null } as any;
 
 const Customers: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
+  const { data, isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers, staleTime: 60_000 });
   const { data: lists } = useQuery({ queryKey: ["price-lists"], queryFn: listPriceLists });
   const [form, setForm] = useState<any>(empty);
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
   const filtered = (data || []).filter((c) => {
     const term = query.trim().toLowerCase();
     if (!term) return true;
@@ -93,7 +96,7 @@ const Customers: React.FC = () => {
             description="No hay clientes con ese filtro."
             icon={<PeopleAltIcon color="disabled" />}
           />
-        ) : compact ? (
+        ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
           filtered.map((c) => (

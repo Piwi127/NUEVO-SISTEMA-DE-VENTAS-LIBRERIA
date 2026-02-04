@@ -8,8 +8,9 @@ type Props = {
 };
 
 export const ProtectedRoute: React.FC<Props> = ({ children, roles }) => {
-  const { token, role } = useAuth();
-  if (!token) return <Navigate to="/login" replace />;
+  const { role, ready } = useAuth();
+  if (!ready) return null;
+  if (!role) return <Navigate to="/login" replace />;
   if (roles && role && !roles.includes(role)) return <Navigate to="/pos" replace />;
   return <>{children}</>;
 };

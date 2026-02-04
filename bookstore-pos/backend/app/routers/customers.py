@@ -11,8 +11,13 @@ router = APIRouter(prefix="/customers", tags=["customers"], dependencies=[Depend
 
 
 @router.get("", response_model=list[CustomerOut], dependencies=[Depends(require_permission("customers.read"))])
-async def list_customers(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Customer).order_by(Customer.id))
+async def list_customers(
+    limit: int = 200,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Customer).order_by(Customer.id).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 

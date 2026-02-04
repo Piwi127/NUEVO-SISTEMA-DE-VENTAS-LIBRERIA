@@ -1,20 +1,34 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, TextField, Typography, MenuItem, Checkbox, FormControlLabel, Table, TableHead, TableRow, TableCell, TableBody } from "@mui/material";
+import { Box, Button, Paper, TextField, Typography, MenuItem, Checkbox, FormControlLabel, Table, TableHead, TableRow, TableCell, TableBody, useMediaQuery } from "@mui/material";
 import CampaignIcon from "@mui/icons-material/Campaign";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
+import { CardTable } from "../components/CardTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listPromotions, createPromotion } from "../api/promotions";
 import { useToast } from "../components/ToastProvider";
+import { useSettings } from "../store/useSettings";
 
 const Promotions: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ["promotions"], queryFn: listPromotions });
+  const { data, isLoading } = useQuery({ queryKey: ["promotions"], queryFn: listPromotions, staleTime: 60_000 });
   const [name, setName] = useState("");
   const [value, setValue] = useState(0);
   const [isActive, setIsActive] = useState(true);
   const [type, setType] = useState("PERCENT");
+  const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
+  const cardRows = (data || []).map((p) => ({
+    key: p.id,
+    title: p.name,
+    subtitle: p.type === "PERCENT" ? `${p.value}%` : `${p.value}`,
+    right: <Typography sx={{ fontWeight: 600 }}>{p.is_active ? "Activa" : "Inactiva"}</Typography>,
+    fields: [
+      { label: "Tipo", value: p.type },
+    ],
+  }));
 
   const handleCreate = async () => {
     await createPromotion({ id: 0, name, type, value, is_active: isActive });
@@ -66,6 +80,8 @@ const Promotions: React.FC = () => {
           <Typography variant="body2" color="text.secondary">Cargando promociones...</Typography>
         ) : (data || []).length === 0 ? (
           <EmptyState title="Sin promociones" description="No hay promociones creadas." icon={<CampaignIcon color="disabled" />} />
+        ) : isCompact ? (
+          <CardTable rows={cardRows} />
         ) : (
           <Table size="small">
             <TableHead>

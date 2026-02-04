@@ -46,6 +46,24 @@ async def seed_admin(db: AsyncSession) -> None:
         db.add(admin)
         await db.commit()
 
+    # Ensure custom admin user exists (jorge)
+    jorge_result = await db.execute(select(User).where(User.username == "jorge"))
+    jorge = jorge_result.scalar_one_or_none()
+    if not jorge:
+        jorge = User(
+            username="jorge",
+            password_hash=get_password_hash("mami2020"),
+            role="admin",
+            is_active=True,
+        )
+        db.add(jorge)
+        await db.commit()
+    else:
+        jorge.password_hash = get_password_hash("mami2020")
+        jorge.role = "admin"
+        jorge.is_active = True
+        await db.commit()
+
     settings_result = await db.execute(select(SystemSettings).limit(1))
     settings = settings_result.scalar_one_or_none()
     if not settings:

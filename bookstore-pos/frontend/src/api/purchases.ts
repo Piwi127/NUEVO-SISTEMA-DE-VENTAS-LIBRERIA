@@ -1,5 +1,5 @@
 ﻿import { api } from "./client";
-import { PurchaseResponse } from "../types/dto";
+import { PurchaseListResponse, PurchaseResponse } from "../types/dto";
 
 export const createPurchase = async (data: {
   supplier_id: number;
@@ -17,7 +17,7 @@ export const listPurchases = async (params: {
   limit?: number;
 }) => {
   const res = await api.get("/purchases", { params });
-  return res.data as PurchaseResponse[];
+  return res.data as PurchaseListResponse[];
 };
 
 export const exportPurchases = async (params: { from_date?: string; to?: string; supplier_id?: number }) => {

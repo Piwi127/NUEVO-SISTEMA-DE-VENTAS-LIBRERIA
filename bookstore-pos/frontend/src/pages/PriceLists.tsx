@@ -1,24 +1,29 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, TextField, Typography, MenuItem, Table, TableHead, TableRow, TableCell, TableBody } from "@mui/material";
+import { Box, Button, Paper, TextField, Typography, MenuItem, Table, TableHead, TableRow, TableCell, TableBody, useMediaQuery } from "@mui/material";
 import PriceChangeIcon from "@mui/icons-material/PriceChange";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
+import { CardTable } from "../components/CardTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listPriceLists, createPriceList, getPriceListItems, replacePriceListItems } from "../api/priceLists";
 import { listProducts } from "../api/products";
 import { useToast } from "../components/ToastProvider";
+import { useSettings } from "../store/useSettings";
 
 const PriceLists: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data: lists, isLoading: loadingLists } = useQuery({ queryKey: ["price-lists"], queryFn: listPriceLists });
-  const { data: products, isLoading: loadingProducts } = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
+  const { data: lists, isLoading: loadingLists } = useQuery({ queryKey: ["price-lists"], queryFn: listPriceLists, staleTime: 60_000 });
+  const { data: products, isLoading: loadingProducts } = useQuery({ queryKey: ["products"], queryFn: () => listProducts(), staleTime: 60_000 });
 
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<number | "">("");
   const [itemProduct, setItemProduct] = useState<number | "">("");
   const [itemPrice, setItemPrice] = useState(0);
   const [items, setItems] = useState<{ product_id: number; price: number }[]>([]);
+  const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
 
   const loadItems = async (id: number) => {
     const data = await getPriceListItems(id);
@@ -44,6 +49,17 @@ const PriceLists: React.FC = () => {
     await replacePriceListItems(Number(selected), items);
     showToast({ message: "Lista actualizada", severity: "success" });
   };
+
+  const cardRows = items.map((it, idx) => {
+    const product = (products || []).find((p) => p.id === it.product_id);
+    return {
+      key: `${it.product_id}-${idx}`,
+      title: product?.name || `Producto ${it.product_id}`,
+      subtitle: `ID ${it.product_id}`,
+      right: <Typography sx={{ fontWeight: 700 }}>{it.price}</Typography>,
+      fields: [],
+    };
+  });
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -125,6 +141,8 @@ const PriceLists: React.FC = () => {
           <Box sx={{ mt: 2 }}>
             <EmptyState title="Sin items" description="Agrega productos a esta lista de precio." icon={<PriceChangeIcon color="disabled" />} />
           </Box>
+        ) : isCompact ? (
+          <CardTable rows={cardRows} />
         ) : (
           <Table size="small" sx={{ mt: 2 }}>
             <TableHead>

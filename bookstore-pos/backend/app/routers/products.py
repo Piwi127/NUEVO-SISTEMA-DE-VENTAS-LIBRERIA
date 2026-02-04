@@ -11,12 +11,18 @@ router = APIRouter(prefix="/products", tags=["products"], dependencies=[Depends(
 
 
 @router.get("", response_model=list[ProductOut], dependencies=[Depends(require_permission("products.read"))])
-async def list_products(search: str | None = None, db: AsyncSession = Depends(get_db)):
+async def list_products(
+    search: str | None = None,
+    limit: int = 200,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
     stmt = select(Product)
     if search:
         term = f"%{search}%"
         stmt = stmt.where(or_(Product.name.ilike(term), Product.sku.ilike(term)))
-    result = await db.execute(stmt.order_by(Product.id))
+    stmt = stmt.order_by(Product.id).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 

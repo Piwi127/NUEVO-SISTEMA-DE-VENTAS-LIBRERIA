@@ -25,6 +25,7 @@ import { getDailyReport, getLowStock, getTopProducts, exportDaily, exportTop, ex
 import { todayISO } from "../utils/dates";
 import { formatMoney } from "../utils/money";
 import { KpiCard } from "../components/KpiCard";
+import { useSettings } from "../store/useSettings";
 
 const Reports: React.FC = () => {
   const [date, setDate] = useState(todayISO());
@@ -34,6 +35,8 @@ const Reports: React.FC = () => {
   const [top, setTop] = useState<any[]>([]);
   const [low, setLow] = useState<any[]>([]);
   const compact = useMediaQuery("(max-width:900px)");
+  const { compactMode } = useSettings();
+  const isCompact = compactMode || compact;
 
   const topTotal = useMemo(() => top.reduce((acc, t) => acc + Number(t.total_sold || 0), 0), [top]);
   const topUnits = useMemo(() => top.reduce((acc, t) => acc + Number(t.qty_sold || 0), 0), [top]);
@@ -63,7 +66,7 @@ const Reports: React.FC = () => {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6">Reporte diario</Typography>
-        <Accordion sx={{ mt: 1 }} defaultExpanded={!compact}>
+        <Accordion sx={{ mt: 1 }} defaultExpanded={!isCompact}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="body2">Filtros</Typography>
           </AccordionSummary>
@@ -82,7 +85,7 @@ const Reports: React.FC = () => {
           </AccordionDetails>
         </Accordion>
         {daily && (
-          <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(3, 1fr)" }}>
+          <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(3, 1fr)" }}>
             <KpiCard label="Ventas" value={`${daily.sales_count}`} accent="#0b1e3b" />
             <KpiCard label="Total" value={formatMoney(daily.total)} accent="#c9a227" />
             <KpiCard label="Fecha" value={date} accent="#2f4858" />
@@ -92,7 +95,7 @@ const Reports: React.FC = () => {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6">Top productos</Typography>
-        <Accordion sx={{ mt: 1 }} defaultExpanded={!compact}>
+        <Accordion sx={{ mt: 1 }} defaultExpanded={!isCompact}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="body2">Filtros</Typography>
           </AccordionSummary>
@@ -112,13 +115,13 @@ const Reports: React.FC = () => {
           </AccordionDetails>
         </Accordion>
         {(top.length > 0) && (
-          <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(3, 1fr)" }}>
+          <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(3, 1fr)" }}>
             <KpiCard label="Items vendidos" value={`${topUnits}`} accent="#0b1e3b" />
             <KpiCard label="Total vendido" value={formatMoney(topTotal)} accent="#c9a227" />
             <KpiCard label="Rango" value={`${from} → ${to}`} accent="#2f4858" />
           </Box>
         )}
-        {compact ? (
+        {isCompact ? (
           <Box sx={{ display: "grid", gap: 1, mt: 2 }}>
             {top.map((t, idx) => (
               <Paper key={idx} sx={{ p: 1.5 }}>
@@ -152,7 +155,7 @@ const Reports: React.FC = () => {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6">Stock bajo</Typography>
-        <Accordion sx={{ mt: 1 }} defaultExpanded={!compact}>
+        <Accordion sx={{ mt: 1 }} defaultExpanded={!isCompact}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="body2">Filtros</Typography>
           </AccordionSummary>
@@ -169,7 +172,7 @@ const Reports: React.FC = () => {
             </Box>
           </AccordionDetails>
         </Accordion>
-        {compact ? (
+        {isCompact ? (
           <Box sx={{ display: "grid", gap: 1, mt: 2 }}>
             {low.map((l, idx) => (
               <Paper key={idx} sx={{ p: 1.5 }}>
@@ -202,7 +205,7 @@ const Reports: React.FC = () => {
           </Table>
         )}
         {lowCount > 0 && (
-          <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: compact ? "1fr" : "repeat(3, 1fr)" }}>
+          <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(3, 1fr)" }}>
             <KpiCard label="Items en riesgo" value={`${lowCount}`} accent="#c9a227" />
             <KpiCard label="Accion sugerida" value="Reponer" accent="#0b1e3b" />
             <KpiCard label="Estado" value="Atencion" accent="#2f4858" />
