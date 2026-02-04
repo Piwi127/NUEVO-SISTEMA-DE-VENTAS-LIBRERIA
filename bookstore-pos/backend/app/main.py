@@ -6,29 +6,27 @@ from starlette.responses import Response
 from time import time
 
 from app.core.config import settings
-from app.routers import (
-    auth,
-    users,
-    products,
-    customers,
-    suppliers,
-    inventory,
-    cash,
-    sales,
-    purchases,
-    reports,
-    display_ws,
-    settings as settings_router,
-    admin,
-    permissions,
-    audit,
-    warehouses,
-    price_lists,
-    promotions,
-    returns,
-    purchasing,
-    printing,
-)
+from app.routers.auth import router as auth_router
+from app.routers.admin import admin as admin_router
+from app.routers.admin import permissions as permissions_router
+from app.routers.admin import users as users_router
+from app.routers.admin import audit as audit_router
+from app.routers.admin import settings as settings_router
+from app.routers.catalog import products as products_router
+from app.routers.catalog import customers as customers_router
+from app.routers.catalog import suppliers as suppliers_router
+from app.routers.catalog import price_lists as price_lists_router
+from app.routers.catalog import promotions as promotions_router
+from app.routers.inventory import inventory as inventory_router
+from app.routers.inventory import purchases as purchases_router
+from app.routers.inventory import purchasing as purchasing_router
+from app.routers.inventory import warehouses as warehouses_router
+from app.routers.pos import cash as cash_router
+from app.routers.pos import sales as sales_router
+from app.routers.pos import returns as returns_router
+from app.routers.pos import display_ws as display_ws_router
+from app.routers.pos import printing as printing_router
+from app.routers.reports import reports as reports_router
 from app.seed import seed_admin
 from app.db.session import AsyncSessionLocal
 
@@ -98,27 +96,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(products.router)
-app.include_router(customers.router)
-app.include_router(suppliers.router)
-app.include_router(inventory.router)
-app.include_router(cash.router)
-app.include_router(sales.router)
-app.include_router(purchases.router)
-app.include_router(reports.router)
-app.include_router(display_ws.router)
+app.include_router(auth_router)
+app.include_router(users_router.router)
+app.include_router(products_router.router)
+app.include_router(customers_router.router)
+app.include_router(suppliers_router.router)
+app.include_router(inventory_router.router)
+app.include_router(cash_router.router)
+app.include_router(sales_router.router)
+app.include_router(purchases_router.router)
+app.include_router(reports_router.router)
+app.include_router(display_ws_router.router)
 app.include_router(settings_router.router)
-app.include_router(admin.router)
-app.include_router(permissions.router)
-app.include_router(audit.router)
-app.include_router(warehouses.router)
-app.include_router(price_lists.router)
-app.include_router(promotions.router)
-app.include_router(returns.router)
-app.include_router(purchasing.router)
-app.include_router(printing.router)
+app.include_router(admin_router.router)
+app.include_router(permissions_router.router)
+app.include_router(audit_router.router)
+app.include_router(warehouses_router.router)
+app.include_router(price_lists_router.router)
+app.include_router(promotions_router.router)
+app.include_router(returns_router.router)
+app.include_router(purchasing_router.router)
+app.include_router(printing_router.router)
 
 
 @app.get("/")

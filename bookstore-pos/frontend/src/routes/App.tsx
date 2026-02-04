@@ -2,22 +2,22 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { AppLayout } from "../components/AppLayout";
-import Login from "../pages/Login";
-import POS from "../pages/POS";
-import Display from "../pages/Display";
-import Products from "../pages/Products";
-import Inventory from "../pages/Inventory";
-import Cash from "../pages/Cash";
-import Purchases from "../pages/Purchases";
-import Customers from "../pages/Customers";
-import Suppliers from "../pages/Suppliers";
-import Users from "../pages/Users";
-import Reports from "../pages/Reports";
-import AdminPanel from "../pages/AdminPanel";
-import Promotions from "../pages/Promotions";
-import PriceLists from "../pages/PriceLists";
-import Returns from "../pages/Returns";
-import SalesHistory from "../pages/SalesHistory";
+import Login from "../pages/auth/Login";
+import POS from "../pages/pos/POS";
+import Display from "../pages/pos/Display";
+import Products from "../pages/catalog/Products";
+import Inventory from "../pages/inventory/Inventory";
+import Cash from "../pages/pos/Cash";
+import Purchases from "../pages/inventory/Purchases";
+import Customers from "../pages/catalog/Customers";
+import Suppliers from "../pages/catalog/Suppliers";
+import Users from "../pages/admin/Users";
+import Reports from "../pages/reports/Reports";
+import AdminPanel from "../pages/admin/AdminPanel";
+import Promotions from "../pages/catalog/Promotions";
+import PriceLists from "../pages/catalog/PriceLists";
+import Returns from "../pages/pos/Returns";
+import SalesHistory from "../pages/pos/SalesHistory";
 
 const App: React.FC = () => {
   return (
