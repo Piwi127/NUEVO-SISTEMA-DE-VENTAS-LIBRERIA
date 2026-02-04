@@ -1,8 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import get_password_hash
-from app.models.user import User
 from app.models.settings import SystemSettings
 from app.models.warehouse import Warehouse
 from app.models.permission import RolePermission
@@ -35,35 +33,6 @@ def default_permissions_for(role: str) -> list[str]:
 
 
 async def seed_admin(db: AsyncSession) -> None:
-    result = await db.execute(select(User).where(User.username == "admin"))
-    if not result.scalar():
-        admin = User(
-            username="admin",
-            password_hash=get_password_hash("admin123"),
-            role="admin",
-            is_active=True,
-        )
-        db.add(admin)
-        await db.commit()
-
-    # Ensure custom admin user exists (jorge)
-    jorge_result = await db.execute(select(User).where(User.username == "jorge"))
-    jorge = jorge_result.scalar_one_or_none()
-    if not jorge:
-        jorge = User(
-            username="jorge",
-            password_hash=get_password_hash("mami2020"),
-            role="admin",
-            is_active=True,
-        )
-        db.add(jorge)
-        await db.commit()
-    else:
-        jorge.password_hash = get_password_hash("mami2020")
-        jorge.role = "admin"
-        jorge.is_active = True
-        await db.commit()
-
     settings_result = await db.execute(select(SystemSettings).limit(1))
     settings = settings_result.scalar_one_or_none()
     if not settings:
