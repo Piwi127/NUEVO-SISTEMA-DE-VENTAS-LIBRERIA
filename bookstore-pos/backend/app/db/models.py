@@ -14,3 +14,4 @@ from app.models.price_list import PriceList, PriceListItem  # noqa: F401
 from app.models.promotion import Promotion  # noqa: F401
 from app.models.sale_return import SaleReturn, SaleReturnItem  # noqa: F401
 from app.models.purchasing import PurchaseOrder, PurchaseOrderItem, SupplierPayment  # noqa: F401
+from app.models.session import UserSession  # noqa: F401

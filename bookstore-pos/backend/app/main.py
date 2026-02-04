@@ -40,8 +40,24 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Bookstore POS API", lifespan=lifespan)
 
-if settings.environment.lower() in {"prod", "production"} and settings.jwt_secret == "change_me_super_secret":
-    raise RuntimeError("JWT_SECRET debe configurarse en producción")
+def _validate_security_settings() -> None:
+    env = settings.environment.lower()
+    is_prod = env in {"prod", "production"}
+    if is_prod and settings.jwt_secret == "change_me_super_secret":
+        raise RuntimeError("JWT_SECRET debe configurarse en producción")
+    if is_prod and not settings.cookie_secure:
+        raise RuntimeError("COOKIE_SECURE debe ser true en producción")
+    if is_prod and not settings.twofa_encryption_key:
+        raise RuntimeError("2FA_ENCRYPTION_KEY debe configurarse en producción")
+    if is_prod:
+        origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+        if not origins:
+            raise RuntimeError("CORS_ORIGINS debe definirse en producción")
+        if any("localhost" in o or "127.0.0.1" in o for o in origins):
+            raise RuntimeError("CORS_ORIGINS no debe incluir localhost en producción")
+
+
+_validate_security_settings()
 
 _rate_state: dict[str, tuple[int, float]] = {}
 

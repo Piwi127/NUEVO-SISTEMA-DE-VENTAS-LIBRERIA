@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, validate_password, encrypt_2fa_secret, decrypt_2fa_secret
 from app.models.user import User
 
 
@@ -27,6 +27,7 @@ class UsersService:
         exists = await self.db.execute(select(User).where(User.username == data.username))
         if exists.scalar_one_or_none():
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username duplicado")
+        validate_password(data.password)
         async with self._transaction():
             user = User(
                 username=data.username,
@@ -62,6 +63,7 @@ class UsersService:
         user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        validate_password(data.password)
         async with self._transaction():
             user.password_hash = get_password_hash(data.password)
             await log_event(self.db, self.user.id, "user_password", "user", str(user.id), "")
@@ -95,7 +97,7 @@ class UsersService:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         secret = pyotp.random_base32()
         async with self._transaction():
-            user.twofa_secret = secret
+            user.twofa_secret = encrypt_2fa_secret(secret)
             user.twofa_enabled = False
             uri = pyotp.totp.TOTP(secret).provisioning_uri(name=user.username, issuer_name="Bookstore POS")
             await log_event(self.db, self.user.id, "user_2fa_setup", "user", str(user.id), "")
@@ -108,7 +110,8 @@ class UsersService:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         if not user.twofa_secret:
             raise HTTPException(status_code=400, detail="2FA no configurado")
-        totp = pyotp.TOTP(user.twofa_secret)
+        secret = decrypt_2fa_secret(user.twofa_secret)
+        totp = pyotp.TOTP(secret)
         if not totp.verify(data.code):
             raise HTTPException(status_code=400, detail="Codigo invalido")
         async with self._transaction():

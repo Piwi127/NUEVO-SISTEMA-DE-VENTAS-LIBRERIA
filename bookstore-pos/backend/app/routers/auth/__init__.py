@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user
@@ -41,7 +41,16 @@ async def me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(response: Response, request: Request, db: AsyncSession = Depends(get_db)):
+    token = None
+    auth_header = request.headers.get("authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1]
+    if not token:
+        token = request.cookies.get(settings.auth_cookie_name)
+    if token:
+        service = AuthService(db)
+        await service.revoke_token(token)
     response.delete_cookie(key=settings.auth_cookie_name)
     response.delete_cookie(key=settings.csrf_cookie_name)
     return {"ok": True}
