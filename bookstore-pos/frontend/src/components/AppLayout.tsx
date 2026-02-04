@@ -17,61 +17,12 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
-import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import ReplayIcon from "@mui/icons-material/Replay";
-import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
-import Inventory2Icon from "@mui/icons-material/Inventory2";
-import CategoryIcon from "@mui/icons-material/Category";
-import LocalShippingIcon from "@mui/icons-material/LocalShipping";
-import PriceChangeIcon from "@mui/icons-material/PriceChange";
-import CampaignIcon from "@mui/icons-material/Campaign";
-import AssessmentIcon from "@mui/icons-material/Assessment";
-import GroupIcon from "@mui/icons-material/Group";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { useSettings } from "../store/useSettings";
-import { getPublicSettings } from "../api/settings";
-import { api } from "../api/client";
-
-const menuSections = [
-  {
-    title: "Operacion",
-    items: [
-      { label: "POS", path: "/pos", roles: ["admin", "cashier"], icon: <PointOfSaleIcon fontSize="small" /> },
-      { label: "Ventas", path: "/sales-history", roles: ["admin", "cashier"], icon: <ReceiptLongIcon fontSize="small" /> },
-      { label: "Devoluciones", path: "/returns", roles: ["admin", "cashier"], icon: <ReplayIcon fontSize="small" /> },
-      { label: "Caja", path: "/cash", roles: ["admin", "cashier"], icon: <AccountBalanceIcon fontSize="small" /> },
-      { label: "Clientes", path: "/customers", roles: ["admin", "cashier"], icon: <PeopleAltIcon fontSize="small" /> },
-    ],
-  },
-  {
-    title: "Inventario y compras",
-    items: [
-      { label: "Productos", path: "/products", roles: ["admin", "stock"], icon: <CategoryIcon fontSize="small" /> },
-      { label: "Inventario", path: "/inventory", roles: ["admin", "stock"], icon: <Inventory2Icon fontSize="small" /> },
-      { label: "Compras", path: "/purchases", roles: ["admin", "stock"], icon: <LocalShippingIcon fontSize="small" /> },
-      { label: "Proveedores", path: "/suppliers", roles: ["admin", "stock"], icon: <LocalShippingIcon fontSize="small" /> },
-    ],
-  },
-  {
-    title: "Gestion comercial",
-    items: [
-      { label: "Listas de precio", path: "/price-lists", roles: ["admin"], icon: <PriceChangeIcon fontSize="small" /> },
-      { label: "Promociones", path: "/promotions", roles: ["admin"], icon: <CampaignIcon fontSize="small" /> },
-      { label: "Reportes", path: "/reports", roles: ["admin"], icon: <AssessmentIcon fontSize="small" /> },
-    ],
-  },
-  {
-    title: "Administracion",
-    items: [
-      { label: "Usuarios", path: "/users", roles: ["admin"], icon: <GroupIcon fontSize="small" /> },
-      { label: "Administracion", path: "/admin", roles: ["admin"], icon: <AdminPanelSettingsIcon fontSize="small" /> },
-    ],
-  },
-];
+import { getPublicSettings } from "../modules/admin/api";
+import { api } from "../modules/shared/api";
+import { menuSections } from "../modules/registry";
 
 export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [open, setOpen] = useState(false);

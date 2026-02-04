@@ -1,6 +1,6 @@
 ﻿import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
-import { logout as apiLogout } from "../api/auth";
+import { api } from "../modules/shared/api";
+import { logout as apiLogout } from "../modules/auth/api";
 
 export type AuthState = {
   username: string | null;

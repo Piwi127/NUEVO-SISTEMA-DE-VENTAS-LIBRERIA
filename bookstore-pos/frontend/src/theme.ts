@@ -139,5 +139,5 @@ export const theme = createTheme({
         },
       },
     },
-  },
+  } as any,
 });
