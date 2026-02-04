@@ -26,7 +26,7 @@ class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def login(self, data):
+    async def login(self, data, ip: str | None = None, user_agent: str | None = None):
         result = await self.db.execute(select(User).where(User.username == data.username))
         user = result.scalar_one_or_none()
         if not user or not user.is_active:
@@ -37,10 +37,15 @@ class AuthService:
 
         if not verify_password(data.password, user.password_hash):
             user.failed_attempts += 1
+            locked = False
             if user.failed_attempts >= LOCK_THRESHOLD:
                 user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)
                 user.failed_attempts = 0
+                locked = True
             await self.db.commit()
+            await log_event(self.db, user.id, "login_failed", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+            if locked:
+                await log_event(self.db, user.id, "user_locked", "user", str(user.id), "", ip=ip, user_agent=user_agent)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
 
         if user.twofa_enabled:
@@ -50,10 +55,15 @@ class AuthService:
             totp = pyotp.TOTP(secret)
             if not totp.verify(data.otp):
                 user.failed_attempts += 1
+                locked = False
                 if user.failed_attempts >= LOCK_THRESHOLD:
                     user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)
                     user.failed_attempts = 0
+                    locked = True
                 await self.db.commit()
+                await log_event(self.db, user.id, "login_otp_failed", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+                if locked:
+                    await log_event(self.db, user.id, "user_locked", "user", str(user.id), "", ip=ip, user_agent=user_agent)
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP invalido")
 
         user.failed_attempts = 0
@@ -70,7 +80,7 @@ class AuthService:
             revoked_at=None,
         )
         self.db.add(session)
-        await log_event(self.db, user.id, "login", "user", str(user.id), "")
+        await log_event(self.db, user.id, "login", "user", str(user.id), "", ip=ip, user_agent=user_agent)
         return {"access_token": token, "role": user.role, "username": user.username}
 
     async def setup_2fa(self, current_user):
@@ -92,7 +102,7 @@ class AuthService:
         await self.db.commit()
         return {"ok": True}
 
-    async def revoke_token(self, token: str) -> None:
+    async def revoke_token(self, token: str, ip: str | None = None, user_agent: str | None = None) -> None:
         try:
             payload = decode_token(token)
         except ValueError:
@@ -105,3 +115,4 @@ class AuthService:
         if session and session.revoked_at is None:
             session.revoked_at = datetime.now(timezone.utc)
             await self.db.commit()
+            await log_event(self.db, session.user_id, "logout", "user", str(session.user_id), "", ip=ip, user_agent=user_agent)

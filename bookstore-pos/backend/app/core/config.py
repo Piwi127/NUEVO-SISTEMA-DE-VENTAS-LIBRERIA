@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     password_require_lower: bool = True
     password_require_digit: bool = True
     twofa_encryption_key: str = ""
+    health_allow_local_only: bool = True
 
     model_config = ConfigDict(env_file=".env")
 

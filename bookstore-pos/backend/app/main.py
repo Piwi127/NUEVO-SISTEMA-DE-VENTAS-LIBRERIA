@@ -6,6 +6,7 @@ from starlette.responses import Response
 from time import time
 
 from app.core.config import settings
+from app.core.security import decode_token
 from app.routers.auth import router as auth_router
 from app.routers.admin import admin as admin_router
 from app.routers.admin import permissions as permissions_router
@@ -65,12 +66,27 @@ _rate_state: dict[str, tuple[int, float]] = {}
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         ip = request.client.host if request.client else "unknown"
+        key = f"ip:{ip}"
+        auth_header = request.headers.get("authorization") or ""
+        token = None
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header.split(" ", 1)[1]
+        if not token:
+            token = request.cookies.get(settings.auth_cookie_name)
+        if token:
+            try:
+                payload = decode_token(token)
+                sub = payload.get("sub")
+                if sub:
+                    key = f"user:{sub}"
+            except Exception:
+                pass
         now = time()
-        count, start = _rate_state.get(ip, (0, now))
+        count, start = _rate_state.get(key, (0, now))
         if now - start >= 60:
             count, start = 0, now
         count += 1
-        _rate_state[ip] = (count, start)
+        _rate_state[key] = (count, start)
         if settings.rate_limit_per_minute > 0 and count > settings.rate_limit_per_minute:
             return Response(content="Rate limit exceeded", status_code=429)
         return await call_next(request)
@@ -85,6 +101,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
         response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5173 http://127.0.0.1:5173"
         return response
+
+
+class HealthGuardMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path in {"/health", "/healthz"}:
+            env = settings.environment.lower()
+            if env in {"prod", "production"} and settings.health_allow_local_only:
+                ip = request.client.host if request.client else ""
+                if ip not in {"127.0.0.1", "::1", "localhost"}:
+                    return Response(status_code=404)
+        return await call_next(request)
 
 class CsrfMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -102,6 +129,7 @@ class CsrfMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(CsrfMiddleware)
+app.add_middleware(HealthGuardMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(

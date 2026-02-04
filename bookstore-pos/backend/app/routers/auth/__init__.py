@@ -12,9 +12,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+async def login(data: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
-    data_out = await service.login(data)
+    ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    data_out = await service.login(data, ip=ip, user_agent=user_agent)
     csrf_token = secrets.token_urlsafe(32)
     response.set_cookie(
         key=settings.auth_cookie_name,
@@ -50,7 +52,9 @@ async def logout(response: Response, request: Request, db: AsyncSession = Depend
         token = request.cookies.get(settings.auth_cookie_name)
     if token:
         service = AuthService(db)
-        await service.revoke_token(token)
+        ip = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent")
+        await service.revoke_token(token, ip=ip, user_agent=user_agent)
     response.delete_cookie(key=settings.auth_cookie_name)
     response.delete_cookie(key=settings.csrf_cookie_name)
     return {"ok": True}
