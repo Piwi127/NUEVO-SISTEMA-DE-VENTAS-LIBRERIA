@@ -23,8 +23,10 @@ async def test_app():
     import app.db.session as db_session
     import app.core.deps as deps
     import app.main as main
-    import app.routers.sales as sales
+    import app.routers.pos.sales as sales
     from app.db import models as db_models  # noqa: F401
+    from app.core.security import get_password_hash
+    from app.models.user import User
 
     db_path = os.path.join(tempfile.gettempdir(), "bookstore_test.db")
     if os.path.exists(db_path):
@@ -33,6 +35,17 @@ async def test_app():
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", future=True)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+        session.add(
+            User(
+                username="admin",
+                password_hash=get_password_hash("admin123"),
+                role="admin",
+                is_active=True,
+            )
+        )
+        await session.commit()
 
     TestSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     db_session.AsyncSessionLocal = TestSessionLocal

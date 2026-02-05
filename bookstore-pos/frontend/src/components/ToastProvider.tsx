@@ -14,7 +14,17 @@ export const ToastProvider: React.FC<React.PropsWithChildren> = ({ children }) =
   const [toast, setToast] = useState<Toast>({ message: "" });
 
   const showToast = (t: Toast) => {
-    setToast(t);
+    const message =
+      typeof t.message === "string"
+        ? t.message
+        : (() => {
+            try {
+              return JSON.stringify(t.message);
+            } catch {
+              return String(t.message);
+            }
+          })();
+    setToast({ ...t, message });
     setOpen(true);
   };
 

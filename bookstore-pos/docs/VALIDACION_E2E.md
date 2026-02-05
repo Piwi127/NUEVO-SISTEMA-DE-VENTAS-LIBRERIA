@@ -5,6 +5,8 @@
 - Auth/Seguridad:
   - Login fallido incrementa intentos y bloqueo temporal.
   - 2FA: setup, confirm, login con OTP.
+  - CSRF: cookie + header obligatorio en POST/PUT/PATCH/DELETE.
+  - Revocación: logout invalida token antiguo.
 - Caja:
   - Abrir caja, movimiento, cerrar caja.
   - Verificar auditoria en eventos de caja.
@@ -19,6 +21,7 @@
 - Compras:
   - Crear OC, cerrar OC, verificar estado CLOSED.
   - Historial de compras y exportacion CSV.
+  - Verificar permisos `purchases.read` para listados/export.
 - Devoluciones:
   - Anular venta y recuperar stock.
 - Productos/Clientes/Proveedores:
@@ -38,3 +41,5 @@
 - Migraciones aplicadas: `alembic upgrade head`.
 - Compilacion python (sin errores):
   - `python -m compileall app`
+ - CSP y CORS:
+  - Respuesta incluye CSP con `connect-src` alineado a `CORS_ORIGINS`.

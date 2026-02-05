@@ -16,7 +16,7 @@ async def list_customers(
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Customer).order_by(Customer.id).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    stmt = select(Customer).order_by(Customer.id.desc()).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
     result = await db.execute(stmt)
     return result.scalars().all()
 

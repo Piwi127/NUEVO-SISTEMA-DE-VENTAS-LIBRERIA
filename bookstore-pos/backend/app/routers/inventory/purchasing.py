@@ -20,7 +20,7 @@ async def create_order(
     return await service.create_order(data)
 
 
-@router.get("/orders", response_model=list[PurchaseOrderOut], dependencies=[Depends(require_permission("purchases.create"))])
+@router.get("/orders", response_model=list[PurchaseOrderOut], dependencies=[Depends(require_permission("purchases.read"))])
 async def list_orders(status: str | None = None, db: AsyncSession = Depends(get_db)):
     stmt = select(PurchaseOrder)
     if status:
@@ -29,7 +29,7 @@ async def list_orders(status: str | None = None, db: AsyncSession = Depends(get_
     return result.scalars().all()
 
 
-@router.get("/orders/{order_id}/items", response_model=list[PurchaseOrderItemOut], dependencies=[Depends(require_permission("purchases.create"))])
+@router.get("/orders/{order_id}/items", response_model=list[PurchaseOrderItemOut], dependencies=[Depends(require_permission("purchases.read"))])
 async def list_order_items(order_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == order_id))
     return result.scalars().all()

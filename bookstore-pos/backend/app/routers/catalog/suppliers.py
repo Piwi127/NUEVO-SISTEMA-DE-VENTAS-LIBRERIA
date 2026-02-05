@@ -10,7 +10,7 @@ from app.services.catalog.suppliers_service import SuppliersService
 router = APIRouter(prefix="/suppliers", tags=["suppliers"], dependencies=[Depends(require_role("admin", "stock"))])
 
 
-@router.get("", response_model=list[SupplierOut], dependencies=[Depends(require_permission("suppliers.write"))])
+@router.get("", response_model=list[SupplierOut], dependencies=[Depends(require_permission("suppliers.read"))])
 async def list_suppliers(
     limit: int = 200,
     offset: int = 0,

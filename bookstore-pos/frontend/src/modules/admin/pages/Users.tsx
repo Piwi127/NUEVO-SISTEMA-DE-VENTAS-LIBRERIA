@@ -50,6 +50,21 @@ const Users: React.FC = () => {
     };
   });
 
+  const errorMessage = (err: any) => {
+    const detail = err?.response?.data?.detail;
+    if (Array.isArray(detail)) {
+      return detail.map((d) => d?.msg || d?.message || JSON.stringify(d)).join(", ");
+    }
+    if (detail && typeof detail === "object") {
+      try {
+        return JSON.stringify(detail);
+      } catch {
+        return "Error";
+      }
+    }
+    return detail || "Error";
+  };
+
   const handleSubmit = async () => {
     try {
       if (editingId) {
@@ -59,14 +74,18 @@ const Users: React.FC = () => {
         }
         showToast({ message: "Usuario actualizado", severity: "success" });
       } else {
-        await createUser({ username: form.username, password: form.password || "123456", role: form.role, is_active: form.is_active });
+        if (!form.password || !form.password.trim()) {
+          showToast({ message: "Password requerido (min 10, mayuscula, minuscula y numero).", severity: "warning" });
+          return;
+        }
+        await createUser({ username: form.username, password: form.password, role: form.role, is_active: form.is_active });
         showToast({ message: "Usuario creado", severity: "success" });
       }
       setForm(empty);
       setEditingId(null);
       qc.invalidateQueries({ queryKey: ["users"] });
     } catch (err: any) {
-      showToast({ message: err?.response?.data?.detail || "Error", severity: "error" });
+      showToast({ message: errorMessage(err), severity: "error" });
     }
   };
 
@@ -181,7 +200,7 @@ const Users: React.FC = () => {
             placeholder="******"
             value={form.password || ""}
             onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-            helperText={editingId ? "Dejar en blanco para no cambiar" : "Minimo 6 caracteres"}
+            helperText={editingId ? "Dejar en blanco para no cambiar" : "Min 10, mayuscula, minuscula y numero"}
           />
           <Button variant="contained" onClick={handleSubmit}>Guardar</Button>
         </Box>

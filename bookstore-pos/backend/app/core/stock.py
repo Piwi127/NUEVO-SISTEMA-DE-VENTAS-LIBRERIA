@@ -51,3 +51,14 @@ async def apply_stock_delta(
         raise ValueError("Stock insuficiente en almacen")
     level.qty = next_qty
     await sync_product_stock_from_levels(db, product_id)
+
+
+async def get_stock_level(db: AsyncSession, product_id: int, warehouse_id: int) -> int:
+    res = await db.execute(
+        select(StockLevel.qty).where(
+            StockLevel.product_id == product_id,
+            StockLevel.warehouse_id == warehouse_id,
+        )
+    )
+    qty = res.scalar_one_or_none()
+    return int(qty or 0)

@@ -6,12 +6,15 @@
 - [ ] 2FA requerido: sin OTP debe rechazar ("2FA_REQUIRED").
 - [ ] 2FA inválido incrementa intentos y bloquea tras umbral.
 - [ ] Logout limpia sesión y bloquea rutas protegidas.
+- [ ] CSRF: requests con cookie requieren header `x-csrf-token`.
+- [ ] Revocación: token antiguo deja de funcionar tras logout.
 
 ## 2) Permisos y Roles
 - [ ] Rol sin permisos explícitos recibe 403 en endpoints protegidos.
 - [ ] Admin accede a todo.
 - [ ] Cashier no accede a inventario/compra si no tiene permiso.
 - [ ] Stock no accede a ventas si no tiene permiso.
+- [ ] Lectura de compras requiere `purchases.read` (no `purchases.create`).
 
 ## 3) CORS
 - [ ] Frontend en `http://localhost:5173` funciona sin errores CORS.
@@ -23,6 +26,7 @@
 - [ ] Venta actualiza caja (cash current).
 - [ ] Imprimir ticket y descargar ESC/POS.
 - [ ] WebSocket display recibe actualizaciones del carrito.
+- [ ] Validación de stock usa StockLevel (almacén por defecto).
 
 ## 5) Compras
 - [ ] Crear OC con múltiples items.
@@ -60,11 +64,13 @@
 ## 11) Performance
 - [ ] Búsqueda de productos con debounce (no spam de requests).
 - [ ] `staleTime` reduce refetches innecesarios.
+ - [ ] Rate limit básico responde 429 cuando corresponde.
 
 ## 12) Validación final
 - [ ] No hay errores en consola del navegador.
 - [ ] No hay errores 500 en backend durante flujos normales.
 - [ ] CORS no bloquea en entorno esperado.
+- [ ] CSP en respuesta principal permite frontend + WS según `CORS_ORIGINS`.
 
 ---
 

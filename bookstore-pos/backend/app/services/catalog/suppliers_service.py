@@ -14,7 +14,12 @@ class SuppliersService:
     @asynccontextmanager
     async def _transaction(self):
         if self.db.in_transaction():
-            yield
+            try:
+                yield
+                await self.db.commit()
+            except Exception:
+                await self.db.rollback()
+                raise
         else:
             async with self.db.begin():
                 yield

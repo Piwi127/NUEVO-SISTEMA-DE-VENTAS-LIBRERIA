@@ -8,7 +8,7 @@ from app.services.pos.returns_service import ReturnsService
 router = APIRouter(prefix="/returns", tags=["returns"], dependencies=[Depends(require_role("admin", "cashier"))])
 
 
-@router.post("/{sale_id}", response_model=SaleReturnOut, status_code=201, dependencies=[Depends(require_permission("sales.create"))])
+@router.post("/{sale_id}", response_model=SaleReturnOut, status_code=201, dependencies=[Depends(require_permission("returns.create"))])
 async def return_sale(
     sale_id: int,
     data: SaleReturnCreate,

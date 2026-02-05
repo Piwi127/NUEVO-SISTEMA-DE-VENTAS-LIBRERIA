@@ -13,6 +13,7 @@ def default_permissions_for(role: str) -> list[str]:
         return [
             "sales.read",
             "sales.create",
+            "returns.create",
             "cash.open",
             "cash.close",
             "cash.movement",
@@ -26,7 +27,9 @@ def default_permissions_for(role: str) -> list[str]:
             "products.write",
             "inventory.write",
             "inventory.read",
+            "purchases.read",
             "purchases.create",
+            "suppliers.read",
             "suppliers.write",
         ]
     return []

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_current_user, require_role
+from app.core.deps import get_db, get_current_user, require_permission
 from app.schemas.settings import SystemSettingsOut, SystemSettingsUpdate
 from app.services.admin.settings_service import SettingsService
 
@@ -14,13 +14,13 @@ async def get_public_settings(db: AsyncSession = Depends(get_db)):
     return await service.get_settings_out()
 
 
-@router.get("", response_model=SystemSettingsOut, dependencies=[Depends(require_role("admin"))])
+@router.get("", response_model=SystemSettingsOut, dependencies=[Depends(require_permission("settings.read"))])
 async def get_settings(db: AsyncSession = Depends(get_db)):
     service = SettingsService(db)
     return await service.get_settings_out()
 
 
-@router.put("", response_model=SystemSettingsOut, dependencies=[Depends(require_role("admin"))])
+@router.put("", response_model=SystemSettingsOut, dependencies=[Depends(require_permission("settings.write"))])
 async def update_settings(
     data: SystemSettingsUpdate,
     db: AsyncSession = Depends(get_db),

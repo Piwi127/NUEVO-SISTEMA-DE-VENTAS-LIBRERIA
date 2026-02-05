@@ -12,7 +12,7 @@ from app.services.inventory.purchases_service import PurchasesService
 
 router = APIRouter(prefix="/purchases", tags=["purchases"], dependencies=[Depends(require_role("admin", "stock"))])
 
-@router.get("", response_model=list[PurchaseListOut], dependencies=[Depends(require_permission("purchases.create"))])
+@router.get("", response_model=list[PurchaseListOut], dependencies=[Depends(require_permission("purchases.read"))])
 async def list_purchases(
     from_date: str | None = None,
     to: str | None = None,
@@ -32,7 +32,7 @@ async def list_purchases(
     return result.scalars().all()
 
 
-@router.get("/export", dependencies=[Depends(require_permission("purchases.create"))])
+@router.get("/export", dependencies=[Depends(require_permission("purchases.read"))])
 async def export_purchases(
     from_date: str | None = None,
     to: str | None = None,

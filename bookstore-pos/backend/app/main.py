@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Bookstore POS API", lifespan=lifespan)
+logger = logging.getLogger("bookstore")
 
 def _validate_security_settings() -> None:
     env = settings.environment.lower()
@@ -61,6 +63,24 @@ def _validate_security_settings() -> None:
 _validate_security_settings()
 
 _rate_state: dict[str, tuple[int, float]] = {}
+
+def _build_csp() -> str:
+    origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    connect_src = {"'self'"}
+    for origin in origins:
+        connect_src.add(origin)
+        if origin.startswith("http://"):
+            connect_src.add(origin.replace("http://", "ws://", 1))
+        if origin.startswith("https://"):
+            connect_src.add(origin.replace("https://", "wss://", 1))
+    connect_src_value = " ".join(sorted(connect_src))
+    return (
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        f"connect-src {connect_src_value}"
+    )
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -99,7 +119,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "same-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5173 http://127.0.0.1:5173"
+        response.headers["Content-Security-Policy"] = _build_csp()
+        if settings.environment.lower() in {"prod", "production"} and settings.cookie_secure:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
 
@@ -161,6 +183,11 @@ app.include_router(promotions_router.router)
 app.include_router(returns_router.router)
 app.include_router(purchasing_router.router)
 app.include_router(printing_router.router)
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error", exc_info=exc)
+    return Response(content="Internal server error", status_code=500)
 
 
 @app.get("/")

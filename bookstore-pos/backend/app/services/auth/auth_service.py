@@ -26,6 +26,13 @@ class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    def _verify_totp(self, secret: str, code: str) -> bool:
+        if not code:
+            return False
+        normalized = code.strip().replace(" ", "")
+        totp = pyotp.TOTP(secret)
+        return bool(totp.verify(normalized, valid_window=1))
+
     async def login(self, data, ip: str | None = None, user_agent: str | None = None):
         result = await self.db.execute(select(User).where(User.username == data.username))
         user = result.scalar_one_or_none()
@@ -52,8 +59,7 @@ class AuthService:
             if not data.otp:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="2FA_REQUIRED")
             secret = decrypt_2fa_secret(user.twofa_secret)
-            totp = pyotp.TOTP(secret)
-            if not totp.verify(data.otp):
+            if not self._verify_totp(secret, data.otp or ""):
                 user.failed_attempts += 1
                 locked = False
                 if user.failed_attempts >= LOCK_THRESHOLD:
@@ -95,8 +101,7 @@ class AuthService:
         if not current_user.twofa_secret:
             raise HTTPException(status_code=400, detail="2FA no configurado")
         secret = decrypt_2fa_secret(current_user.twofa_secret)
-        totp = pyotp.TOTP(secret)
-        if not totp.verify(code):
+        if not self._verify_totp(secret, code):
             raise HTTPException(status_code=400, detail="Codigo invalido")
         current_user.twofa_enabled = True
         await self.db.commit()

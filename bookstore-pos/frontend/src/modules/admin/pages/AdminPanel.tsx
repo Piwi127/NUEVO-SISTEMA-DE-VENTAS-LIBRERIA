@@ -37,22 +37,72 @@ import { listAuditLogs } from "../api";
 import { setup2fa, confirm2fa } from "../../auth/api";
 import { listWarehouses } from "../../inventory/api";
 import { useToast } from "../../../components/ToastProvider";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../auth/AuthProvider";
+import * as QRCode from "qrcode";
 
-const PERMISSIONS = [
-  "sales.read",
-  "sales.create",
-  "cash.open",
-  "cash.close",
-  "cash.movement",
-  "customers.read",
-  "customers.write",
-  "products.read",
-  "products.write",
-  "inventory.read",
-  "inventory.write",
-  "purchases.create",
-  "suppliers.write",
-  "reports.read",
+const PERMISSION_GROUPS: {
+  title: string;
+  items: { key: string; label: string; description: string }[];
+}[] = [
+  {
+    title: "Ventas / POS",
+    items: [
+      { key: "sales.read", label: "Ver ventas", description: "Acceso a historial y detalle de ventas." },
+      { key: "sales.create", label: "Registrar ventas", description: "Permite crear ventas y cobrar." },
+      { key: "returns.create", label: "Devoluciones", description: "Permite anular/retornar ventas." },
+    ],
+  },
+  {
+    title: "Caja",
+    items: [
+      { key: "cash.open", label: "Abrir caja", description: "Permite abrir caja y ver estado actual." },
+      { key: "cash.close", label: "Cerrar caja", description: "Permite cierre y arqueo de caja." },
+      { key: "cash.movement", label: "Movimientos", description: "Permite ingresos/egresos manuales." },
+    ],
+  },
+  {
+    title: "Clientes / Productos",
+    items: [
+      { key: "customers.read", label: "Ver clientes", description: "Acceso al listado de clientes." },
+      { key: "customers.write", label: "Editar clientes", description: "Crear/editar/eliminar clientes." },
+      { key: "products.read", label: "Ver productos", description: "Acceso al catálogo de productos." },
+      { key: "products.write", label: "Editar productos", description: "Crear/editar/eliminar productos." },
+    ],
+  },
+  {
+    title: "Inventario / Compras",
+    items: [
+      { key: "inventory.read", label: "Ver inventario", description: "Acceso a stock y kardex." },
+      { key: "inventory.write", label: "Operar inventario", description: "Movimientos, ajustes y conteos." },
+      { key: "purchases.read", label: "Ver compras", description: "Acceso a OC e historial de compras." },
+      { key: "purchases.create", label: "Registrar compras", description: "Crear OC, recepciones y pagos." },
+    ],
+  },
+  {
+    title: "Proveedores",
+    items: [
+      { key: "suppliers.read", label: "Ver proveedores", description: "Acceso al listado de proveedores." },
+      { key: "suppliers.write", label: "Editar proveedores", description: "Crear/editar/eliminar proveedores." },
+    ],
+  },
+  {
+    title: "Reportes",
+    items: [{ key: "reports.read", label: "Ver reportes", description: "Acceso a reportes y exportaciones." }],
+  },
+  {
+    title: "Administración",
+    items: [
+      { key: "settings.read", label: "Ver configuración", description: "Acceso a parámetros del sistema." },
+      { key: "settings.write", label: "Editar configuración", description: "Modificar parámetros y ajustes." },
+      { key: "users.read", label: "Ver usuarios", description: "Acceso al listado de usuarios." },
+      { key: "users.write", label: "Administrar usuarios", description: "Crear, editar, bloquear y resetear." },
+      { key: "permissions.read", label: "Ver permisos", description: "Consultar permisos por rol." },
+      { key: "permissions.write", label: "Editar permisos", description: "Modificar permisos por rol." },
+      { key: "audit.read", label: "Ver auditoría", description: "Acceso a logs de auditoría." },
+      { key: "admin.backup", label: "Backup", description: "Descargar respaldo de la base." },
+    ],
+  },
 ];
 
 const AdminPanel: React.FC = () => {
@@ -109,6 +159,8 @@ const AdminPanel: React.FC = () => {
   const [rolePerms, setRolePerms] = useState<string[]>([]);
   const [audit, setAudit] = useState<any[]>([]);
   const [otpSecret, setOtpSecret] = useState("");
+  const [otpUri, setOtpUri] = useState("");
+  const [otpQr, setOtpQr] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [tab, setTab] = useState(0);
   const [settingsLoading, setSettingsLoading] = useState(true);
@@ -118,6 +170,8 @@ const AdminPanel: React.FC = () => {
   const [auditError, setAuditError] = useState(false);
 
   const { showToast } = useToast();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses, staleTime: 60_000 });
 
   React.useEffect(() => {
@@ -257,15 +311,46 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleSetup2fa = async () => {
-    const res = await setup2fa();
-    setOtpSecret(res.secret);
-    showToast({ message: "Escanee el QR o use el secreto", severity: "info" });
+    try {
+      const res = await setup2fa();
+      setOtpSecret(res.secret);
+      setOtpUri(res.otpauth);
+      try {
+        const qr = await QRCode.toDataURL(res.otpauth);
+        setOtpQr(qr);
+      } catch {
+        setOtpQr("");
+      }
+      showToast({ message: "Escanee el QR o use el secreto", severity: "info" });
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        showToast({ message: "Sesion invalida. Inicia sesion nuevamente.", severity: "error" });
+        logout();
+        navigate("/login");
+        return;
+      }
+      showToast({ message: err?.response?.data?.detail || "Error al generar secreto 2FA", severity: "error" });
+    }
   };
 
   const handleConfirm2fa = async () => {
-    await confirm2fa(otpCode);
-    showToast({ message: "2FA activado", severity: "success" });
-    setOtpCode("");
+    if (!otpCode.trim()) {
+      showToast({ message: "Ingrese el codigo OTP", severity: "warning" });
+      return;
+    }
+    try {
+      await confirm2fa(otpCode);
+      showToast({ message: "2FA activado", severity: "success" });
+      setOtpCode("");
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        showToast({ message: "Sesion invalida. Inicia sesion nuevamente.", severity: "error" });
+        logout();
+        navigate("/login");
+        return;
+      }
+      showToast({ message: err?.response?.data?.detail || "Error al activar 2FA", severity: "error" });
+    }
   };
 
   return (
@@ -420,6 +505,20 @@ const AdminPanel: React.FC = () => {
               <Button variant="outlined" onClick={handleSetup2fa}>Generar secreto</Button>
               {otpSecret && <Chip label={`Secreto: ${otpSecret}`} size="small" />}
             </Stack>
+            {otpUri ? (
+              <TextField
+                fullWidth
+                label="URI (otpauth)"
+                value={otpUri}
+                InputProps={{ readOnly: true }}
+                sx={{ mt: 2 }}
+              />
+            ) : null}
+            {otpQr ? (
+              <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+                <Box component="img" src={otpQr} alt="QR 2FA" sx={{ width: 180, height: 180, borderRadius: 1 }} />
+              </Box>
+            ) : null}
             <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mt: 2 }}>
               <TextField label="Codigo" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
               <Button variant="contained" onClick={handleConfirm2fa}>Activar 2FA</Button>
@@ -440,10 +539,27 @@ const AdminPanel: React.FC = () => {
               </TextField>
               <Button variant="contained" onClick={handleSavePerms}>Guardar permisos</Button>
             </Stack>
-            <Grid container spacing={1}>
-              {PERMISSIONS.map((p) => (
-                <Grid item xs={12} md={4} key={p}>
-                  <FormControlLabel control={<Checkbox checked={rolePerms.includes(p)} onChange={() => togglePerm(p)} />} label={p} />
+            <Grid container spacing={2}>
+              {PERMISSION_GROUPS.map((group) => (
+                <Grid item xs={12} md={6} key={group.title}>
+                  <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: "text.secondary" }}>
+                      {group.title}
+                    </Typography>
+                    <Grid container spacing={1}>
+                      {group.items.map((p) => (
+                        <Grid item xs={12} sm={6} key={p.key}>
+                          <FormControlLabel
+                            control={<Checkbox checked={rolePerms.includes(p.key)} onChange={() => togglePerm(p.key)} />}
+                            label={p.label}
+                          />
+                          <Typography variant="caption" sx={{ display: "block", ml: 4, color: "text.secondary" }}>
+                            {p.description}
+                          </Typography>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Paper>
                 </Grid>
               ))}
             </Grid>

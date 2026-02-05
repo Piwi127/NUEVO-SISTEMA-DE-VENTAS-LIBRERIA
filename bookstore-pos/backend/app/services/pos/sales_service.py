@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
-from app.core.stock import apply_stock_delta, require_default_warehouse_id
+from app.core.stock import apply_stock_delta, get_stock_level, require_default_warehouse_id
 from app.models.cash import CashSession
 from app.models.customer import Customer
 from app.models.inventory import StockMovement
@@ -24,7 +24,12 @@ class SalesService:
     @asynccontextmanager
     async def _transaction(self):
         if self.db.in_transaction():
-            yield
+            try:
+                yield
+                await self.db.commit()
+            except Exception:
+                await self.db.rollback()
+                raise
         else:
             async with self.db.begin():
                 yield
@@ -80,7 +85,8 @@ class SalesService:
                 product = prod_result.scalar_one_or_none()
                 if not product:
                     raise HTTPException(status_code=404, detail=f"Producto {item.product_id} no encontrado")
-                if product.stock < item.qty:
+                available = await get_stock_level(self.db, product.id, default_warehouse_id)
+                if available < item.qty:
                     raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Stock insuficiente")
                 price = product.price
                 if price_list_id:
