@@ -1,5 +1,8 @@
 import pytest
 
+from app.core.config import settings
+from app.core.rate_limit import rate_limiter
+
 
 async def _login_admin(client):
     resp = await client.post("/auth/login", json={"username": "admin", "password": "admin123"})
@@ -78,3 +81,44 @@ async def test_audit_log_contains_entries(client):
     resp = await client.get("/audit", headers=headers)
     assert resp.status_code == 200
     assert len(resp.json()) >= 1
+
+
+@pytest.mark.asyncio
+async def test_csrf_rejects_cookie_auth_without_header(client):
+    resp = await client.post("/auth/login", json={"username": "admin", "password": "admin123"})
+    assert resp.status_code == 200
+
+    payload = {
+        "sku": "BK-CSRF-001",
+        "name": "Libro CSRF",
+        "category": "Seguridad",
+        "price": 10.0,
+        "cost": 5.0,
+        "stock": 1,
+        "stock_min": 0,
+    }
+    blocked = await client.post("/products", json=payload)
+    assert blocked.status_code == 403
+    assert "CSRF" in blocked.text
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_returns_429(client):
+    old_limit = settings.rate_limit_per_minute
+    old_window = settings.rate_limit_window_seconds
+    try:
+        settings.rate_limit_per_minute = 2
+        settings.rate_limit_window_seconds = 60
+        await rate_limiter.reset_for_tests()
+
+        r1 = await client.get("/health")
+        r2 = await client.get("/health")
+        r3 = await client.get("/health")
+
+        assert r1.status_code == 200
+        assert r2.status_code == 200
+        assert r3.status_code == 429
+    finally:
+        settings.rate_limit_per_minute = old_limit
+        settings.rate_limit_window_seconds = old_window
+        await rate_limiter.reset_for_tests()

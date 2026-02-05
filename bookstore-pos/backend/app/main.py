@@ -4,9 +4,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-from time import time
 
 from app.core.config import settings
+from app.core.rate_limit import rate_limiter
 from app.core.security import decode_token
 from app.routers.auth import router as auth_router
 from app.routers.admin import admin as admin_router
@@ -37,7 +37,10 @@ from app.db.session import AsyncSessionLocal
 async def lifespan(app: FastAPI):
     async with AsyncSessionLocal() as session:
         await seed_admin(session)
-    yield
+    try:
+        yield
+    finally:
+        await rate_limiter.close()
 
 
 app = FastAPI(title="Bookstore POS API", lifespan=lifespan)
@@ -61,8 +64,6 @@ def _validate_security_settings() -> None:
 
 
 _validate_security_settings()
-
-_rate_state: dict[str, tuple[int, float]] = {}
 
 def _build_csp() -> str:
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
@@ -101,13 +102,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     key = f"user:{sub}"
             except Exception:
                 pass
-        now = time()
-        count, start = _rate_state.get(key, (0, now))
-        if now - start >= 60:
-            count, start = 0, now
-        count += 1
-        _rate_state[key] = (count, start)
-        if settings.rate_limit_per_minute > 0 and count > settings.rate_limit_per_minute:
+        limited = await rate_limiter.is_limited(
+            key=key,
+            limit=settings.rate_limit_per_minute,
+            window_seconds=settings.rate_limit_window_seconds,
+        )
+        if limited:
             return Response(content="Rate limit exceeded", status_code=429)
         return await call_next(request)
 

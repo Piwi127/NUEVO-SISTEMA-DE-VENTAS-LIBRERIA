@@ -18,6 +18,8 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
+Opcional: para rate limiting distribuido entre multiples instancias, configurar `REDIS_URL`.
+
 3) Ejecutar migraciones:
 
 ```powershell

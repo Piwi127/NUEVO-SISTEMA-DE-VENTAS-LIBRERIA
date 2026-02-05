@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     csrf_header_name: str = "x-csrf-token"
     cookie_secure: bool = False
     rate_limit_per_minute: int = 120
+    rate_limit_window_seconds: int = 60
+    redis_url: str = ""
     password_min_length: int = 10
     password_require_upper: bool = True
     password_require_lower: bool = True
