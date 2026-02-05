@@ -5,6 +5,7 @@ type SettingsState = {
   projectName: string;
   taxRate: number;
   taxIncluded: boolean;
+  compactMode: boolean;
   storeAddress: string;
   storePhone: string;
   storeTaxId: string;
@@ -15,6 +16,7 @@ type SettingsState = {
   receiptHeader: string;
   receiptFooter: string;
   paperWidthMm: number;
+  defaultWarehouseId: number | null;
 };
 
 type Listener = () => void;
@@ -26,6 +28,7 @@ const state: SettingsState = {
   projectName: "Bookstore POS",
   taxRate: 0,
   taxIncluded: false,
+  compactMode: false,
   storeAddress: "",
   storePhone: "",
   storeTaxId: "",
@@ -36,6 +39,7 @@ const state: SettingsState = {
   receiptHeader: "",
   receiptFooter: "Gracias por su compra",
   paperWidthMm: 80,
+  defaultWarehouseId: null,
 };
 
 const listeners = new Set<Listener>();
@@ -56,6 +60,7 @@ const load = () => {
     if (parsed.projectName) state.projectName = parsed.projectName;
     if (typeof parsed.taxRate === "number") state.taxRate = parsed.taxRate;
     if (typeof parsed.taxIncluded === "boolean") state.taxIncluded = parsed.taxIncluded;
+    if (typeof parsed.compactMode === "boolean") state.compactMode = parsed.compactMode;
     if (typeof parsed.storeAddress === "string") state.storeAddress = parsed.storeAddress;
     if (typeof parsed.storePhone === "string") state.storePhone = parsed.storePhone;
     if (typeof parsed.storeTaxId === "string") state.storeTaxId = parsed.storeTaxId;
@@ -66,6 +71,7 @@ const load = () => {
     if (typeof parsed.receiptHeader === "string") state.receiptHeader = parsed.receiptHeader;
     if (typeof parsed.receiptFooter === "string") state.receiptFooter = parsed.receiptFooter;
     if (typeof parsed.paperWidthMm === "number") state.paperWidthMm = parsed.paperWidthMm;
+    if (typeof parsed.defaultWarehouseId === "number") state.defaultWarehouseId = parsed.defaultWarehouseId;
   } catch {
     // ignore
   }
@@ -97,6 +103,11 @@ export const settingsStore = {
   },
   setTaxIncluded: (taxIncluded: boolean) => {
     state.taxIncluded = taxIncluded;
+    persist();
+    emit();
+  },
+  setCompactMode: (compactMode: boolean) => {
+    state.compactMode = compactMode;
     persist();
     emit();
   },
@@ -147,6 +158,11 @@ export const settingsStore = {
   },
   setPaperWidthMm: (paperWidthMm: number) => {
     state.paperWidthMm = paperWidthMm;
+    persist();
+    emit();
+  },
+  setDefaultWarehouseId: (defaultWarehouseId: number | null) => {
+    state.defaultWarehouseId = defaultWarehouseId;
     persist();
     emit();
   },

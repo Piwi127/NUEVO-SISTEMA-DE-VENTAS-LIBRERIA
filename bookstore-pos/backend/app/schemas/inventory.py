@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 class InventoryMovementCreate(BaseModel):
     product_id: int
-    type: str  # IN / ADJ
+    type: str  # IN / OUT / ADJ
     qty: int
     ref: str
 

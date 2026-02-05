@@ -9,6 +9,8 @@ class AuditLogOut(BaseModel):
     entity: str
     entity_id: str
     details: str
+    ip: str | None = None
+    user_agent: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

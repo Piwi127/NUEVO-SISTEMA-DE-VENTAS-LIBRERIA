@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from app.core.security import validate_password
 
 
 class UserBase(BaseModel):
@@ -12,6 +14,12 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+    @field_validator("password")
+    @classmethod
+    def validate_password_field(cls, value: str) -> str:
+        validate_password(value)
+        return value
+
 
 class UserUpdate(BaseModel):
     username: str
@@ -21,6 +29,12 @@ class UserUpdate(BaseModel):
 
 class PasswordUpdate(BaseModel):
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_field(cls, value: str) -> str:
+        validate_password(value)
+        return value
 
 
 class StatusUpdate(BaseModel):

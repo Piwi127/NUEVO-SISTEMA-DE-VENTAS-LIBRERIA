@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import DateTime, Float, Integer, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,4 +13,4 @@ class Promotion(Base):
     type: Mapped[str] = mapped_column(String(20), default="PERCENT")
     value: Mapped[float] = mapped_column(Float, default=0.0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

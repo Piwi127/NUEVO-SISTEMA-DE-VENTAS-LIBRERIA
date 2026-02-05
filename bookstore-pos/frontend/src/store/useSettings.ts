@@ -9,6 +9,7 @@ export const useSettings = () => {
     setProjectName: settingsStore.setProjectName,
     setTaxRate: settingsStore.setTaxRate,
     setTaxIncluded: settingsStore.setTaxIncluded,
+    setCompactMode: settingsStore.setCompactMode,
     setStoreAddress: settingsStore.setStoreAddress,
     setStorePhone: settingsStore.setStorePhone,
     setStoreTaxId: settingsStore.setStoreTaxId,
@@ -19,11 +20,13 @@ export const useSettings = () => {
     setReceiptHeader: settingsStore.setReceiptHeader,
     setReceiptFooter: settingsStore.setReceiptFooter,
     setPaperWidthMm: settingsStore.setPaperWidthMm,
+    setDefaultWarehouseId: settingsStore.setDefaultWarehouseId,
   } as {
     currency: Currency;
     projectName: string;
     taxRate: number;
     taxIncluded: boolean;
+    compactMode: boolean;
     storeAddress: string;
     storePhone: string;
     storeTaxId: string;
@@ -34,10 +37,12 @@ export const useSettings = () => {
     receiptHeader: string;
     receiptFooter: string;
     paperWidthMm: number;
+    defaultWarehouseId: number | null;
     setCurrency: (c: Currency) => void;
     setProjectName: (n: string) => void;
     setTaxRate: (n: number) => void;
     setTaxIncluded: (n: boolean) => void;
+    setCompactMode: (n: boolean) => void;
     setStoreAddress: (n: string) => void;
     setStorePhone: (n: string) => void;
     setStoreTaxId: (n: string) => void;
@@ -48,5 +53,6 @@ export const useSettings = () => {
     setReceiptHeader: (n: string) => void;
     setReceiptFooter: (n: string) => void;
     setPaperWidthMm: (n: number) => void;
+    setDefaultWarehouseId: (n: number | null) => void;
   };
 };

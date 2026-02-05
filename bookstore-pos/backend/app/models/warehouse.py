@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,7 +31,7 @@ class StockBatch(Base):
     lot: Mapped[str] = mapped_column(String(50))
     expiry_date: Mapped[str] = mapped_column(String(20), default="")
     qty: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class StockTransfer(Base):
@@ -41,7 +41,7 @@ class StockTransfer(Base):
     from_warehouse_id: Mapped[int] = mapped_column(ForeignKey("warehouses.id"))
     to_warehouse_id: Mapped[int] = mapped_column(ForeignKey("warehouses.id"))
     status: Mapped[str] = mapped_column(String(20), default="DONE")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class StockTransferItem(Base):
@@ -60,4 +60,4 @@ class InventoryCount(Base):
     warehouse_id: Mapped[int] = mapped_column(ForeignKey("warehouses.id"))
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
     counted_qty: Mapped[int] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
