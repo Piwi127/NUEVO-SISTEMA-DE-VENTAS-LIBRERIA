@@ -46,8 +46,8 @@ logger = logging.getLogger("bookstore")
 def _validate_security_settings() -> None:
     env = settings.environment.lower()
     is_prod = env in {"prod", "production"}
-    if is_prod and settings.jwt_secret == "change_me_super_secret":
-        raise RuntimeError("JWT_SECRET debe configurarse en producción")
+    if not settings.jwt_secret or settings.jwt_secret == "change_me_super_secret":
+        raise RuntimeError("JWT_SECRET debe configurarse y no usar valores por defecto")
     if is_prod and not settings.cookie_secure:
         raise RuntimeError("COOKIE_SECURE debe ser true en producción")
     if is_prod and not settings.twofa_encryption_key:
@@ -203,3 +203,4 @@ async def health():
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+

@@ -30,9 +30,14 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-## Credenciales iniciales
-- usuario: `admin`
-- password: `admin123`
+## Usuario administrador inicial
+El sistema no crea un usuario admin automaticamente al iniciar.
+
+Para crear o actualizar el admin, usar:
+
+```powershell
+python ..\scripts\create_admin.py --username admin --password "TU_PASSWORD_SEGURA"
+```
 
 ## Endpoints utiles
 - Swagger: http://localhost:8000/docs

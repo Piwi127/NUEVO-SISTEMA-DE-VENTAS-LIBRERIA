@@ -3,7 +3,7 @@ from pydantic import ConfigDict
 
 
 class Settings(BaseSettings):
-    jwt_secret: str = "change_me_super_secret"
+    jwt_secret: str = "dev_local_secret_change_this"
     database_url: str = "sqlite+aiosqlite:///./bookstore.db"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     access_token_expire_minutes: int = 480
