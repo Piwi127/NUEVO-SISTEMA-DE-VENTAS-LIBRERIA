@@ -1,16 +1,30 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { Box } from "@mui/material";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { AppLayout } from "../components/AppLayout";
+import { LoadingState } from "../components/LoadingState";
 import { appRoutes } from "../modules/registry";
 
 const App: React.FC = () => {
+  const withSuspense = (node: React.ReactNode) => (
+    <React.Suspense
+      fallback={
+        <Box sx={{ p: 2 }}>
+          <LoadingState title="Cargando modulo..." rows={6} />
+        </Box>
+      }
+    >
+      {node}
+    </React.Suspense>
+  );
+
   return (
     <Routes>
       {appRoutes
         .filter((r) => r.public)
         .map((r) => (
-          <Route key={r.path} path={r.path} element={<r.component />} />
+          <Route key={r.path} path={r.path} element={withSuspense(<r.component />)} />
         ))}
       <Route
         path="/"
@@ -32,10 +46,10 @@ const App: React.FC = () => {
               <ProtectedRoute roles={r.roles}>
                 {r.layout ? (
                   <AppLayout>
-                    <r.component />
+                    {withSuspense(<r.component />)}
                   </AppLayout>
                 ) : (
-                  <r.component />
+                  withSuspense(<r.component />)
                 )}
               </ProtectedRoute>
             }

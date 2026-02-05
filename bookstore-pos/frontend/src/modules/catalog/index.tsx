@@ -1,16 +1,18 @@
 import React from "react";
+import { lazy } from "react";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import CategoryIcon from "@mui/icons-material/Category";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import PriceChangeIcon from "@mui/icons-material/PriceChange";
 import CampaignIcon from "@mui/icons-material/Campaign";
 
-import Products from "./pages/Products";
-import Customers from "./pages/Customers";
-import Suppliers from "./pages/Suppliers";
-import Promotions from "./pages/Promotions";
-import PriceLists from "./pages/PriceLists";
 import type { AppRoute, MenuSection } from "../shared/registryTypes";
+
+const Products = lazy(() => import("./pages/Products"));
+const Customers = lazy(() => import("./pages/Customers"));
+const Suppliers = lazy(() => import("./pages/Suppliers"));
+const Promotions = lazy(() => import("./pages/Promotions"));
+const PriceLists = lazy(() => import("./pages/PriceLists"));
 
 export const catalogRoutes: AppRoute[] = [
   { path: "/customers", component: Customers, roles: ["admin", "cashier"], layout: true },

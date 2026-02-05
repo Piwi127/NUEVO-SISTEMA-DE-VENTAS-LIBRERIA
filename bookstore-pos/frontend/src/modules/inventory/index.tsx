@@ -1,10 +1,12 @@
 import React from "react";
+import { lazy } from "react";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 
-import Inventory from "./pages/Inventory";
-import Purchases from "./pages/Purchases";
 import type { AppRoute, MenuSection } from "../shared/registryTypes";
+
+const Inventory = lazy(() => import("./pages/Inventory"));
+const Purchases = lazy(() => import("./pages/Purchases"));
 
 export const inventoryRoutes: AppRoute[] = [
   { path: "/inventory", component: Inventory, roles: ["admin", "stock"], layout: true },

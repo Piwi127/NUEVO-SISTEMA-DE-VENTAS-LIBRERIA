@@ -1,15 +1,17 @@
 import React from "react";
+import { lazy } from "react";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ReplayIcon from "@mui/icons-material/Replay";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 
-import POS from "./pages/POS";
-import Display from "./pages/Display";
-import Cash from "./pages/Cash";
-import Returns from "./pages/Returns";
-import SalesHistory from "./pages/SalesHistory";
 import type { AppRoute, MenuSection } from "../shared/registryTypes";
+
+const POS = lazy(() => import("./pages/POS"));
+const Display = lazy(() => import("./pages/Display"));
+const Cash = lazy(() => import("./pages/Cash"));
+const Returns = lazy(() => import("./pages/Returns"));
+const SalesHistory = lazy(() => import("./pages/SalesHistory"));
 
 export const posRoutes: AppRoute[] = [
   { path: "/display/:sessionId", component: Display, public: true },

@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     auth_cookie_name: str = "access_token"
     csrf_cookie_name: str = "csrf_token"
     csrf_header_name: str = "x-csrf-token"
+    request_id_header_name: str = "x-request-id"
+    cookie_samesite: str = "lax"
+    cookie_domain: str = ""
     cookie_secure: bool = False
     rate_limit_per_minute: int = 120
     rate_limit_window_seconds: int = 60
@@ -21,6 +24,7 @@ class Settings(BaseSettings):
     password_require_digit: bool = True
     twofa_encryption_key: str = ""
     health_allow_local_only: bool = True
+    metrics_allow_local_only: bool = True
 
     model_config = ConfigDict(env_file=".env")
 

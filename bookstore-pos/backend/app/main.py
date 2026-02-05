@@ -1,11 +1,19 @@
 from contextlib import asynccontextmanager
 import logging
+from time import perf_counter
+from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from app.core.config import settings
+from app.core.metrics import (
+    CONTENT_TYPE_LATEST,
+    http_request_duration_seconds,
+    http_requests_total,
+    render_metrics,
+)
 from app.core.rate_limit import rate_limiter
 from app.core.security import decode_token
 from app.routers.auth import router as auth_router
@@ -52,16 +60,20 @@ def _validate_security_settings() -> None:
     if not settings.jwt_secret or settings.jwt_secret == "change_me_super_secret":
         raise RuntimeError("JWT_SECRET debe configurarse y no usar valores por defecto")
     if is_prod and not settings.cookie_secure:
-        raise RuntimeError("COOKIE_SECURE debe ser true en producción")
+        raise RuntimeError("COOKIE_SECURE debe ser true en produccion")
+    samesite = settings.cookie_samesite.lower()
+    if samesite not in {"lax", "strict", "none"}:
+        raise RuntimeError("COOKIE_SAMESITE debe ser lax, strict o none")
+    if is_prod and samesite == "none" and not settings.cookie_secure:
+        raise RuntimeError("COOKIE_SAMESITE=none requiere COOKIE_SECURE=true")
     if is_prod and not settings.twofa_encryption_key:
-        raise RuntimeError("2FA_ENCRYPTION_KEY debe configurarse en producción")
+        raise RuntimeError("2FA_ENCRYPTION_KEY debe configurarse en produccion")
     if is_prod:
         origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
         if not origins:
-            raise RuntimeError("CORS_ORIGINS debe definirse en producción")
+            raise RuntimeError("CORS_ORIGINS debe definirse en produccion")
         if any("localhost" in o or "127.0.0.1" in o for o in origins):
-            raise RuntimeError("CORS_ORIGINS no debe incluir localhost en producción")
-
+            raise RuntimeError("CORS_ORIGINS no debe incluir localhost en produccion")
 
 _validate_security_settings()
 
@@ -77,12 +89,15 @@ def _build_csp() -> str:
     connect_src_value = " ".join(sorted(connect_src))
     return (
         "default-src 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
         "img-src 'self' data:; "
         "style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
         f"connect-src {connect_src_value}"
     )
-
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -112,6 +127,35 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class RequestContextMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        header_name = settings.request_id_header_name
+        incoming_id = request.headers.get(header_name)
+        request_id = incoming_id.strip() if incoming_id else uuid4().hex
+        request.state.request_id = request_id
+        route_path = request.url.path
+        start = perf_counter()
+        response = await call_next(request)
+        route = request.scope.get("route")
+        if route is not None and hasattr(route, "path"):
+            route_path = getattr(route, "path") or route_path
+        elapsed_seconds = perf_counter() - start
+        elapsed_ms = elapsed_seconds * 1000
+        status = str(response.status_code)
+        http_requests_total.labels(request.method, route_path, status).inc()
+        http_request_duration_seconds.labels(request.method, route_path).observe(elapsed_seconds)
+        response.headers[header_name] = request_id
+        logger.info(
+            "request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
+            request_id,
+            request.method,
+            route_path,
+            status,
+            elapsed_ms,
+        )
+        return response
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -119,6 +163,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "same-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
         response.headers["Content-Security-Policy"] = _build_csp()
         if settings.environment.lower() in {"prod", "production"} and settings.cookie_secure:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -130,6 +176,12 @@ class HealthGuardMiddleware(BaseHTTPMiddleware):
         if request.url.path in {"/health", "/healthz"}:
             env = settings.environment.lower()
             if env in {"prod", "production"} and settings.health_allow_local_only:
+                ip = request.client.host if request.client else ""
+                if ip not in {"127.0.0.1", "::1", "localhost"}:
+                    return Response(status_code=404)
+        if request.url.path == "/metrics":
+            env = settings.environment.lower()
+            if env in {"prod", "production"} and settings.metrics_allow_local_only:
                 ip = request.client.host if request.client else ""
                 if ip not in {"127.0.0.1", "::1", "localhost"}:
                     return Response(status_code=404)
@@ -153,13 +205,14 @@ origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(CsrfMiddleware)
 app.add_middleware(HealthGuardMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RequestContextMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID"],
 )
 
 app.include_router(auth_router)
@@ -186,7 +239,8 @@ app.include_router(printing_router.router)
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.exception("Unhandled error", exc_info=exc)
+    request_id = getattr(request.state, "request_id", "-")
+    logger.exception("Unhandled error request_id=%s", request_id, exc_info=exc)
     return Response(content="Internal server error", status_code=500)
 
 
@@ -203,4 +257,9 @@ async def health():
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+@app.get("/metrics")
+async def metrics():
+    return Response(content=render_metrics(), media_type=CONTENT_TYPE_LATEST)
+
 

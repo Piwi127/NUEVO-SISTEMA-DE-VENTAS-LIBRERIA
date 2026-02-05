@@ -1,10 +1,12 @@
 import React from "react";
+import { lazy } from "react";
 import GroupIcon from "@mui/icons-material/Group";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 
-import Users from "./pages/Users";
-import AdminPanel from "./pages/AdminPanel";
 import type { AppRoute, MenuSection } from "../shared/registryTypes";
+
+const Users = lazy(() => import("./pages/Users"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 
 export const adminRoutes: AppRoute[] = [
   { path: "/users", component: Users, roles: ["admin"], layout: true },

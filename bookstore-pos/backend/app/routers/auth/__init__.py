@@ -23,7 +23,8 @@ async def login(data: LoginRequest, request: Request, response: Response, db: As
         value=data_out["access_token"],
         httponly=True,
         secure=settings.cookie_secure,
-        samesite="lax",
+        samesite=settings.cookie_samesite,
+        domain=settings.cookie_domain or None,
         max_age=settings.access_token_expire_minutes * 60,
     )
     response.set_cookie(
@@ -31,7 +32,8 @@ async def login(data: LoginRequest, request: Request, response: Response, db: As
         value=csrf_token,
         httponly=False,
         secure=settings.cookie_secure,
-        samesite="lax",
+        samesite=settings.cookie_samesite,
+        domain=settings.cookie_domain or None,
         max_age=settings.access_token_expire_minutes * 60,
     )
     return TokenResponse(role=data_out["role"], username=data_out["username"], csrf_token=csrf_token)
@@ -55,8 +57,18 @@ async def logout(response: Response, request: Request, db: AsyncSession = Depend
         ip = request.client.host if request.client else None
         user_agent = request.headers.get("user-agent")
         await service.revoke_token(token, ip=ip, user_agent=user_agent)
-    response.delete_cookie(key=settings.auth_cookie_name)
-    response.delete_cookie(key=settings.csrf_cookie_name)
+    response.delete_cookie(
+        key=settings.auth_cookie_name,
+        samesite=settings.cookie_samesite,
+        secure=settings.cookie_secure,
+        domain=settings.cookie_domain or None,
+    )
+    response.delete_cookie(
+        key=settings.csrf_cookie_name,
+        samesite=settings.cookie_samesite,
+        secure=settings.cookie_secure,
+        domain=settings.cookie_domain or None,
+    )
     return {"ok": True}
 
 @router.post("/2fa/setup")

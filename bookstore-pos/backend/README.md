@@ -19,6 +19,7 @@ Copy-Item .env.example .env
 ```
 
 Opcional: para rate limiting distribuido entre multiples instancias, configurar `REDIS_URL`.
+En produccion, revisar `COOKIE_SECURE`, `COOKIE_SAMESITE` y `COOKIE_DOMAIN`.
 
 3) Ejecutar migraciones:
 
@@ -43,6 +44,7 @@ python ..\scripts\create_admin.py --username admin --password "TU_PASSWORD_SEGUR
 
 ## Endpoints utiles
 - Swagger: http://localhost:8000/docs
+- Metrics: http://localhost:8000/metrics
 
 ## Impresion termica (ESC/POS)
 - Descargar ticket binario: `GET /printing/escpos/{sale_id}`
@@ -52,3 +54,10 @@ Ejemplo (Windows) para enviar el binario a una impresora compartida:
 ```
 copy /b ticket_123.bin \\NOMBRE_PC\NOMBRE_IMPRESORA
 ```
+
+## Monitoreo local
+- Ver `docs/OBSERVABILITY_LOCAL.md` para Prometheus + Grafana con Docker.
+
+## Produccion
+- Checklist: `docs/PRODUCTION_CHECKLIST.md`
+- Preflight rapido: `..\scripts\check_production_env.bat`

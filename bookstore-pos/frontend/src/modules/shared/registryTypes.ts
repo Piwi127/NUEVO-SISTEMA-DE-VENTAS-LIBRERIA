@@ -1,8 +1,12 @@
 import React from "react";
 
+export type RouteComponent =
+  | React.ComponentType
+  | React.LazyExoticComponent<React.ComponentType<any>>;
+
 export type AppRoute = {
   path: string;
-  component: React.ComponentType;
+  component: RouteComponent;
   roles?: string[];
   layout?: boolean;
   public?: boolean;

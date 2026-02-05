@@ -22,6 +22,40 @@ async def test_public_settings(client):
 
 
 @pytest.mark.asyncio
+async def test_security_headers_present(client):
+    resp = await client.get("/health")
+    assert resp.status_code == 200
+    csp = resp.headers.get("content-security-policy", "")
+    assert "object-src 'none'" in csp
+    assert "script-src 'self'" in csp
+    assert "script-src 'self' 'unsafe-inline'" not in csp
+    assert resp.headers.get("cross-origin-opener-policy") == "same-origin"
+    assert resp.headers.get("cross-origin-resource-policy") == "same-origin"
+
+
+@pytest.mark.asyncio
+async def test_request_id_header_is_returned(client):
+    custom_id = "req-test-123"
+    resp = await client.get("/health", headers={"X-Request-ID": custom_id})
+    assert resp.status_code == 200
+    assert resp.headers.get("x-request-id") == custom_id
+
+
+@pytest.mark.asyncio
+async def test_metrics_endpoint_exposes_prometheus_metrics(client):
+    # Generate some traffic first so counters are present with sample values.
+    ping = await client.get("/health")
+    assert ping.status_code == 200
+
+    metrics = await client.get("/metrics")
+    assert metrics.status_code == 200
+    body = metrics.text
+    assert "bookstore_http_requests_total" in body
+    assert "bookstore_http_request_duration_seconds" in body
+    assert "text/plain" in (metrics.headers.get("content-type") or "")
+
+
+@pytest.mark.asyncio
 async def test_login_admin(client):
     headers = await _login_admin(client)
     assert headers.get("X-CSRF-Token")

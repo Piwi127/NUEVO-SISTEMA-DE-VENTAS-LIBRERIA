@@ -6,6 +6,9 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  build: {
+    chunkSizeWarningLimit: 1200,
+  },
   test: {
     environment: "node",
   },
