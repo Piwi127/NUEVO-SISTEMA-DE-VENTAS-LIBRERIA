@@ -29,6 +29,10 @@ Esto levanta:
    - `bookstore_http_request_duration_seconds_count`
 3. En Grafana, abrir el dashboard `Bookstore API Overview`.
 4. Opcional: en Grafana `Explore`, ejecutar la misma metrica.
+5. En Prometheus, revisar reglas de alerta:
+   - `BookstoreApiDown`
+   - `BookstoreHighErrorRate`
+   - `BookstoreHighLatencyP95`
 
 ## Nota de red en Windows
 Prometheus usa `host.docker.internal:8000` para llegar al backend local desde contenedores.

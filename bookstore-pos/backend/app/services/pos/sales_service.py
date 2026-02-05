@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
+from app.core.metrics import sales_amount_total, sales_total
 from app.core.stock import apply_stock_delta, get_stock_level, require_default_warehouse_id
 from app.models.cash import CashSession
 from app.models.customer import Customer
@@ -175,6 +176,8 @@ class SalesService:
                 payment = Payment(sale_id=sale.id, method=p.method, amount=p.amount)
                 self.db.add(payment)
 
+            sales_total.inc()
+            sales_amount_total.inc(float(total))
             await log_event(self.db, self.user.id, "create", "sale", str(sale.id), invoice_number)
             await self.db.refresh(sale)
             return sale

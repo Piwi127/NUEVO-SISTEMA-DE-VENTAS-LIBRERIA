@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
+from app.core.metrics import purchases_amount_total, purchases_total
 from app.core.stock import apply_stock_delta, require_default_warehouse_id
 from app.models.inventory import StockMovement
 from app.models.product import Product
@@ -59,6 +60,8 @@ class PurchasesService:
                 )
                 self.db.add(movement)
 
+            purchases_total.inc()
+            purchases_amount_total.inc(float(purchase.total))
             await log_event(self.db, self.user.id, "purchase_create", "purchase", str(purchase.id), "")
             await self.db.refresh(purchase)
             return purchase

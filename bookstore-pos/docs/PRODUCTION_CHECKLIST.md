@@ -10,7 +10,9 @@
 
 ## Base de datos y migraciones
 - Ejecutar `alembic upgrade head`.
-- Validar backup/restauracion.
+- Crear backup: `scripts\backup_db.bat`
+- Restaurar backup: `scripts\restore_db.bat "RUTA\backup.db"`
+- Validar backup/restauracion en entorno de prueba.
 
 ## Usuario administrador
 - Crear admin con:
@@ -22,6 +24,7 @@
 - Si usas Docker local, levantar:
   - `monitoring_up_windows.bat`
 - Confirmar dashboard `Bookstore API Overview` en Grafana.
+- Revisar alertas en Prometheus: `BookstoreApiDown`, `BookstoreHighErrorRate`, `BookstoreHighLatencyP95`.
 
 ## Preflight automatico
 - Ejecutar:

@@ -1,7 +1,6 @@
 import os
 import tempfile
 
-import pytest
 import pytest_asyncio
 import httpx
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker

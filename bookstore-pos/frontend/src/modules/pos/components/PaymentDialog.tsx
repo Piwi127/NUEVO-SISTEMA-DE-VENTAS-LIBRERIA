@@ -36,7 +36,6 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
   };
 
   const sum = useMemo(() => methods.reduce((acc, m) => acc + (amounts[m] || 0), 0), [amounts, methods]);
-  const cashAmount = amounts["CASH"] || 0;
   const hasCash = methods.includes("CASH");
   const valid = total > 0 && sum > 0 && (hasCash ? sum + 0.0001 >= total : Math.abs(sum - total) < 0.01);
   const change = hasCash ? Math.max(0, sum - total) : 0;

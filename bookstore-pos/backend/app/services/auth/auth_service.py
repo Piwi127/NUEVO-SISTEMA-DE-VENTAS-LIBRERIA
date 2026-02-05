@@ -39,7 +39,10 @@ class AuthService:
         if not user or not user.is_active:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
 
-        if user.locked_until and user.locked_until > datetime.now(timezone.utc):
+        locked_until = user.locked_until
+        if locked_until and locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        if locked_until and locked_until > datetime.now(timezone.utc):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cuenta bloqueada. Intente mas tarde")
 
         if not verify_password(data.password, user.password_hash):

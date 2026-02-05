@@ -2,10 +2,11 @@ from contextlib import asynccontextmanager
 import logging
 from time import perf_counter
 from uuid import uuid4
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from app.core.config import settings
 from app.core.metrics import (
@@ -237,11 +238,36 @@ app.include_router(returns_router.router)
 app.include_router(purchasing_router.router)
 app.include_router(printing_router.router)
 
+def _error_response(request: Request, status_code: int, code: str, detail):
+    request_id = getattr(request.state, "request_id", "-")
+    payload = {
+        "error": {
+            "code": code,
+            "detail": detail,
+            "request_id": request_id,
+        },
+        "detail": detail,
+    }
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    code = f"http_{exc.status_code}"
+    detail = exc.detail if exc.detail is not None else "Request failed"
+    return _error_response(request, exc.status_code, code, detail)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return _error_response(request, 422, "validation_error", exc.errors())
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", "-")
     logger.exception("Unhandled error request_id=%s", request_id, exc_info=exc)
-    return Response(content="Internal server error", status_code=500)
+    return _error_response(request, 500, "internal_error", "Internal server error")
 
 
 @app.get("/")

@@ -17,7 +17,6 @@ import {
   Tab,
   Grid,
   useMediaQuery,
-  Stack,
 } from "@mui/material";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import DownloadIcon from "@mui/icons-material/Download";

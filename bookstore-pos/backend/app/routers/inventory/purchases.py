@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,3 +56,4 @@ async def create_purchase(
 ):
     service = PurchasesService(db, current_user)
     return await service.create_purchase(data)
+

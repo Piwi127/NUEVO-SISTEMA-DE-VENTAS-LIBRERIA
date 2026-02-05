@@ -156,3 +156,27 @@ async def test_rate_limit_returns_429(client):
         settings.rate_limit_per_minute = old_limit
         settings.rate_limit_window_seconds = old_window
         await rate_limiter.reset_for_tests()
+
+
+@pytest.mark.asyncio
+async def test_login_lockout_after_failed_attempts(client):
+    headers = await _login_admin(client)
+    create_resp = await client.post(
+        "/users",
+        headers=headers,
+        json={
+            "username": "lock_user",
+            "password": "TestLock123",
+            "role": "cashier",
+            "is_active": True,
+        },
+    )
+    assert create_resp.status_code == 201
+
+    for _ in range(5):
+        bad = await client.post("/auth/login", json={"username": "lock_user", "password": "wrong-pass"})
+        assert bad.status_code == 401
+
+    locked = await client.post("/auth/login", json={"username": "lock_user", "password": "TestLock123"})
+    assert locked.status_code == 403
+    assert "bloqueada" in (locked.text or "").lower()

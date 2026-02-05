@@ -1,0 +1,38 @@
+groups:
+  - name: bookstore-api-alerts
+    rules:
+      - alert: BookstoreApiDown
+        expr: up{job="bookstore-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Bookstore API fuera de linea"
+          description: "Prometheus no puede scrapear el backend en /metrics."
+
+      - alert: BookstoreHighErrorRate
+        expr: |
+          (
+            sum(rate(bookstore_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(bookstore_http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Alta tasa de errores 5xx"
+          description: "Mas del 5% de requests terminan en 5xx durante 5 minutos."
+
+      - alert: BookstoreHighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(bookstore_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latencia p95 elevada"
+          description: "La latencia p95 supera 1s durante 5 minutos."

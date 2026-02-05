@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend
+        working-directory: bookstore-pos/frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Package backend
+        run: |
+          cd bookstore-pos
+          tar -czf ../backend-${{ github.ref_name }}.tar.gz backend scripts
+
+      - name: Package frontend dist
+        run: |
+          cd bookstore-pos/frontend
+          tar -czf ../../frontend-dist-${{ github.ref_name }}.tar.gz dist
+
+      - name: Package monitoring
+        run: |
+          cd bookstore-pos
+          tar -czf ../monitoring-${{ github.ref_name }}.tar.gz monitoring docs/OBSERVABILITY_LOCAL.md docs/PRODUCTION_CHECKLIST.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            backend-${{ github.ref_name }}.tar.gz
+            frontend-dist-${{ github.ref_name }}.tar.gz
+            monitoring-${{ github.ref_name }}.tar.gz

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack, Chip } from "@mui/material";
+import { Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack } from "@mui/material";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import { PageHeader } from "../../../components/PageHeader";

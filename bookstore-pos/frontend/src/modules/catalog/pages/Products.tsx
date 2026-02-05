@@ -100,7 +100,13 @@ const Products: React.FC = () => {
     right: (
       <Box sx={{ textAlign: "right" }}>
         <Typography variant="body2">#{row.sku}</Typography>
-        <Button size="small" onClick={() => { setEditingId(row.id); const { id, ...rest } = row as Product; setForm(rest); }}>
+        <Button size="small" onClick={() => {
+          setEditingId(row.id);
+          const next = Object.fromEntries(
+            Object.entries(row as Product).filter(([key]) => key !== "id")
+          ) as Omit<Product, "id">;
+          setForm(next as Omit<Product, "id">);
+        }}>
           Editar
         </Button>
       </Box>
@@ -167,8 +173,10 @@ const Products: React.FC = () => {
               pageSizeOptions={[5, 10, 25, 50, 100]}
               onRowClick={(params) => {
                 setEditingId(params.row.id);
-                const { id, ...rest } = params.row as Product;
-                setForm(rest);
+                const next = Object.fromEntries(
+                  Object.entries(params.row as Product).filter(([key]) => key !== "id")
+                ) as Omit<Product, "id">;
+                setForm(next as Omit<Product, "id">);
               }}
               sx={{
                 border: "none",

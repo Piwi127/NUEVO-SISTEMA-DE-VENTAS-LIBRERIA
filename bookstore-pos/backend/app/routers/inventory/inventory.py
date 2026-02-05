@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user, require_permission, require_role
 from app.models.inventory import StockMovement
-from app.models.product import Product
 from app.schemas.inventory import InventoryMovementCreate, StockMovementOut
 from app.services.inventory.stock_service import StockService
 

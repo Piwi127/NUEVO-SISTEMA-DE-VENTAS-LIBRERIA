@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, TextField, Typography, Stack, Chip } from "@mui/material";
+import { Box, Button, Paper, TextField, Typography } from "@mui/material";
 import ReplayIcon from "@mui/icons-material/Replay";
 import { PageHeader } from "../../../components/PageHeader";
 import { returnSale } from "../api";

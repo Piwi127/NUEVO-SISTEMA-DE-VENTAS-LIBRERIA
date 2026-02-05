@@ -61,3 +61,5 @@ copy /b ticket_123.bin \\NOMBRE_PC\NOMBRE_IMPRESORA
 ## Produccion
 - Checklist: `docs/PRODUCTION_CHECKLIST.md`
 - Preflight rapido: `..\scripts\check_production_env.bat`
+- Backup DB: `..\scripts\backup_db.bat`
+- Restore DB: `..\scripts\restore_db.bat "RUTA_AL_BACKUP.db"`
