@@ -11,9 +11,31 @@ type EmptyStateProps = {
 
 export const EmptyState: React.FC<EmptyStateProps> = ({ title, description, actionLabel, onAction, icon }) => {
   return (
-    <Paper sx={{ p: 3, textAlign: "center" }}>
-      <Box sx={{ mb: 1 }}>{icon}</Box>
-      <Typography variant="h6" sx={{ mb: 0.5 }}>
+    <Paper
+      sx={{
+        p: 3,
+        textAlign: "center",
+        border: "1px dashed",
+        borderColor: "divider",
+        background:
+          "linear-gradient(180deg, rgba(18,53,90,0.03) 0%, rgba(18,53,90,0.007) 100%)",
+      }}
+    >
+      <Box
+        sx={{
+          width: 52,
+          height: 52,
+          mx: "auto",
+          mb: 1.25,
+          borderRadius: "50%",
+          display: "grid",
+          placeItems: "center",
+          bgcolor: "rgba(18,53,90,0.08)",
+        }}
+      >
+        {icon}
+      </Box>
+      <Typography variant="h6" sx={{ mb: 0.5, fontWeight: 800 }}>
         {title}
       </Typography>
       {description ? (

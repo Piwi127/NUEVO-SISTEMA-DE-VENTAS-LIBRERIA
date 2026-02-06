@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import {
   AppBar,
   Toolbar,
@@ -12,10 +12,14 @@ import {
   Box,
   Chip,
   Divider,
+  Tabs,
+  Tab,
+  Tooltip,
   useMediaQuery,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { useSettings } from "../store/useSettings";
@@ -49,14 +53,22 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
     setDefaultWarehouseId,
   } = useSettings();
   const navigate = useNavigate();
-
   const location = useLocation();
+
   const filteredSections = menuSections
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => role && item.roles.includes(role)),
     }))
     .filter((section) => section.items.length > 0);
+
+  const activeSection =
+    filteredSections.find((section) => section.items.some((item) => location.pathname.startsWith(item.path))) ||
+    filteredSections[0];
+  const activeTab =
+    activeSection?.items
+      .filter((item) => location.pathname.startsWith(item.path))
+      .sort((a, b) => b.path.length - a.path.length)[0]?.path || false;
 
   useEffect(() => {
     const load = async () => {
@@ -124,7 +136,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
         minHeight: "100vh",
         bgcolor: "background.default",
         backgroundImage:
-          "radial-gradient(1200px 500px at 85% -10%, rgba(11,30,59,0.12), transparent), radial-gradient(900px 420px at -10% 10%, rgba(201,162,39,0.12), transparent)",
+          "linear-gradient(180deg, rgba(18,53,90,0.06) 0%, rgba(18,53,90,0) 25%), radial-gradient(900px 360px at 100% -10%, rgba(154,123,47,0.12), transparent)",
       }}
     >
       <AppBar position="static">
@@ -132,53 +144,63 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           <IconButton edge="start" color="inherit" onClick={() => setOpen(true)}>
             <MenuIcon />
           </IconButton>
-          {logoUrl ? (
-            <Box component="img" src={logoUrl} alt="logo" sx={{ height: 28, mr: 2, borderRadius: 1 }} />
-          ) : null}
-          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
+          {logoUrl ? <Box component="img" src={logoUrl} alt="logo" sx={{ height: 28, mr: 1.5, borderRadius: 1 }} /> : null}
+          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 800, letterSpacing: 0.2 }}>
             {projectName}
           </Typography>
+          <Tooltip title="Fecha local">
+            <Chip
+              icon={<CalendarMonthIcon sx={{ color: "inherit !important" }} />}
+              label={new Date().toLocaleDateString("es-PE")}
+              size="small"
+              sx={{ bgcolor: "rgba(255,255,255,0.12)", color: "white", mr: 1 }}
+            />
+          </Tooltip>
           <Chip
-            label={`${username ?? ""} · ${role ?? ""}`}
+            label={`${username ?? ""} - ${role ?? ""}`}
             size="small"
-            sx={{
-              bgcolor: "rgba(255,255,255,0.12)",
-              color: "white",
-              mr: 1.5,
-            }}
+            sx={{ bgcolor: "rgba(255,255,255,0.14)", color: "white", mr: 1 }}
           />
           <IconButton
             color="inherit"
-            onClick={() => { logout(); navigate("/login"); }}
+            onClick={() => {
+              logout();
+              navigate("/login");
+            }}
             sx={{ mr: 1 }}
             aria-label="Cerrar sesion"
           >
             <LogoutIcon />
           </IconButton>
-          {!healthOk ? (
-            <Chip
-              label="API offline"
-              size="small"
-              color="secondary"
-              sx={{ mr: 1.5 }}
-            />
-          ) : null}
-          {compactMode ? (
-            <Chip
-              label="Compacto"
-              size="small"
-              color="secondary"
-              sx={{ mr: 1.5 }}
-            />
-          ) : null}
-          
+          {!healthOk ? <Chip label="API offline" size="small" color="secondary" sx={{ mr: 1 }} /> : null}
+          {compactMode ? <Chip label="Compacto" size="small" color="secondary" /> : null}
         </Toolbar>
+
+        {activeSection && activeSection.items.length > 1 ? (
+          <Box sx={{ px: { xs: 1, md: 2 }, pb: 1 }}>
+            <Tabs value={activeTab} variant="scrollable" allowScrollButtonsMobile textColor="inherit">
+              {activeSection.items.map((item) => (
+                <Tab
+                  key={item.path}
+                  value={item.path}
+                  component={RouterLink}
+                  to={item.path}
+                  icon={React.isValidElement(item.icon) ? item.icon : undefined}
+                  iconPosition={React.isValidElement(item.icon) ? "start" : undefined}
+                  label={item.label}
+                  sx={{ color: "rgba(255,255,255,0.9)" }}
+                />
+              ))}
+            </Tabs>
+          </Box>
+        ) : null}
       </AppBar>
+
       <Drawer open={open} onClose={() => setOpen(false)}>
-        <Box sx={{ width: compact ? 220 : 270, py: 1 }} role="presentation" onClick={() => setOpen(false)}>
+        <Box sx={{ width: compact ? 230 : 285, py: 1 }} role="presentation" onClick={() => setOpen(false)}>
           <Box sx={{ px: 2.5, py: 1.5 }}>
-            <Typography variant="subtitle2" sx={{ color: "rgba(230,237,247,0.72)", letterSpacing: 0.6 }}>
-              Menu
+            <Typography variant="subtitle2" sx={{ color: "rgba(241,245,251,0.75)", letterSpacing: 0.8, textTransform: "uppercase" }}>
+              Navegacion
             </Typography>
           </Box>
           {filteredSections.map((section) => (
@@ -189,7 +211,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                   px: 2.5,
                   pb: 0.5,
                   display: "block",
-                  color: "rgba(230,237,247,0.62)",
+                  color: "rgba(241,245,251,0.6)",
                   letterSpacing: 0.8,
                   textTransform: "uppercase",
                 }}
@@ -198,22 +220,18 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
               </Typography>
               <List disablePadding>
                 {section.items.map((item) => (
-                  <ListItemButton
-                    key={item.path}
-                    component={RouterLink}
-                    to={item.path}
-                    selected={location.pathname === item.path}
-                  >
+                  <ListItemButton key={item.path} component={RouterLink} to={item.path} selected={location.pathname === item.path}>
                     <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
-                    <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 14, fontWeight: 600 }} />
+                    <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 14, fontWeight: 700 }} />
                   </ListItemButton>
                 ))}
               </List>
-              <Divider sx={{ borderColor: "rgba(255,255,255,0.08)", mx: 2, mt: 1 }} />
+              <Divider sx={{ borderColor: "rgba(255,255,255,0.1)", mx: 2, mt: 1 }} />
             </Box>
           ))}
         </Box>
       </Drawer>
+
       <Box sx={{ p: { xs: 2, md: 3 } }}>{children}</Box>
     </Box>
   );

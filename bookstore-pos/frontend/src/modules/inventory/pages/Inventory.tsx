@@ -438,7 +438,7 @@ const Inventory: React.FC = () => {
       <ConfirmDialog
         open={confirmOpen}
         title="Confirmar importacion"
-        content={<Box><Typography>?Desea importar {totalRows} registros?</Typography></Box>}
+        content={<Box><Typography>Desea importar {totalRows} registros?</Typography></Box>}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={confirmUpload}
       />

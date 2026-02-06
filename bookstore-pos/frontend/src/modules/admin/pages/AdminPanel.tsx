@@ -31,79 +31,13 @@ import { ErrorState } from "../../../components/ErrorState";
 import { EmptyState } from "../../../components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
 import { useSettings } from "../../../store/useSettings";
-import { getSettings, updateSettings, downloadBackup } from "../api";
-import { getRolePermissions, updateRolePermissions } from "../api";
-import { listAuditLogs } from "../api";
+import { getSettings, updateSettings, downloadBackup, listAuditLogs } from "../api";
 import { setup2fa, confirm2fa } from "../../auth/api";
 import { listWarehouses } from "../../inventory/api";
 import { useToast } from "../../../components/ToastProvider";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthProvider";
 import * as QRCode from "qrcode";
-
-const PERMISSION_GROUPS: {
-  title: string;
-  items: { key: string; label: string; description: string }[];
-}[] = [
-  {
-    title: "Ventas / POS",
-    items: [
-      { key: "sales.read", label: "Ver ventas", description: "Acceso a historial y detalle de ventas." },
-      { key: "sales.create", label: "Registrar ventas", description: "Permite crear ventas y cobrar." },
-      { key: "returns.create", label: "Devoluciones", description: "Permite anular/retornar ventas." },
-    ],
-  },
-  {
-    title: "Caja",
-    items: [
-      { key: "cash.open", label: "Abrir caja", description: "Permite abrir caja y ver estado actual." },
-      { key: "cash.close", label: "Cerrar caja", description: "Permite cierre y arqueo de caja." },
-      { key: "cash.movement", label: "Movimientos", description: "Permite ingresos/egresos manuales." },
-    ],
-  },
-  {
-    title: "Clientes / Productos",
-    items: [
-      { key: "customers.read", label: "Ver clientes", description: "Acceso al listado de clientes." },
-      { key: "customers.write", label: "Editar clientes", description: "Crear/editar/eliminar clientes." },
-      { key: "products.read", label: "Ver productos", description: "Acceso al catálogo de productos." },
-      { key: "products.write", label: "Editar productos", description: "Crear/editar/eliminar productos." },
-    ],
-  },
-  {
-    title: "Inventario / Compras",
-    items: [
-      { key: "inventory.read", label: "Ver inventario", description: "Acceso a stock y kardex." },
-      { key: "inventory.write", label: "Operar inventario", description: "Movimientos, ajustes y conteos." },
-      { key: "purchases.read", label: "Ver compras", description: "Acceso a OC e historial de compras." },
-      { key: "purchases.create", label: "Registrar compras", description: "Crear OC, recepciones y pagos." },
-    ],
-  },
-  {
-    title: "Proveedores",
-    items: [
-      { key: "suppliers.read", label: "Ver proveedores", description: "Acceso al listado de proveedores." },
-      { key: "suppliers.write", label: "Editar proveedores", description: "Crear/editar/eliminar proveedores." },
-    ],
-  },
-  {
-    title: "Reportes",
-    items: [{ key: "reports.read", label: "Ver reportes", description: "Acceso a reportes y exportaciones." }],
-  },
-  {
-    title: "Administración",
-    items: [
-      { key: "settings.read", label: "Ver configuración", description: "Acceso a parámetros del sistema." },
-      { key: "settings.write", label: "Editar configuración", description: "Modificar parámetros y ajustes." },
-      { key: "users.read", label: "Ver usuarios", description: "Acceso al listado de usuarios." },
-      { key: "users.write", label: "Administrar usuarios", description: "Crear, editar, bloquear y resetear." },
-      { key: "permissions.read", label: "Ver permisos", description: "Consultar permisos por rol." },
-      { key: "permissions.write", label: "Editar permisos", description: "Modificar permisos por rol." },
-      { key: "audit.read", label: "Ver auditoría", description: "Acceso a logs de auditoría." },
-      { key: "admin.backup", label: "Backup", description: "Descargar respaldo de la base." },
-    ],
-  },
-];
 
 const AdminPanel: React.FC = () => {
   const {
@@ -155,8 +89,6 @@ const AdminPanel: React.FC = () => {
   const [paperWidthDraft, setPaperWidthDraft] = useState(paperWidthMm);
   const [defaultWarehouseDraft, setDefaultWarehouseDraft] = useState<number | "">(defaultWarehouseId ?? "");
 
-  const [role, setRole] = useState("cashier");
-  const [rolePerms, setRolePerms] = useState<string[]>([]);
   const [audit, setAudit] = useState<any[]>([]);
   const [otpSecret, setOtpSecret] = useState("");
   const [otpUri, setOtpUri] = useState("");
@@ -165,7 +97,6 @@ const AdminPanel: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsError, setSettingsError] = useState(false);
-  const [permsLoading, setPermsLoading] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState(false);
 
@@ -209,38 +140,30 @@ const AdminPanel: React.FC = () => {
         setReceiptFooterDraft(s.receipt_footer);
         setPaperWidthDraft(s.paper_width_mm);
         setDefaultWarehouseDraft(s.default_warehouse_id ?? "");
-        setSettingsLoading(false);
       } catch {
         setSettingsError(true);
+      } finally {
         setSettingsLoading(false);
       }
     };
     load();
-  }, []);
-
-  React.useEffect(() => {
-    const loadPerms = async () => {
-      setPermsLoading(true);
-      try {
-        const res = await getRolePermissions(role);
-        setRolePerms(res.permissions);
-      } catch {
-        setRolePerms([]);
-      } finally {
-        setPermsLoading(false);
-      }
-    };
-    loadPerms();
-  }, [role]);
-
-  const togglePerm = (p: string) => {
-    setRolePerms((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
-  };
-
-  const handleSavePerms = async () => {
-    await updateRolePermissions(role, rolePerms);
-    showToast({ message: "Permisos actualizados", severity: "success" });
-  };
+  }, [
+    setCurrency,
+    setDefaultWarehouseId,
+    setInvoiceNext,
+    setInvoicePrefix,
+    setLogoUrl,
+    setPaperWidthMm,
+    setPaymentMethods,
+    setProjectName,
+    setReceiptFooter,
+    setReceiptHeader,
+    setStoreAddress,
+    setStorePhone,
+    setStoreTaxId,
+    setTaxIncluded,
+    setTaxRate,
+  ]);
 
   const handleSave = async () => {
     const payload = {
@@ -321,7 +244,7 @@ const AdminPanel: React.FC = () => {
       } catch {
         setOtpQr("");
       }
-      showToast({ message: "Escanee el QR o use el secreto", severity: "info" });
+      showToast({ message: "Escanea el QR o usa el secreto", severity: "info" });
     } catch (err: any) {
       if (err?.response?.status === 401) {
         showToast({ message: "Sesion invalida. Inicia sesion nuevamente.", severity: "error" });
@@ -335,7 +258,7 @@ const AdminPanel: React.FC = () => {
 
   const handleConfirm2fa = async () => {
     if (!otpCode.trim()) {
-      showToast({ message: "Ingrese el codigo OTP", severity: "warning" });
+      showToast({ message: "Ingresa el codigo OTP", severity: "warning" });
       return;
     }
     try {
@@ -359,15 +282,11 @@ const AdminPanel: React.FC = () => {
         title="Administracion"
         subtitle="Configuracion corporativa, seguridad y control operativo."
         icon={<SettingsIcon color="primary" />}
-        loading={settingsLoading || permsLoading || auditLoading}
+        loading={settingsLoading || auditLoading}
         right={
           <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackup}>
-              Backup
-            </Button>
-            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
-              Guardar cambios
-            </Button>
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackup}>Backup</Button>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>Guardar cambios</Button>
           </Stack>
         }
       />
@@ -390,27 +309,17 @@ const AdminPanel: React.FC = () => {
           <Tab label="Operaciones" />
         </Tabs>
 
-        {tab === 0 && (
+        {tab === 0 ? (
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Nombre del proyecto" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Logo URL" value={logoDraft} onChange={(e) => setLogoDraft(e.target.value)} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Direccion" value={addressDraft} onChange={(e) => setAddressDraft(e.target.value)} />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField fullWidth label="Telefono" value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value)} />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField fullWidth label="RUC" value={taxIdDraft} onChange={(e) => setTaxIdDraft(e.target.value)} />
-            </Grid>
+            <Grid item xs={12} md={6}><TextField fullWidth label="Nombre del proyecto" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} /></Grid>
+            <Grid item xs={12} md={6}><TextField fullWidth label="Logo URL" value={logoDraft} onChange={(e) => setLogoDraft(e.target.value)} /></Grid>
+            <Grid item xs={12} md={6}><TextField fullWidth label="Direccion" value={addressDraft} onChange={(e) => setAddressDraft(e.target.value)} /></Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Telefono" value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value)} /></Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="RUC" value={taxIdDraft} onChange={(e) => setTaxIdDraft(e.target.value)} /></Grid>
           </Grid>
-        )}
+        ) : null}
 
-        {tab === 1 && (
+        {tab === 1 ? (
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
               <TextField select fullWidth label="Moneda" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
@@ -419,168 +328,65 @@ const AdminPanel: React.FC = () => {
                 <MenuItem value="EUR">Euro (EUR)</MenuItem>
               </TextField>
             </Grid>
+            <Grid item xs={12} md={4}><TextField fullWidth label="Impuesto (%)" type="number" value={taxDraft} onChange={(e) => setTaxDraft(Number(e.target.value))} /></Grid>
+            <Grid item xs={12} md={4}><FormControlLabel control={<Checkbox checked={taxIncluded} onChange={(e) => setTaxIncluded(e.target.checked)} />} label="Impuesto incluido" /></Grid>
+            <Grid item xs={12} md={4}><TextField fullWidth label="Metodos de pago (CSV)" value={paymentDraft} onChange={(e) => setPaymentDraft(e.target.value)} /></Grid>
+            <Grid item xs={12} md={4}><TextField fullWidth label="Serie de boleta" value={invoicePrefixDraft} onChange={(e) => setInvoicePrefixDraft(e.target.value)} /></Grid>
+            <Grid item xs={12} md={4}><TextField fullWidth label="Correlativo" type="number" value={invoiceNextDraft} onChange={(e) => setInvoiceNextDraft(Number(e.target.value))} /></Grid>
+            <Grid item xs={12} md={4}><TextField fullWidth label="Ancho papel (mm)" type="number" value={paperWidthDraft} onChange={(e) => setPaperWidthDraft(Number(e.target.value))} /></Grid>
             <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Impuesto (%)" type="number" value={taxDraft} onChange={(e) => setTaxDraft(Number(e.target.value))} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControlLabel control={<Checkbox checked={taxIncluded} onChange={(e) => setTaxIncluded(e.target.checked)} />} label="Impuesto incluido" />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Metodos de pago (CSV)" value={paymentDraft} onChange={(e) => setPaymentDraft(e.target.value)} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Serie de boleta" value={invoicePrefixDraft} onChange={(e) => setInvoicePrefixDraft(e.target.value)} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Correlativo" type="number" value={invoiceNextDraft} onChange={(e) => setInvoiceNextDraft(Number(e.target.value))} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Ancho papel (mm)" type="number" value={paperWidthDraft} onChange={(e) => setPaperWidthDraft(Number(e.target.value))} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                select
-                fullWidth
-                label="Almacen por defecto"
-                value={defaultWarehouseDraft}
-                onChange={(e) => setDefaultWarehouseDraft(e.target.value === "" ? "" : Number(e.target.value))}
-              >
+              <TextField select fullWidth label="Almacen por defecto" value={defaultWarehouseDraft} onChange={(e) => setDefaultWarehouseDraft(e.target.value === "" ? "" : Number(e.target.value))}>
                 <MenuItem value="">Sin asignar</MenuItem>
-                {(warehouses || []).map((w) => (
-                  <MenuItem key={w.id} value={w.id}>
-                    {w.name}
-                  </MenuItem>
-                ))}
+                {(warehouses || []).map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
               </TextField>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={3}
-                label="Encabezado ticket"
-                value={receiptHeaderDraft}
-                onChange={(e) => setReceiptHeaderDraft(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={3}
-                label="Pie de ticket"
-                value={receiptFooterDraft}
-                onChange={(e) => setReceiptFooterDraft(e.target.value)}
-              />
-            </Grid>
+            <Grid item xs={12} md={6}><TextField fullWidth multiline minRows={3} label="Encabezado ticket" value={receiptHeaderDraft} onChange={(e) => setReceiptHeaderDraft(e.target.value)} /></Grid>
+            <Grid item xs={12} md={6}><TextField fullWidth multiline minRows={3} label="Pie de ticket" value={receiptFooterDraft} onChange={(e) => setReceiptFooterDraft(e.target.value)} /></Grid>
           </Grid>
-        )}
+        ) : null}
 
-        {tab === 2 && (
+        {tab === 2 ? (
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Notas internas" placeholder="Politicas, turnos, etc." />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Contacto de soporte" placeholder="support@empresa.com" />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={<Checkbox checked={compactMode} onChange={(e) => setCompactMode(e.target.checked)} />}
-                label="Modo compacto forzado (UI)"
-              />
-            </Grid>
+            <Grid item xs={12} md={6}><TextField fullWidth label="Notas internas" placeholder="Politicas, turnos, etc." /></Grid>
+            <Grid item xs={12} md={6}><TextField fullWidth label="Contacto de soporte" placeholder="support@empresa.com" /></Grid>
+            <Grid item xs={12} md={6}><FormControlLabel control={<Checkbox checked={compactMode} onChange={(e) => setCompactMode(e.target.checked)} />} label="Modo compacto forzado (UI)" /></Grid>
           </Grid>
-        )}
+        ) : null}
       </Paper>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-              <SecurityIcon color="primary" />
-              <Typography variant="h6">Seguridad</Typography>
-            </Stack>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="center">
-              <Button variant="outlined" onClick={handleSetup2fa}>Generar secreto</Button>
-              {otpSecret && <Chip label={`Secreto: ${otpSecret}`} size="small" />}
-            </Stack>
-            {otpUri ? (
-              <TextField
-                fullWidth
-                label="URI (otpauth)"
-                value={otpUri}
-                InputProps={{ readOnly: true }}
-                sx={{ mt: 2 }}
-              />
-            ) : null}
-            {otpQr ? (
-              <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
-                <Box component="img" src={otpQr} alt="QR 2FA" sx={{ width: 180, height: 180, borderRadius: 1 }} />
-              </Box>
-            ) : null}
-            <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mt: 2 }}>
-              <TextField label="Codigo" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
-              <Button variant="contained" onClick={handleConfirm2fa}>Activar 2FA</Button>
-            </Stack>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-              <SecurityIcon color="primary" />
-              <Typography variant="h6">Permisos por rol</Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-              <TextField select label="Rol" value={role} onChange={(e) => setRole(e.target.value)}>
-                <MenuItem value="cashier">cashier</MenuItem>
-                <MenuItem value="stock">stock</MenuItem>
-              </TextField>
-              <Button variant="contained" onClick={handleSavePerms}>Guardar permisos</Button>
-            </Stack>
-            <Grid container spacing={2}>
-              {PERMISSION_GROUPS.map((group) => (
-                <Grid item xs={12} md={6} key={group.title}>
-                  <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, color: "text.secondary" }}>
-                      {group.title}
-                    </Typography>
-                    <Grid container spacing={1}>
-                      {group.items.map((p) => (
-                        <Grid item xs={12} sm={6} key={p.key}>
-                          <FormControlLabel
-                            control={<Checkbox checked={rolePerms.includes(p.key)} onChange={() => togglePerm(p.key)} />}
-                            label={p.label}
-                          />
-                          <Typography variant="caption" sx={{ display: "block", ml: 4, color: "text.secondary" }}>
-                            {p.description}
-                          </Typography>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </Paper>
-        </Grid>
-      </Grid>
+      <Paper sx={{ p: 3 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <SecurityIcon color="primary" />
+          <Typography variant="h6">Seguridad</Typography>
+        </Stack>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="center">
+          <Button variant="outlined" onClick={handleSetup2fa}>Generar secreto</Button>
+          {otpSecret ? <Chip label={`Secreto: ${otpSecret}`} size="small" /> : null}
+        </Stack>
+        {otpUri ? <TextField fullWidth label="URI (otpauth)" value={otpUri} InputProps={{ readOnly: true }} sx={{ mt: 2 }} /> : null}
+        {otpQr ? (
+          <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+            <Box component="img" src={otpQr} alt="QR 2FA" sx={{ width: 180, height: 180, borderRadius: 1 }} />
+          </Box>
+        ) : null}
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mt: 2 }}>
+          <TextField label="Codigo" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
+          <Button variant="contained" onClick={handleConfirm2fa}>Activar 2FA</Button>
+        </Stack>
+      </Paper>
 
       <Paper sx={{ p: 3 }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
           <HistoryIcon color="primary" />
           <Typography variant="h6">Auditoria</Typography>
-          <IconButton sx={{ ml: "auto" }} size="small" onClick={loadAudit}>
-            <DownloadIcon fontSize="small" />
-          </IconButton>
+          <IconButton sx={{ ml: "auto" }} size="small" onClick={loadAudit}><DownloadIcon fontSize="small" /></IconButton>
         </Stack>
         {auditLoading ? (
           <LoadingState title="Cargando auditoria..." />
         ) : auditError ? (
           <ErrorState title="No se pudo cargar auditoria" onRetry={loadAudit} />
         ) : audit.length === 0 ? (
-          <EmptyState title="Sin registros" description="Ejecuta una acción o presiona recargar." icon={<HistoryIcon color="disabled" />} />
+          <EmptyState title="Sin registros" description="Ejecuta una accion o presiona recargar." icon={<HistoryIcon color="disabled" />} />
         ) : (
           <Table size="small">
             <TableHead>

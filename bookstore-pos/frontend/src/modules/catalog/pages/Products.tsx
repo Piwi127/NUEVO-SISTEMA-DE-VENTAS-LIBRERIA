@@ -69,7 +69,7 @@ const Products: React.FC = () => {
 
   const handleDelete = async () => {
     if (!editingId) return;
-    if (!window.confirm("¿Eliminar producto?")) return;
+    if (!window.confirm("Eliminar producto?")) return;
     await deleteProduct(editingId);
     showToast({ message: "Producto eliminado", severity: "success" });
     setForm(emptyForm);
@@ -180,7 +180,7 @@ const Products: React.FC = () => {
               }}
               sx={{
                 border: "none",
-                "& .MuiDataGrid-columnHeaders": { bgcolor: "#0f172a", color: "#fff" },
+                "& .MuiDataGrid-columnHeaders": { bgcolor: "rgba(18,53,90,0.08)", color: "#12355a" },
               }}
             />
           </div>

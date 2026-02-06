@@ -1,17 +1,16 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, TextField, Typography, MenuItem, useMediaQuery } from "@mui/material";
+import { Box, Button, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CardTable } from "../../../components/CardTable";
+import { EmptyState } from "../../../components/EmptyState";
+import { ErrorState } from "../../../components/ErrorState";
+import { LoadingState } from "../../../components/LoadingState";
 import { PageHeader } from "../../../components/PageHeader";
 import { TableToolbar } from "../../../components/TableToolbar";
-import { EmptyState } from "../../../components/EmptyState";
-import { LoadingState } from "../../../components/LoadingState";
-import { ErrorState } from "../../../components/ErrorState";
-import { CardTable } from "../../../components/CardTable";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createCustomer, deleteCustomer, listCustomers, updateCustomer } from "../api";
-import { listPriceLists } from "../api";
-import { Customer } from "../../shared/types";
 import { useToast } from "../../../components/ToastProvider";
+import { listPriceLists, createCustomer, deleteCustomer, listCustomers, updateCustomer } from "../api";
+import { Customer } from "../../shared/types";
 import { useSettings } from "../../../store/useSettings";
 
 const empty: Omit<Customer, "id"> = { name: "", phone: "", price_list_id: null } as any;
@@ -19,32 +18,30 @@ const empty: Omit<Customer, "id"> = { name: "", phone: "", price_list_id: null }
 const Customers: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
+
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["customers"], queryFn: listCustomers, staleTime: 60_000 });
   const { data: lists } = useQuery({ queryKey: ["price-lists"], queryFn: listPriceLists });
+
   const [form, setForm] = useState<any>(empty);
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
+
   const filtered = (data || []).filter((c) => {
     const term = query.trim().toLowerCase();
     if (!term) return true;
     return `${c.name} ${c.phone || ""}`.toLowerCase().includes(term);
   });
+
   const cardRows = filtered.map((c) => ({
     key: c.id,
     title: c.name,
     subtitle: c.phone || "-",
-    right: (
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "", price_list_id: c.price_list_id || null }); }}>Editar</Button>
-        <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
-      </Box>
-    ),
-    fields: [
-      { label: "Lista", value: c.price_list_id || "Sin lista" },
-    ],
+    right: <Typography sx={{ fontWeight: 700 }}>{c.price_list_id || "Sin lista"}</Typography>,
+    fields: [],
   }));
 
   const handleSubmit = async () => {
@@ -61,7 +58,7 @@ const Customers: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("¿Eliminar cliente?")) return;
+    if (!window.confirm("Eliminar cliente?")) return;
     await deleteCustomer(id);
     showToast({ message: "Cliente eliminado", severity: "success" });
     qc.invalidateQueries({ queryKey: ["customers"] });
@@ -69,23 +66,10 @@ const Customers: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <PageHeader
-        title="Clientes"
-        subtitle="Gestion de contactos y listas de precio."
-        icon={<PeopleAltIcon color="primary" />}
-        chips={[`Total: ${data?.length ?? 0}`]}
-        loading={isLoading}
-      />
+      <PageHeader title="Clientes" subtitle="Gestion de contactos y listas de precio." icon={<PeopleAltIcon color="primary" />} chips={[`Total: ${filtered.length}`]} loading={isLoading} />
 
-      <TableToolbar title="Clientes" subtitle="Busqueda por nombre o telefono.">
-        <TextField
-          label="Buscar"
-          size="small"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          sx={{ maxWidth: 320 }}
-          placeholder="Nombre o telefono"
-        />
+      <TableToolbar title="Busqueda" subtitle="Filtra por nombre o telefono.">
+        <TextField label="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} sx={{ minWidth: 280 }} />
       </TableToolbar>
 
       <Paper sx={{ p: 2 }}>
@@ -94,40 +78,47 @@ const Customers: React.FC = () => {
         ) : isError ? (
           <ErrorState title="No se pudieron cargar clientes" onRetry={() => refetch()} />
         ) : filtered.length === 0 ? (
-          <EmptyState
-            title="Sin clientes"
-            description="No hay clientes con ese filtro."
-            icon={<PeopleAltIcon color="disabled" />}
-          />
+          <EmptyState title="Sin clientes" description="No hay clientes con ese filtro." icon={<PeopleAltIcon color="disabled" />} />
         ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
-          filtered.map((c) => (
-            <Box key={c.id} sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1 }}>
-              <Typography sx={{ flex: 1 }}>{c.name} ({c.phone})</Typography>
-              <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "", price_list_id: c.price_list_id || null }); }}>Editar</Button>
-              <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
-            </Box>
-          ))
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Nombre</TableCell>
+                <TableCell>Telefono</TableCell>
+                <TableCell>Lista</TableCell>
+                <TableCell>Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filtered.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell>{c.name}</TableCell>
+                  <TableCell>{c.phone || "-"}</TableCell>
+                  <TableCell>{c.price_list_id || "Sin lista"}</TableCell>
+                  <TableCell>
+                    <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "", price_list_id: c.price_list_id || null }); }}>Editar</Button>
+                    <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </Paper>
+
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>{editingId ? "Editar" : "Nuevo"}</Typography>
+        <Typography variant="h6" sx={{ mb: 2 }}>{editingId ? "Editar cliente" : "Nuevo cliente"}</Typography>
         <Box sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
+          <TextField label="Nombre" value={form.name} onChange={(e) => setForm((p: any) => ({ ...p, name: e.target.value }))} />
+          <TextField label="Telefono" value={form.phone || ""} onChange={(e) => setForm((p: any) => ({ ...p, phone: e.target.value }))} />
           <TextField
-            label="Nombre"
-            value={form.name}
-            onChange={(e) => setForm((p: any) => ({ ...p, name: e.target.value }))}
-            error={!form.name.trim() && form.name.length > 0}
-            helperText={!form.name.trim() && form.name.length > 0 ? "Nombre requerido" : "Nombre completo"}
-          />
-          <TextField
-            label="Telefono"
-            value={form.phone || ""}
-            onChange={(e) => setForm((p: any) => ({ ...p, phone: e.target.value }))}
-            helperText="Opcional"
-          />
-          <TextField select label="Lista de precio" value={form.price_list_id || ""} onChange={(e) => setForm((p: any) => ({ ...p, price_list_id: Number(e.target.value) }))}>
+            select
+            label="Lista de precio"
+            value={form.price_list_id || ""}
+            onChange={(e) => setForm((p: any) => ({ ...p, price_list_id: e.target.value === "" ? null : Number(e.target.value) }))}
+          >
             <MenuItem value="">Sin lista</MenuItem>
             {(lists || []).map((l) => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
           </TextField>

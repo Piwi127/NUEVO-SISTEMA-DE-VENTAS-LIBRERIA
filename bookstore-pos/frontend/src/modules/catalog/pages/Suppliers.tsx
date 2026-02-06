@@ -1,16 +1,16 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, TextField, Typography, useMediaQuery } from "@mui/material";
+import { Box, Button, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CardTable } from "../../../components/CardTable";
+import { EmptyState } from "../../../components/EmptyState";
+import { ErrorState } from "../../../components/ErrorState";
+import { LoadingState } from "../../../components/LoadingState";
 import { PageHeader } from "../../../components/PageHeader";
 import { TableToolbar } from "../../../components/TableToolbar";
-import { EmptyState } from "../../../components/EmptyState";
-import { LoadingState } from "../../../components/LoadingState";
-import { ErrorState } from "../../../components/ErrorState";
-import { CardTable } from "../../../components/CardTable";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../../../components/ToastProvider";
 import { createSupplier, deleteSupplier, listSuppliers, updateSupplier } from "../api";
 import { Supplier } from "../../shared/types";
-import { useToast } from "../../../components/ToastProvider";
 import { useSettings } from "../../../store/useSettings";
 
 const empty: Omit<Supplier, "id"> = { name: "", phone: "" };
@@ -19,30 +19,27 @@ const Suppliers: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers, staleTime: 60_000 });
+
   const [form, setForm] = useState<Omit<Supplier, "id">>(empty);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
+
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
-  const [query, setQuery] = useState("");
-  const filtered = (data || []).filter((c) => {
+
+  const filtered = (data || []).filter((s) => {
     const term = query.trim().toLowerCase();
     if (!term) return true;
-    return `${c.name} ${c.phone || ""}`.toLowerCase().includes(term);
+    return `${s.name} ${s.phone || ""}`.toLowerCase().includes(term);
   });
-  const cardRows = filtered.map((c) => ({
-    key: c.id,
-    title: c.name,
-    subtitle: c.phone || "-",
-    right: (
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "" }); }}>Editar</Button>
-        <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
-      </Box>
-    ),
-    fields: [
-      { label: "Telefono", value: c.phone || "-" },
-    ],
+
+  const cardRows = filtered.map((s) => ({
+    key: s.id,
+    title: s.name,
+    subtitle: s.phone || "-",
+    right: <Typography sx={{ fontWeight: 700 }}>{s.phone || "-"}</Typography>,
+    fields: [],
   }));
 
   const handleSubmit = async () => {
@@ -59,7 +56,7 @@ const Suppliers: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("¿Eliminar proveedor?")) return;
+    if (!window.confirm("Eliminar proveedor?")) return;
     await deleteSupplier(id);
     showToast({ message: "Proveedor eliminado", severity: "success" });
     qc.invalidateQueries({ queryKey: ["suppliers"] });
@@ -67,23 +64,10 @@ const Suppliers: React.FC = () => {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <PageHeader
-        title="Proveedores"
-        subtitle="Directorio y contacto comercial."
-        icon={<LocalShippingIcon color="primary" />}
-        chips={[`Total: ${data?.length ?? 0}`]}
-        loading={isLoading}
-      />
+      <PageHeader title="Proveedores" subtitle="Directorio y contacto comercial." icon={<LocalShippingIcon color="primary" />} chips={[`Total: ${filtered.length}`]} loading={isLoading} />
 
-      <TableToolbar title="Proveedores" subtitle="Busqueda por nombre o telefono.">
-        <TextField
-          label="Buscar"
-          size="small"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          sx={{ maxWidth: 320 }}
-          placeholder="Nombre o telefono"
-        />
+      <TableToolbar title="Busqueda" subtitle="Filtra por nombre o telefono.">
+        <TextField label="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} sx={{ minWidth: 280 }} />
       </TableToolbar>
 
       <Paper sx={{ p: 2 }}>
@@ -92,41 +76,39 @@ const Suppliers: React.FC = () => {
         ) : isError ? (
           <ErrorState title="No se pudieron cargar proveedores" onRetry={() => refetch()} />
         ) : filtered.length === 0 ? (
-          <EmptyState
-            title="Sin proveedores"
-            description="No hay proveedores con ese filtro."
-            icon={<LocalShippingIcon color="disabled" />}
-          />
+          <EmptyState title="Sin proveedores" description="No hay proveedores con ese filtro." icon={<LocalShippingIcon color="disabled" />} />
         ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
-          filtered.map((c) => (
-            <Box key={c.id} sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1 }}>
-              <Typography sx={{ flex: 1 }}>{c.name} ({c.phone})</Typography>
-              <Button size="small" onClick={() => { setEditingId(c.id); setForm({ name: c.name, phone: c.phone || "" }); }}>Editar</Button>
-              <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Eliminar</Button>
-            </Box>
-          ))
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Nombre</TableCell>
+                <TableCell>Telefono</TableCell>
+                <TableCell>Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filtered.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell>{s.name}</TableCell>
+                  <TableCell>{s.phone || "-"}</TableCell>
+                  <TableCell>
+                    <Button size="small" onClick={() => { setEditingId(s.id); setForm({ name: s.name, phone: s.phone || "" }); }}>Editar</Button>
+                    <Button size="small" color="error" onClick={() => handleDelete(s.id)}>Eliminar</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </Paper>
+
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          {editingId ? "Editar" : "Nuevo"}
-        </Typography>
+        <Typography variant="h6" sx={{ mb: 2 }}>{editingId ? "Editar proveedor" : "Nuevo proveedor"}</Typography>
         <Box sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
-          <TextField
-            label="Nombre"
-            value={form.name}
-            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            error={!form.name.trim() && form.name.length > 0}
-            helperText={!form.name.trim() && form.name.length > 0 ? "Nombre requerido" : "Razon social"}
-          />
-          <TextField
-            label="Telefono"
-            value={form.phone || ""}
-            onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-            helperText="Opcional"
-          />
+          <TextField label="Nombre" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+          <TextField label="Telefono" value={form.phone || ""} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
           <Button variant="contained" onClick={handleSubmit} disabled={!form.name.trim()}>Guardar</Button>
         </Box>
       </Paper>
