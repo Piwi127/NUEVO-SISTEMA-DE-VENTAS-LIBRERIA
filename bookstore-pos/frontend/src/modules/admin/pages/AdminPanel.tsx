@@ -38,6 +38,8 @@ import { useToast } from "../../../components/ToastProvider";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthProvider";
 import * as QRCode from "qrcode";
+import { api } from "../../shared/api";
+import { detectTimeContext } from "../../../utils/datetime";
 
 const AdminPanel: React.FC = () => {
   const {
@@ -99,10 +101,12 @@ const AdminPanel: React.FC = () => {
   const [settingsError, setSettingsError] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState(false);
+  const [health, setHealth] = useState<"unknown" | "ok" | "error">("unknown");
 
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { timeZone } = detectTimeContext();
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses, staleTime: 60_000 });
 
   React.useEffect(() => {
@@ -276,6 +280,17 @@ const AdminPanel: React.FC = () => {
     }
   };
 
+  const runHealthCheck = async () => {
+    try {
+      await api.get("/healthz");
+      setHealth("ok");
+      showToast({ message: "API operativa correctamente.", severity: "success" });
+    } catch {
+      setHealth("error");
+      showToast({ message: "No se pudo conectar con la API.", severity: "error" });
+    }
+  };
+
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       <PageHeader
@@ -352,6 +367,21 @@ const AdminPanel: React.FC = () => {
             <Grid item xs={12} md={6}><FormControlLabel control={<Checkbox checked={compactMode} onChange={(e) => setCompactMode(e.target.checked)} />} label="Modo compacto forzado (UI)" /></Grid>
           </Grid>
         ) : null}
+      </Paper>
+
+      <Paper sx={{ p: 3 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <SettingsIcon color="primary" />
+          <Typography variant="h6">Diagnostico rapido</Typography>
+        </Stack>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mb: 2 }}>
+          <Chip label={`Zona horaria: ${timeZone}`} />
+          <Chip
+            color={health === "ok" ? "success" : health === "error" ? "error" : "default"}
+            label={health === "ok" ? "API: OK" : health === "error" ? "API: Error" : "API: Sin validar"}
+          />
+          <Button variant="outlined" onClick={runHealthCheck}>Verificar API</Button>
+        </Stack>
       </Paper>
 
       <Paper sx={{ p: 3 }}>

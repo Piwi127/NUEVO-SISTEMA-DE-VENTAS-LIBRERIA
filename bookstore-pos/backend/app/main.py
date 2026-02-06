@@ -5,6 +5,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
@@ -41,9 +42,32 @@ from app.routers.reports import reports as reports_router
 from app.seed import seed_admin
 from app.db.session import AsyncSessionLocal
 
+async def ensure_schema_updates() -> None:
+    async with AsyncSessionLocal() as session:
+        try:
+            dialect = session.bind.dialect.name if session.bind else ""
+            has_tags = False
+            if dialect == "sqlite":
+                result = await session.execute(text("PRAGMA table_info(products)"))
+                columns = [row[1] for row in result.fetchall()]
+                has_tags = "tags" in columns
+            else:
+                result = await session.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = 'products' AND column_name = 'tags'"
+                    )
+                )
+                has_tags = result.first() is not None
+            if not has_tags:
+                await session.execute(text("ALTER TABLE products ADD COLUMN tags VARCHAR(500) DEFAULT ''"))
+                await session.commit()
+        except Exception:
+            await session.rollback()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await ensure_schema_updates()
     async with AsyncSessionLocal() as session:
         await seed_admin(session)
     try:

@@ -1,13 +1,13 @@
 ﻿from fastapi import APIRouter, Depends
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_current_user, require_permission, require_role
+from app.core.deps import get_db, get_current_user, require_permission
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductOut, ProductUpdate
 from app.services.catalog.products_service import ProductsService
 
-router = APIRouter(prefix="/products", tags=["products"], dependencies=[Depends(require_role("admin", "stock"))])
+router = APIRouter(prefix="/products", tags=["products"])
 
 
 @router.get("", response_model=list[ProductOut], dependencies=[Depends(require_permission("products.read"))])
@@ -19,8 +19,20 @@ async def list_products(
 ):
     stmt = select(Product)
     if search:
-        term = f"%{search}%"
-        stmt = stmt.where(or_(Product.name.ilike(term), Product.sku.ilike(term)))
+        tokens = [t.strip() for t in search.split() if t.strip()]
+        if tokens:
+            token_clauses = []
+            for token in tokens:
+                term = f"%{token}%"
+                token_clauses.append(
+                    or_(
+                        Product.name.ilike(term),
+                        Product.sku.ilike(term),
+                        Product.category.ilike(term),
+                        Product.tags.ilike(term),
+                    )
+                )
+            stmt = stmt.where(and_(*token_clauses))
     stmt = stmt.order_by(Product.id).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
     result = await db.execute(stmt)
     return result.scalars().all()

@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack } from "@mui/material";
+import { Alert, Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack, Chip } from "@mui/material";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import ShoppingCartCheckoutIcon from "@mui/icons-material/ShoppingCartCheckout";
+import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import { PageHeader } from "../../../components/PageHeader";
 import * as QRCode from "qrcode";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -238,6 +242,10 @@ const POS: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [cart.items.length]);
 
+  useEffect(() => {
+    barcodeRef.current?.focus();
+  }, []);
+
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       <PageHeader
@@ -252,7 +260,22 @@ const POS: React.FC = () => {
         loading={isLoading}
       />
 
-      <Grid container spacing={2}>
+      <Paper sx={{ p: 2 }}>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", mb: 1.5 }}>
+          <Chip color={cash?.is_open ? "success" : "warning"} label={cash?.is_open ? "Caja abierta" : "Caja cerrada"} />
+          <Chip label={`Cliente: ${customerId ? customers?.find((c) => c.id === customerId)?.name || customerId : "Mostrador"}`} />
+          <Chip label={`Items: ${cart.items.length}`} />
+          <Chip label={`Total: ${formatMoney(total)}`} />
+        </Box>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+          <Chip icon={<QrCodeScannerIcon />} label="1) Escanear o buscar producto" />
+          <Chip icon={<PersonOutlineIcon />} label="2) Seleccionar cliente (opcional)" />
+          <Chip icon={<LocalOfferIcon />} label="3) Aplicar promo (opcional)" />
+          <Chip icon={<ShoppingCartCheckoutIcon />} label="4) Cobrar" />
+        </Box>
+      </Paper>
+
+      <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
         <Grid item xs={12} sm={4}>
           <KpiCard label="Venta" value={formatMoney(total)} accent="#0b1e3b" />
         </Grid>
@@ -264,56 +287,88 @@ const POS: React.FC = () => {
         </Grid>
       </Grid>
 
-      <Paper sx={{ p: 2 }}>
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", flexDirection: isCompact ? "column" : "row" }}>
-          <TextField
-            inputRef={barcodeRef}
-            label="Escaner (SKU)"
-            placeholder="Escanea y Enter"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleBarcode((e.target as HTMLInputElement).value);
-                (e.target as HTMLInputElement).value = "";
-              }
-            }}
-            sx={{ minWidth: 260, maxWidth: 360, width: isCompact ? "100%" : "auto" }}
-          />
-          <TextField
-            select
-            label="Cliente"
-            value={customerId}
-            onChange={(e) => setCustomerId(Number(e.target.value))}
-            sx={{ minWidth: 220, width: isCompact ? "100%" : "auto" }}
-          >
-            <MenuItem value="">Sin cliente</MenuItem>
-            {(customers || []).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-          </TextField>
-          <TextField
-            select
-            label="Promo"
-            value={promoId}
-            onChange={(e) => setPromoId(Number(e.target.value))}
-            sx={{ minWidth: 220, width: isCompact ? "100%" : "auto" }}
-          >
-            <MenuItem value="">Sin promo</MenuItem>
-            {(promos || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
-          </TextField>
-        </Box>
-      </Paper>
-
       <Grid container spacing={2}>
-        <Grid item xs={12} md={7}>
+        <Grid item xs={12} md={8}>
+          <Paper
+            sx={{
+              p: 2,
+              mb: 2,
+              background:
+                "linear-gradient(125deg, rgba(18,53,90,0.06) 0%, rgba(18,53,90,0.02) 48%, rgba(154,123,47,0.08) 100%)",
+            }}
+          >
+            <Typography variant="h6" sx={{ mb: 2 }}>Centro de venta</Typography>
+            <Grid container spacing={1.5}>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  inputRef={barcodeRef}
+                  label="Escaner (SKU)"
+                  placeholder="Escanea y Enter"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleBarcode((e.target as HTMLInputElement).value);
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Cliente"
+                  value={customerId}
+                  onChange={(e) => setCustomerId(Number(e.target.value))}
+                >
+                  <MenuItem value="">Sin cliente</MenuItem>
+                  {(customers || []).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Promo"
+                  value={promoId}
+                  onChange={(e) => setPromoId(Number(e.target.value))}
+                >
+                  <MenuItem value="">Sin promo</MenuItem>
+                  {(promos || []).map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  disabled={!canCharge}
+                  onClick={() => setPayOpen(true)}
+                  sx={{ height: "100%" }}
+                >
+                  Cobrar
+                </Button>
+              </Grid>
+            </Grid>
+          </Paper>
+
           <Paper sx={{ p: 2, height: "100%" }}>
             <Typography variant="h6" sx={{ mb: 2 }}>Busqueda de productos</Typography>
             <ProductSearch priceMap={priceMap} inputRef={searchRef} />
           </Paper>
         </Grid>
-        <Grid item xs={12} md={5}>
-          <Paper sx={{ p: 2, height: "100%" }}>
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2, height: "100%", position: { md: "sticky" }, top: { md: 12 } }}>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
               <ReceiptLongIcon color="primary" />
               <Typography variant="h6">Carrito</Typography>
+              {lastSaleId ? <Chip size="small" color="success" label={`Ultima venta #${lastSaleId}`} sx={{ ml: "auto" }} /> : null}
             </Stack>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+              <Button size="small" variant="text" onClick={() => cart.clear()} disabled={cart.items.length === 0}>
+                Limpiar carrito
+              </Button>
+            </Box>
             <Cart />
             <Divider sx={{ my: 2 }} />
             {!cashQuery.isLoading && !cash?.is_open ? (
@@ -329,16 +384,26 @@ const POS: React.FC = () => {
                 Caja cerrada. Debes abrir caja para poder cobrar.
               </Alert>
             ) : null}
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", flexDirection: isCompact ? "column" : "row" }}>
-              <Button fullWidth={isCompact} variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)}>
+            <Box sx={{ display: "grid", gap: 1.5 }}>
+              <Button fullWidth variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)}>
                 Cobrar
               </Button>
-              <Button fullWidth={isCompact} variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>
+              <Button fullWidth variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>
                 Imprimir ticket
               </Button>
-              <Button fullWidth={isCompact} variant="outlined" disabled={!lastSaleId} onClick={handleEscpos}>
+              <Button fullWidth variant="outlined" disabled={!lastSaleId} onClick={handleEscpos}>
                 Descargar ESC/POS
               </Button>
+              {!canCharge ? (
+                <Typography variant="caption" color="text.secondary">
+                  Para cobrar necesitas una caja abierta y al menos un producto en el carrito.
+                </Typography>
+              ) : null}
+              {canCharge ? (
+                <Typography variant="caption" color="success.main">
+                  Listo para cobrar. Atajo rapido: F4
+                </Typography>
+              ) : null}
             </Box>
           </Paper>
         </Grid>

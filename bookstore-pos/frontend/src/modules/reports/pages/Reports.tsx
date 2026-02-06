@@ -46,6 +46,7 @@ const Reports: React.FC = () => {
   const [errorDaily, setErrorDaily] = useState(false);
   const [errorTop, setErrorTop] = useState(false);
   const [errorLow, setErrorLow] = useState(false);
+  const [loadedTabs, setLoadedTabs] = useState<Record<number, boolean>>({});
 
   const topTotal = useMemo(() => top.reduce((acc, t) => acc + Number(t.total_sold || 0), 0), [top]);
   const topUnits = useMemo(() => top.reduce((acc, t) => acc + Number(t.qty_sold || 0), 0), [top]);
@@ -94,6 +95,17 @@ const Reports: React.FC = () => {
       setLoadingLow(false);
     }
   };
+
+  React.useEffect(() => {
+    const loadByTab = async () => {
+      if (loadedTabs[tab]) return;
+      if (tab === 0) await loadDaily();
+      if (tab === 1) await loadTop();
+      if (tab === 2) await loadLow();
+      setLoadedTabs((prev) => ({ ...prev, [tab]: true }));
+    };
+    void loadByTab();
+  }, [tab, loadedTabs]);
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -144,6 +156,12 @@ const Reports: React.FC = () => {
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
             <TextField type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
             <TextField type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <Button variant="outlined" onClick={() => { const d = new Date(); const t = d.toISOString().slice(0, 10); d.setDate(d.getDate() - 7); setFrom(d.toISOString().slice(0, 10)); setTo(t); }}>
+              Ultimos 7 dias
+            </Button>
+            <Button variant="outlined" onClick={() => { const d = new Date(); const t = d.toISOString().slice(0, 10); d.setDate(d.getDate() - 30); setFrom(d.toISOString().slice(0, 10)); setTo(t); }}>
+              Ultimos 30 dias
+            </Button>
             <Button variant="contained" onClick={loadTop}>Consultar</Button>
             <Button variant="outlined" startIcon={<DownloadIcon />} onClick={async () => download(await exportTop(from, to), "top_productos.csv")}>
               Exportar CSV

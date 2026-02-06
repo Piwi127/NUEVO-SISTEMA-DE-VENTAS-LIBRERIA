@@ -40,6 +40,15 @@ const Users: React.FC = () => {
     if (!term) return true;
     return `${u.username} ${u.role}`.toLowerCase().includes(term);
   });
+  const passwordValue = form.password || "";
+  const passwordScore = [
+    passwordValue.length >= 10,
+    /[A-Z]/.test(passwordValue),
+    /[a-z]/.test(passwordValue),
+    /[0-9]/.test(passwordValue),
+    /[^A-Za-z0-9]/.test(passwordValue),
+  ].filter(Boolean).length;
+  const passwordLabel = passwordScore >= 5 ? "Fuerte" : passwordScore >= 4 ? "Media" : "Debil";
 
   const errorMessage = (err: any) => {
     const detail = err?.response?.data?.detail;
@@ -54,6 +63,12 @@ const Users: React.FC = () => {
       }
     }
     return detail || "Error";
+  };
+
+  const generateStrongPassword = () => {
+    const base = `BsP${Math.random().toString(36).slice(2, 6).toUpperCase()}${Math.floor(1000 + Math.random() * 9000)}!a`;
+    setForm((p) => ({ ...p, password: base }));
+    showToast({ message: "Password sugerida generada.", severity: "info" });
   };
 
   const handleSubmit = async () => {
@@ -209,6 +224,12 @@ const Users: React.FC = () => {
             onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
             helperText={editingId ? "Dejar en blanco para no cambiar" : "Min 10, mayuscula, minuscula y numero"}
           />
+          <Typography variant="caption" color={passwordScore >= 4 ? "success.main" : "warning.main"}>
+            Seguridad de password: {passwordLabel}
+          </Typography>
+          <Button variant="outlined" onClick={generateStrongPassword}>
+            Generar password segura
+          </Button>
           <Button variant="contained" onClick={handleSubmit}>Guardar</Button>
         </Box>
       </Paper>

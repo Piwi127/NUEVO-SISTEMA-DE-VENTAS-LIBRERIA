@@ -5,6 +5,7 @@ class ProductBase(BaseModel):
     sku: str
     name: str
     category: str = ""
+    tags: str = ""
     price: float
     cost: float
     stock: int = 0

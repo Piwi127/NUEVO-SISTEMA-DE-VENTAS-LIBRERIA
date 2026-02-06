@@ -18,6 +18,7 @@ const emptyForm: Omit<Product, "id"> = {
   sku: "",
   name: "",
   category: "",
+  tags: "",
   price: 0,
   cost: 0,
   stock: 0,
@@ -42,6 +43,7 @@ const Products: React.FC = () => {
       { field: "sku", headerName: "SKU", width: 120 },
       { field: "name", headerName: "Nombre", flex: 1 },
       { field: "category", headerName: "Categoria", width: 140 },
+      { field: "tags", headerName: "Tags", width: 200 },
       { field: "price", headerName: "Precio", width: 110 },
       { field: "cost", headerName: "Costo", width: 110 },
       { field: "stock", headerName: "Stock", width: 90 },
@@ -203,7 +205,15 @@ const Products: React.FC = () => {
                   [key]: typeof value === "number" ? Number(e.target.value) : e.target.value,
                 }))
               }
-              helperText={key === "sku" ? "Unico" : key === "stock_min" ? "Nivel minimo" : ""}
+              helperText={
+                key === "sku"
+                  ? "Unico"
+                  : key === "stock_min"
+                    ? "Nivel minimo"
+                    : key === "tags"
+                      ? "Separar etiquetas con coma. Ej: hojas,cuaderno,rayado"
+                      : ""
+              }
             />
           ))}
         </Box>

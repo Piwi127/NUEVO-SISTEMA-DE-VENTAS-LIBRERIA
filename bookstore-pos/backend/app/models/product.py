@@ -11,6 +11,7 @@ class Product(Base):
     sku: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
     category: Mapped[str] = mapped_column(String(100), default="")
+    tags: Mapped[str] = mapped_column(String(500), default="")
     price: Mapped[float] = mapped_column(Float)
     cost: Mapped[float] = mapped_column(Float)
     stock: Mapped[int] = mapped_column(Integer, default=0)

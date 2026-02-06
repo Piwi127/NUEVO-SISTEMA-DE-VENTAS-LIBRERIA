@@ -1,8 +1,12 @@
 ﻿import { api } from "../../shared/api";
 import { Product } from "../../shared/types";
 
-export const listProducts = async (search?: string): Promise<Product[]> => {
-  const res = await api.get("/products", { params: search ? { search } : undefined });
+export const listProducts = async (search?: string, limit?: number, offset?: number): Promise<Product[]> => {
+  const params: Record<string, string | number> = {};
+  if (search) params.search = search;
+  if (typeof limit === "number") params.limit = limit;
+  if (typeof offset === "number") params.offset = offset;
+  const res = await api.get("/products", { params: Object.keys(params).length ? params : undefined });
   return res.data;
 };
 

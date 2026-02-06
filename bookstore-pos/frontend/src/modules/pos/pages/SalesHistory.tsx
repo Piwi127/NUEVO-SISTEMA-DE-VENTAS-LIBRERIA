@@ -30,6 +30,7 @@ const SalesHistory: React.FC = () => {
   const isCompact = compactMode || compact;
   const { showToast } = useToast();
   const { timeZone } = detectTimeContext();
+  const invalidDateRange = !!from && !!to && from > to;
 
   const params = useMemo(() => ({
     status: status || undefined,
@@ -112,10 +113,36 @@ const SalesHistory: React.FC = () => {
         <Button variant="outlined" onClick={() => { setFrom(""); setTo(""); }}>
           Limpiar fechas
         </Button>
-        <Button variant="contained" onClick={() => refetch()} disabled={isFetching}>Consultar</Button>
+        <Button variant="outlined" onClick={() => { setFrom(todayISO()); setTo(todayISO()); }}>
+          Hoy
+        </Button>
+        <Button variant="outlined" onClick={() => { setFrom(daysAgoISO(7)); setTo(todayISO()); }}>
+          7 dias
+        </Button>
+        <Button variant="outlined" onClick={() => { setFrom(daysAgoISO(30)); setTo(todayISO()); }}>
+          30 dias
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() => {
+            if (invalidDateRange) {
+              showToast({ message: "Rango de fechas invalido: 'Desde' es mayor que 'Hasta'.", severity: "warning" });
+              return;
+            }
+            refetch();
+          }}
+          disabled={isFetching}
+        >
+          Consultar
+        </Button>
       </TableToolbar>
 
       <Paper sx={{ p: 2 }}>
+        {invalidDateRange ? (
+          <Typography variant="body2" color="warning.main" sx={{ mb: 1 }}>
+            Corrige el rango de fechas para consultar el historial.
+          </Typography>
+        ) : null}
         {isFetching && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Cargando ventas...

@@ -34,6 +34,7 @@ const Returns: React.FC = () => {
   const [saleId, setSaleId] = useState("");
   const [reason, setReason] = useState("");
   const [limit, setLimit] = useState(100);
+  const [salePreview, setSalePreview] = useState<{ id: number; invoice: string; total: number } | null>(null);
   const { timeZone } = detectTimeContext();
 
   const returnsQuery = useQuery({
@@ -67,9 +68,30 @@ const Returns: React.FC = () => {
       showToast({ message: "Devolucion registrada", severity: "success" });
       setSaleId("");
       setReason("");
+      setSalePreview(null);
       qc.invalidateQueries({ queryKey: ["returns-history"] });
     } catch (err: any) {
       showToast({ message: err?.response?.data?.detail || "Error", severity: "error" });
+    }
+  };
+
+  const handleValidateSale = async () => {
+    const id = Number(saleId);
+    if (!id || Number.isNaN(id)) {
+      showToast({ message: "Ingresa un ID de venta valido para validar.", severity: "warning" });
+      return;
+    }
+    try {
+      const receipt = await getReceipt(id);
+      setSalePreview({
+        id,
+        invoice: receipt.invoice_number || "-",
+        total: Number(receipt.total || 0),
+      });
+      showToast({ message: "Venta validada correctamente.", severity: "success" });
+    } catch (err: any) {
+      setSalePreview(null);
+      showToast({ message: err?.response?.data?.detail || "No se encontro la venta.", severity: "error" });
     }
   };
 
@@ -93,6 +115,16 @@ const Returns: React.FC = () => {
             error={saleId.length > 0 && isNaN(Number(saleId))}
             helperText={saleId.length > 0 && isNaN(Number(saleId)) ? "Debe ser numerico" : "Ingrese el ID exacto de la venta"}
           />
+          <Button variant="outlined" onClick={handleValidateSale} disabled={!saleId}>
+            Validar venta
+          </Button>
+          {salePreview ? (
+            <Paper variant="outlined" sx={{ p: 1.5 }}>
+              <Typography variant="body2">Venta #{salePreview.id}</Typography>
+              <Typography variant="body2">Comprobante: {salePreview.invoice}</Typography>
+              <Typography variant="body2">Total: {salePreview.total.toFixed(2)}</Typography>
+            </Paper>
+          ) : null}
           <TextField
             label="Motivo"
             placeholder="Detalle del motivo"
@@ -101,7 +133,7 @@ const Returns: React.FC = () => {
             error={!reason.trim() && reason.length > 0}
             helperText={!reason.trim() && reason.length > 0 ? "Motivo requerido" : "Max 200 caracteres"}
           />
-          <Button variant="contained" onClick={handleReturn} disabled={!saleId || !reason.trim()}>Procesar</Button>
+          <Button variant="contained" onClick={handleReturn} disabled={!saleId || !reason.trim() || !salePreview}>Procesar</Button>
         </Box>
       </Paper>
 

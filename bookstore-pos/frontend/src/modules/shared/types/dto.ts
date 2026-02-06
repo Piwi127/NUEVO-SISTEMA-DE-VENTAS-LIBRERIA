@@ -13,6 +13,7 @@ export type Product = {
   sku: string;
   name: string;
   category: string;
+  tags: string;
   price: number;
   cost: number;
   stock: number;

@@ -32,6 +32,7 @@ export const CashPanel: React.FC = () => {
   const [auditType, setAuditType] = useState("X");
   const [counted, setCounted] = useState(0);
   const [tab, setTab] = useState(0);
+  const canOperate = !!data?.is_open;
 
   const { timeZone } = detectTimeContext();
 
@@ -291,9 +292,14 @@ export const CashPanel: React.FC = () => {
               </TextField>
               <TextField label="Monto" type="number" value={movementAmount} onChange={(e) => setMovementAmount(parseAmount(e.target.value))} />
               <TextField label="Motivo" value={movementReason} onChange={(e) => setMovementReason(e.target.value)} />
-              <Button variant="outlined" onClick={handleMovement}>
+              <Button variant="outlined" onClick={handleMovement} disabled={!canOperate || movementAmount <= 0 || !movementReason.trim()}>
                 Registrar
               </Button>
+              {!canOperate ? (
+                <Typography variant="caption" color="warning.main">
+                  Debes abrir caja para registrar movimientos.
+                </Typography>
+              ) : null}
             </Box>
           </Paper>
 
@@ -308,7 +314,7 @@ export const CashPanel: React.FC = () => {
                   <MenuItem value="Z">Z (cierre)</MenuItem>
                 </TextField>
                 <TextField label="Monto contado" type="number" value={counted} onChange={(e) => setCounted(parseAmount(e.target.value))} />
-                <Button variant="contained" onClick={handleAudit}>
+                <Button variant="contained" onClick={handleAudit} disabled={counted <= 0}>
                   Registrar arqueo
                 </Button>
               </Box>
