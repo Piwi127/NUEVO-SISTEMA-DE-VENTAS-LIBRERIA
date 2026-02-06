@@ -2,10 +2,20 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user, require_permission, require_role
-from app.schemas.sale_return import SaleReturnCreate, SaleReturnOut
+from app.schemas.sale_return import SaleReturnCreate, SaleReturnOut, SaleReturnListOut
 from app.services.pos.returns_service import ReturnsService
 
 router = APIRouter(prefix="/returns", tags=["returns"], dependencies=[Depends(require_role("admin", "cashier"))])
+
+
+@router.get("", response_model=list[SaleReturnListOut], dependencies=[Depends(require_permission("returns.create"))])
+async def list_returns(
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    service = ReturnsService(db, current_user)
+    return await service.list_returns(limit=limit)
 
 
 @router.post("/{sale_id}", response_model=SaleReturnOut, status_code=201, dependencies=[Depends(require_permission("returns.create"))])

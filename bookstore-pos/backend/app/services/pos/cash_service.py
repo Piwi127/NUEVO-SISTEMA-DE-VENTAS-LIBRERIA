@@ -8,7 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import log_event
 from app.models.cash import CashSession, CashMovement, CashAudit
 from app.models.sale import Sale, Payment
-from app.schemas.cash import CashSummaryOut
+from app.schemas.cash import (
+    CashAuditValidationOut,
+    CashMovementOut,
+    CashReportValidationOut,
+    CashSessionOut,
+    CashSessionReportOut,
+    CashSummaryOut,
+)
 
 
 class CashService:
@@ -36,6 +43,15 @@ class CashService:
             .order_by(CashSession.opened_at.desc())
         )
         return result.scalars().first()
+
+    async def _get_session_or_404(self, cash_session_id: int) -> CashSession:
+        result = await self.db.execute(select(CashSession).where(CashSession.id == cash_session_id))
+        session = result.scalar_one_or_none()
+        if not session:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesion de caja no encontrada")
+        if self.user.role != "admin" and session.user_id != self.user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permisos")
+        return session
 
     async def compute_summary(self, session: CashSession) -> CashSummaryOut:
         movements_in = await self.db.execute(
@@ -89,11 +105,10 @@ class CashService:
         session = await self.get_open_session()
         if not session:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta")
-        async with self._transaction():
-            session.is_open = False
-            session.closed_at = datetime.now(timezone.utc)
-            await log_event(self.db, self.user.id, "cash_close", "cash_session", str(session.id), "")
-        return {"ok": True}
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cierre bloqueado: debe registrar arqueo tipo Z para cerrar caja",
+        )
 
     async def create_movement(self, data):
         session = await self.get_open_session()
@@ -162,3 +177,71 @@ class CashService:
                 s.closed_at = now
             await log_event(self.db, self.user.id, "cash_force_close", "cash_session", "", "")
         return {"ok": True}
+
+    async def session_report(self, cash_session_id: int) -> CashSessionReportOut:
+        session = await self._get_session_or_404(cash_session_id)
+        summary = await self.compute_summary(session)
+        period_end = session.closed_at or datetime.now(timezone.utc)
+
+        movements_res = await self.db.execute(
+            select(CashMovement)
+            .where(CashMovement.cash_session_id == session.id)
+            .order_by(CashMovement.created_at.asc(), CashMovement.id.asc())
+        )
+        movement_models = movements_res.scalars().all()
+        movements = [CashMovementOut.model_validate(m) for m in movement_models]
+
+        audits_res = await self.db.execute(
+            select(CashAudit)
+            .where(CashAudit.cash_session_id == session.id)
+            .order_by(CashAudit.created_at.asc(), CashAudit.id.asc())
+        )
+        audit_models = audits_res.scalars().all()
+        audits = [
+            CashAuditValidationOut(
+                id=a.id,
+                cash_session_id=a.cash_session_id,
+                type=a.type,
+                expected_amount=a.expected_amount,
+                counted_amount=a.counted_amount,
+                difference=a.difference,
+                created_by=a.created_by,
+                created_at=a.created_at,
+                validated=abs(float(a.difference or 0.0)) <= 0.01,
+            )
+            for a in audit_models
+        ]
+
+        notes: list[str] = []
+        if not movements:
+            notes.append("No hay movimientos manuales registrados.")
+        if not audits:
+            notes.append("No hay arqueos registrados.")
+        if session.is_open:
+            notes.append("La caja sigue abierta; el reporte es parcial.")
+
+        last_audit = audits[-1] if audits else None
+        is_balanced = bool(last_audit and last_audit.type.upper() == "Z" and last_audit.validated)
+        if last_audit and last_audit.type.upper() == "Z" and last_audit.validated:
+            notes.append("Cierre Z validado sin diferencias.")
+        elif last_audit and last_audit.type.upper() == "Z":
+            notes.append("Cierre Z con diferencia pendiente de revision.")
+
+        validation = CashReportValidationOut(
+            movement_count=len(movements),
+            audit_count=len(audits),
+            last_audit_type=last_audit.type if last_audit else None,
+            last_difference=last_audit.difference if last_audit else None,
+            is_balanced=is_balanced,
+            notes=notes,
+        )
+
+        return CashSessionReportOut(
+            session=CashSessionOut.model_validate(session),
+            summary=summary,
+            period_start=session.opened_at,
+            period_end=period_end,
+            movements=movements,
+            audits=audits,
+            validation=validation,
+        )

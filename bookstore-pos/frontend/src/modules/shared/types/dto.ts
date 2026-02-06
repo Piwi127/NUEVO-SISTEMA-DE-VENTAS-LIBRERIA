@@ -78,6 +78,29 @@ export type CashSummary = {
   expected_amount: number;
 };
 
+export type CashAuditValidation = CashAudit & {
+  validated: boolean;
+};
+
+export type CashReportValidation = {
+  movement_count: number;
+  audit_count: number;
+  last_audit_type?: string | null;
+  last_difference?: number | null;
+  is_balanced: boolean;
+  notes: string[];
+};
+
+export type CashSessionReport = {
+  session: CashSession;
+  summary: CashSummary;
+  period_start: string;
+  period_end: string;
+  movements: CashMovement[];
+  audits: CashAuditValidation[];
+  validation: CashReportValidation;
+};
+
 export type SaleResponse = {
   id: number;
   subtotal: number;
@@ -100,6 +123,15 @@ export type SaleListResponse = {
   discount: number;
   total: number;
   invoice_number: string;
+  created_at: string;
+};
+
+export type SaleReturnListResponse = {
+  id: number;
+  sale_id: number;
+  invoice_number: string;
+  sale_status: string;
+  reason: string;
   created_at: string;
 };
 

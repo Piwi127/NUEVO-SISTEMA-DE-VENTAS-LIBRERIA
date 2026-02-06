@@ -3,6 +3,7 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_role
+from app.models.sale import SaleItem
 from app.services.pos.printing_service import PrintingService
 
 router = APIRouter(prefix="/printing", tags=["printing"], dependencies=[Depends(require_role("admin", "cashier"))])
@@ -29,7 +30,7 @@ def _wrap(text: str, width: int) -> list[str]:
     return lines
 
 
-def _build_receipt_lines(sale, items: list[tuple], settings) -> list[str]:
+def _build_receipt_lines(sale, items: list[tuple[SaleItem, str | None]], settings) -> list[str]:
     width = _line_width(settings.paper_width_mm if settings else 80)
     lines: list[str] = []
     header = settings.receipt_header if settings else ""
@@ -99,7 +100,7 @@ async def receipt_text(sale_id: int, db: AsyncSession = Depends(get_db)):
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
 
-    lines = _build_receipt_lines(sale, items, settings)
+    lines = _build_receipt_lines(sale, items or [], settings)
     text = "\n".join(lines)
     return Response(content=text, media_type="text/plain")
 
@@ -111,7 +112,7 @@ async def receipt_escpos(sale_id: int, db: AsyncSession = Depends(get_db)):
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
 
-    lines = _build_receipt_lines(sale, items, settings)
+    lines = _build_receipt_lines(sale, items or [], settings)
     data = _to_escpos(lines)
     headers = {"Content-Disposition": f'attachment; filename="ticket_{sale_id}.bin"'}
     return Response(content=data, media_type="application/octet-stream", headers=headers)

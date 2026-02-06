@@ -62,3 +62,34 @@ class CashSummaryOut(BaseModel):
     movements_out: float
     sales_cash: float
     expected_amount: float
+
+
+class CashAuditValidationOut(BaseModel):
+    id: int
+    cash_session_id: int
+    type: str
+    expected_amount: float
+    counted_amount: float
+    difference: float
+    created_by: int
+    created_at: datetime
+    validated: bool
+
+
+class CashReportValidationOut(BaseModel):
+    movement_count: int
+    audit_count: int
+    last_audit_type: str | None = None
+    last_difference: float | None = None
+    is_balanced: bool
+    notes: list[str]
+
+
+class CashSessionReportOut(BaseModel):
+    session: CashSessionOut
+    summary: CashSummaryOut
+    period_start: datetime
+    period_end: datetime
+    movements: list[CashMovementOut]
+    audits: list[CashAuditValidationOut]
+    validation: CashReportValidationOut

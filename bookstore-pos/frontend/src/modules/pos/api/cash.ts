@@ -1,5 +1,5 @@
 ﻿import { api } from "../../shared/api";
-import { CashSession, CashMovement, CashAudit, CashSummary } from "../../shared/types";
+import { CashSession, CashMovement, CashAudit, CashSummary, CashSessionReport } from "../../shared/types";
 
 export const getCurrentCash = async (): Promise<CashSession | null> => {
   const res = await api.get("/cash/current");
@@ -38,5 +38,15 @@ export const listCashAudits = async (): Promise<CashAudit[]> => {
 
 export const forceCloseCash = async () => {
   const res = await api.post("/cash/force-close", {});
+  return res.data;
+};
+
+export const getCashSessionReport = async (cashSessionId: number): Promise<CashSessionReport> => {
+  const res = await api.get(`/cash/sessions/${cashSessionId}/report`);
+  return res.data;
+};
+
+export const downloadCashSessionReport = async (cashSessionId: number): Promise<Blob> => {
+  const res = await api.get(`/cash/sessions/${cashSessionId}/report/export`, { responseType: "blob" });
   return res.data;
 };

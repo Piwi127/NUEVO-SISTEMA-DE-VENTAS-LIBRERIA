@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +12,9 @@ class PrintingService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def build_receipt(self, sale_id: int):
+    async def build_receipt(
+        self, sale_id: int
+    ) -> tuple[Optional[Sale], Optional[list[tuple[SaleItem, str | None]]], Optional[SystemSettings]]:
         res = await self.db.execute(select(Sale).where(Sale.id == sale_id))
         sale = res.scalar_one_or_none()
         if not sale:

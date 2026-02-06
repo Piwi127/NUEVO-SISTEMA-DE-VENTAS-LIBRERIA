@@ -1,30 +1,35 @@
-import React, { useState } from "react";
-import { Box, Button, TextField, Typography, Paper, Grid, MenuItem } from "@mui/material";
+﻿import React, { useState } from "react";
+import { Alert, Box, Button, TextField, Typography, Paper, Grid, MenuItem } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCashMovement,
   getCurrentCash,
   openCash,
-  closeCash,
   getCashSummary,
   createCashAudit,
   listCashAudits,
   forceCloseCash,
+  getCashSessionReport,
+  downloadCashSessionReport,
 } from "../api";
 import { useToast } from "../../../components/ToastProvider";
+import { EmptyState } from "../../../components/EmptyState";
+import { detectTimeContext, formatDateTimeRegional } from "../../../utils/datetime";
+import { CashSessionReport } from "../../shared/types";
 
 export const CashPanel: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { data } = useQuery({ queryKey: ["cash-current"], queryFn: getCurrentCash });
   const { data: summary } = useQuery({ queryKey: ["cash-summary"], queryFn: getCashSummary, enabled: !!data?.is_open });
-  const { data: audits } = useQuery({ queryKey: ["cash-audits"], queryFn: listCashAudits });
+  const { data: audits, isFetching: loadingAudits, isError: errorAudits } = useQuery({ queryKey: ["cash-audits"], queryFn: listCashAudits });
   const [opening, setOpening] = useState(0);
   const [movementAmount, setMovementAmount] = useState(0);
   const [movementReason, setMovementReason] = useState("");
   const [movementType, setMovementType] = useState("IN");
   const [auditType, setAuditType] = useState("X");
   const [counted, setCounted] = useState(0);
+  const { timeZone } = detectTimeContext();
 
   const parseAmount = (raw: string) => {
     const v = raw.replace(",", ".");
@@ -43,15 +48,10 @@ export const CashPanel: React.FC = () => {
     }
   };
 
-  const handleClose = async () => {
-    try {
-      await closeCash();
-      showToast({ message: "Caja cerrada", severity: "success" });
-      qc.invalidateQueries({ queryKey: ["cash-current"] });
-      qc.invalidateQueries({ queryKey: ["cash-summary"] });
-    } catch (err: any) {
-      showToast({ message: err?.response?.data?.detail || "Error cerrando caja", severity: "error" });
-    }
+  const handlePrepareCloseZ = () => {
+    setAuditType("Z");
+    setCounted(summary?.expected_amount || 0);
+    showToast({ message: "Preparado cierre Z. Confirma el monto contado y registra el arqueo.", severity: "info" });
   };
 
   const handleForceClose = async () => {
@@ -89,18 +89,140 @@ export const CashPanel: React.FC = () => {
     }
   };
 
+  const openReportWindow = (report: CashSessionReport) => {
+    const popup = window.open("", "_blank", "width=900,height=780");
+    if (!popup) {
+      showToast({ message: "Permite ventanas emergentes para ver el reporte", severity: "warning" });
+      return;
+    }
+
+    const movementsRows = report.movements.length
+      ? report.movements
+          .map(
+            (m) => `<tr>
+              <td>${formatDateTimeRegional(m.created_at)}</td>
+              <td>${m.type}</td>
+              <td style="text-align:right">${m.amount.toFixed(2)}</td>
+              <td>${m.reason}</td>
+            </tr>`
+          )
+          .join("")
+      : `<tr><td colspan="4">Sin movimientos</td></tr>`;
+
+    const auditsRows = report.audits.length
+      ? report.audits
+          .map(
+            (a) => `<tr>
+              <td>${formatDateTimeRegional(a.created_at)}</td>
+              <td>${a.type}</td>
+              <td style="text-align:right">${a.expected_amount.toFixed(2)}</td>
+              <td style="text-align:right">${a.counted_amount.toFixed(2)}</td>
+              <td style="text-align:right">${a.difference.toFixed(2)}</td>
+              <td>${a.validated ? "OK" : "DIF"}</td>
+            </tr>`
+          )
+          .join("")
+      : `<tr><td colspan="6">Sin arqueos</td></tr>`;
+
+    const notes = report.validation.notes.length
+      ? `<ul>${report.validation.notes.map((n) => `<li>${n}</li>`).join("")}</ul>`
+      : "<div>Sin observaciones.</div>";
+
+    popup.document.write(`
+      <html>
+      <head>
+        <title>Reporte Caja #${report.session.id}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
+          h2, h3 { margin: 0 0 10px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+          th, td { border: 1px solid #ddd; padding: 6px; font-size: 13px; }
+          th { background: #f4f6f8; text-align: left; }
+          .grid { display: grid; gap: 4px; margin-bottom: 10px; }
+          .strong { font-weight: 700; }
+          @media print { button { display: none; } }
+        </style>
+      </head>
+      <body>
+        <h2>Reporte de Caja - Sesion #${report.session.id}</h2>
+        <div class="grid">
+          <div>Usuario: ${report.session.user_id}</div>
+          <div>Apertura: ${formatDateTimeRegional(report.period_start)}</div>
+          <div>Cierre: ${formatDateTimeRegional(report.period_end)}</div>
+          <div>Estado: ${report.session.is_open ? "ABIERTA" : "CERRADA"}</div>
+        </div>
+        <h3>Resumen</h3>
+        <table>
+          <tr><th>Apertura</th><td>${report.summary.opening_amount.toFixed(2)}</td></tr>
+          <tr><th>Movimientos IN</th><td>${report.summary.movements_in.toFixed(2)}</td></tr>
+          <tr><th>Movimientos OUT</th><td>${report.summary.movements_out.toFixed(2)}</td></tr>
+          <tr><th>Ventas efectivo</th><td>${report.summary.sales_cash.toFixed(2)}</td></tr>
+          <tr><th>Esperado final</th><td class="strong">${report.summary.expected_amount.toFixed(2)}</td></tr>
+        </table>
+        <h3>Movimientos</h3>
+        <table>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th><th>Motivo</th></tr></thead>
+          <tbody>${movementsRows}</tbody>
+        </table>
+        <h3>Arqueos</h3>
+        <table>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Esperado</th><th>Contado</th><th>Diferencia</th><th>Estado</th></tr></thead>
+          <tbody>${auditsRows}</tbody>
+        </table>
+        <h3>Validacion</h3>
+        <div>Movimientos contabilizados: ${report.validation.movement_count}</div>
+        <div>Arqueos registrados: ${report.validation.audit_count}</div>
+        <div>Balance final validado: <strong>${report.validation.is_balanced ? "SI" : "NO"}</strong></div>
+        ${notes}
+        <button onclick="window.print()">Imprimir</button>
+      </body>
+      </html>
+    `);
+    popup.document.close();
+    popup.focus();
+  };
+
+  const handleOpenSessionReport = async (cashSessionId: number) => {
+    try {
+      const report = await getCashSessionReport(cashSessionId);
+      openReportWindow(report);
+    } catch (err: any) {
+      showToast({ message: err?.response?.data?.detail || "No se pudo abrir el reporte", severity: "error" });
+    }
+  };
+
+  const handleDownloadSessionReport = async (cashSessionId: number) => {
+    try {
+      const blob = await downloadCashSessionReport(cashSessionId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cash_session_${cashSessionId}_report.txt`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      showToast({ message: err?.response?.data?.detail || "No se pudo descargar el reporte", severity: "error" });
+    }
+  };
+
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Estado de Caja
         </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Zona horaria detectada: {timeZone}
+        </Typography>
         {data?.is_open ? (
           <Box sx={{ mb: 2 }}>
-            <Typography>Caja abierta desde: {data.opened_at}</Typography>
+            <Typography>Caja abierta desde: {formatDateTimeRegional(data.opened_at)}</Typography>
+            <Alert severity="warning" sx={{ mt: 1, mb: 1 }}>
+              Para cerrar caja debes registrar un arqueo tipo Z.
+            </Alert>
             <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
-              <Button variant="contained" color="error" onClick={handleClose}>
-                Cerrar caja
+              <Button variant="contained" color="warning" onClick={handlePrepareCloseZ} disabled={!summary}>
+                Preparar cierre Z
               </Button>
               <Button variant="outlined" color="error" onClick={handleForceClose}>
                 Forzar cierre
@@ -181,18 +303,36 @@ export const CashPanel: React.FC = () => {
         <Typography variant="h6" sx={{ mb: 2 }}>
           Historial de arqueos
         </Typography>
-        <Box sx={{ display: "grid", gap: 1 }}>
-          {(audits || []).map((a) => (
-            <Box key={a.id} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-              <Typography>
-                {a.created_at} • {a.type}
-              </Typography>
-              <Typography>
-                Esperado {a.expected_amount.toFixed(2)} | Contado {a.counted_amount.toFixed(2)} | Dif {a.difference.toFixed(2)}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
+        {loadingAudits ? (
+          <Typography variant="body2" color="text.secondary">Cargando arqueos...</Typography>
+        ) : errorAudits ? (
+          <EmptyState title="No se pudo cargar" description="Error consultando historial de arqueos." />
+        ) : audits && audits.length > 0 ? (
+          <Box sx={{ display: "grid", gap: 1 }}>
+            {audits.map((a) => (
+              <Box key={a.id} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+                <Box>
+                  <Typography>
+                    {formatDateTimeRegional(a.created_at)} - {a.type} - Sesion #{a.cash_session_id}
+                  </Typography>
+                  <Typography>
+                    Esperado {a.expected_amount.toFixed(2)} | Contado {a.counted_amount.toFixed(2)} | Dif {a.difference.toFixed(2)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button size="small" variant="outlined" onClick={() => handleOpenSessionReport(a.cash_session_id)}>
+                    Ver documento
+                  </Button>
+                  <Button size="small" variant="outlined" onClick={() => handleDownloadSessionReport(a.cash_session_id)}>
+                    Descargar
+                  </Button>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <EmptyState title="Sin arqueos" description="No hay arqueos registrados para mostrar." />
+        )}
       </Paper>
     </Box>
   );

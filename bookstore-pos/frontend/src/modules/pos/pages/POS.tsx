@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack } from "@mui/material";
+import { Alert, Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack } from "@mui/material";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import { PageHeader } from "../../../components/PageHeader";
@@ -21,6 +21,7 @@ import { useSettings } from "../../../store/useSettings";
 import { calcTotals } from "../../../utils/totals";
 import { KpiCard } from "../../../components/KpiCard";
 import { formatMoney } from "../../../utils/money";
+import { useNavigate } from "react-router-dom";
 
 const wsBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace("http", "ws");
 
@@ -42,6 +43,7 @@ const POS: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const { showToast } = useToast();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const cashQuery = useQuery({ queryKey: ["cash-current"], queryFn: getCurrentCash, staleTime: 10_000 });
   const customersQuery = useQuery({ queryKey: ["customers"], queryFn: listCustomers, staleTime: 60_000 });
@@ -50,6 +52,7 @@ const POS: React.FC = () => {
   const customers = customersQuery.data;
   const promos = promosQuery.data;
   const isLoading = cashQuery.isLoading || customersQuery.isLoading || promosQuery.isLoading;
+  const canCharge = cart.items.length > 0 && !!cash?.is_open && !cashQuery.isLoading && !cashQuery.isError;
 
   const [customerId, setCustomerId] = useState<number | "">("");
   const [promoId, setPromoId] = useState<number | "">("");
@@ -313,8 +316,21 @@ const POS: React.FC = () => {
             </Stack>
             <Cart />
             <Divider sx={{ my: 2 }} />
+            {!cashQuery.isLoading && !cash?.is_open ? (
+              <Alert
+                severity="warning"
+                sx={{ mb: 2 }}
+                action={
+                  <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
+                    Ir a Caja
+                  </Button>
+                }
+              >
+                Caja cerrada. Debes abrir caja para poder cobrar.
+              </Alert>
+            ) : null}
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", flexDirection: isCompact ? "column" : "row" }}>
-              <Button fullWidth={isCompact} variant="contained" size="large" disabled={cart.items.length === 0 || !cash?.is_open} onClick={() => setPayOpen(true)}>
+              <Button fullWidth={isCompact} variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)}>
                 Cobrar
               </Button>
               <Button fullWidth={isCompact} variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>

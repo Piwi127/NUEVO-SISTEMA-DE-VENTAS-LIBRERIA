@@ -10,6 +10,7 @@ from app.models.inventory import StockMovement
 from app.models.product import Product
 from app.models.sale import Sale, SaleItem
 from app.models.sale_return import SaleReturn, SaleReturnItem
+from app.schemas.sale_return import SaleReturnListOut
 
 
 class ReturnsService:
@@ -60,3 +61,31 @@ class ReturnsService:
             await log_event(self.db, self.user.id, "return", "sale", str(sale_id), data.reason)
             await self.db.refresh(ret)
             return ret
+
+    async def list_returns(self, limit: int = 100) -> list[SaleReturnListOut]:
+        safe_limit = max(1, min(limit, 500))
+        stmt = (
+            select(
+                SaleReturn.id,
+                SaleReturn.sale_id,
+                Sale.invoice_number,
+                Sale.status,
+                SaleReturn.reason,
+                SaleReturn.created_at,
+            )
+            .join(Sale, Sale.id == SaleReturn.sale_id)
+            .order_by(SaleReturn.created_at.desc())
+            .limit(safe_limit)
+        )
+        result = await self.db.execute(stmt)
+        return [
+            SaleReturnListOut(
+                id=row.id,
+                sale_id=row.sale_id,
+                invoice_number=row.invoice_number or "",
+                sale_status=row.status or "",
+                reason=row.reason or "",
+                created_at=row.created_at,
+            )
+            for row in result.all()
+        ]

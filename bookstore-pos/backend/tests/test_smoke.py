@@ -180,3 +180,105 @@ async def test_login_lockout_after_failed_attempts(client):
     locked = await client.post("/auth/login", json={"username": "lock_user", "password": "TestLock123"})
     assert locked.status_code == 403
     assert "bloqueada" in (locked.text or "").lower()
+
+
+@pytest.mark.asyncio
+async def test_returns_history_endpoint(client):
+    headers = await _login_admin(client)
+
+    product_payload = {
+        "sku": "BK-RET-001",
+        "name": "Libro Retorno",
+        "category": "Pruebas",
+        "price": 15.0,
+        "cost": 7.0,
+        "stock": 6,
+        "stock_min": 1,
+    }
+    resp = await client.post("/products", json=product_payload, headers=headers)
+    assert resp.status_code == 201
+    product = resp.json()
+
+    open_resp = await client.post("/cash/open", json={"opening_amount": 50.0}, headers=headers)
+    assert open_resp.status_code in {201, 409}
+
+    sale_resp = await client.post(
+        "/sales",
+        json={
+            "customer_id": None,
+            "items": [{"product_id": product["id"], "qty": 1}],
+            "payments": [{"method": "CASH", "amount": 15.0}],
+            "subtotal": 15.0,
+            "tax": 0.0,
+            "discount": 0.0,
+            "total": 15.0,
+            "promotion_id": None,
+        },
+        headers=headers,
+    )
+    assert sale_resp.status_code == 201
+    sale_id = sale_resp.json()["id"]
+
+    ret_resp = await client.post(f"/returns/{sale_id}", json={"reason": "Cliente cancelo"}, headers=headers)
+    assert ret_resp.status_code == 201
+
+    hist_resp = await client.get("/returns?limit=20", headers=headers)
+    assert hist_resp.status_code == 200
+    rows = hist_resp.json()
+    match = next((r for r in rows if r["sale_id"] == sale_id), None)
+    assert match is not None
+    assert match["sale_status"] == "VOID"
+
+
+@pytest.mark.asyncio
+async def test_cash_session_report_endpoint(client):
+    headers = await _login_admin(client)
+    open_resp = await client.post("/cash/open", json={"opening_amount": 80.0}, headers=headers)
+    if open_resp.status_code == 201:
+        session_id = open_resp.json()["id"]
+    else:
+        assert open_resp.status_code == 409
+        current = await client.get("/cash/current", headers=headers)
+        assert current.status_code == 200
+        current_data = current.json()
+        assert current_data
+        session_id = current_data["id"]
+
+    move_resp = await client.post(
+        "/cash/movement",
+        json={"type": "IN", "amount": 20.0, "reason": "Ajuste prueba"},
+        headers=headers,
+    )
+    assert move_resp.status_code == 201
+
+    summary_resp = await client.get("/cash/summary", headers=headers)
+    assert summary_resp.status_code == 200
+    expected = summary_resp.json()["expected_amount"]
+
+    audit_resp = await client.post(
+        "/cash/audit",
+        json={"type": "Z", "counted_amount": expected},
+        headers=headers,
+    )
+    assert audit_resp.status_code == 201
+
+    report_resp = await client.get(f"/cash/sessions/{session_id}/report", headers=headers)
+    assert report_resp.status_code == 200
+    report = report_resp.json()
+    assert report["session"]["id"] == session_id
+    assert report["validation"]["audit_count"] >= 1
+
+    export_resp = await client.get(f"/cash/sessions/{session_id}/report/export", headers=headers)
+    assert export_resp.status_code == 200
+    assert "REPORTE DE CAJA" in export_resp.text
+
+
+@pytest.mark.asyncio
+async def test_close_cash_requires_z_audit(client):
+    headers = await _login_admin(client)
+    open_resp = await client.post("/cash/open", json={"opening_amount": 30.0}, headers=headers)
+    assert open_resp.status_code in {201, 409}
+
+    close_resp = await client.post("/cash/close", json={}, headers=headers)
+    assert close_resp.status_code == 409
+    assert "tipo Z" in (close_resp.text or "")
