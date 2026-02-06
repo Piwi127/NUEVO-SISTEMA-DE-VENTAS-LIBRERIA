@@ -1,9 +1,12 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.security import get_password_hash, validate_password
 from app.models.settings import SystemSettings
 from app.models.warehouse import Warehouse
 from app.models.permission import RolePermission
+from app.models.user import User
 
 
 def default_permissions_for(role: str) -> list[str]:
@@ -37,9 +40,9 @@ def default_permissions_for(role: str) -> list[str]:
 
 async def seed_admin(db: AsyncSession) -> None:
     settings_result = await db.execute(select(SystemSettings).limit(1))
-    settings = settings_result.scalar_one_or_none()
-    if not settings:
-        settings = SystemSettings(
+    sys_settings = settings_result.scalar_one_or_none()
+    if not sys_settings:
+        sys_settings = SystemSettings(
             project_name="Bookstore POS",
             currency="PEN",
             tax_rate=0.0,
@@ -56,7 +59,7 @@ async def seed_admin(db: AsyncSession) -> None:
             paper_width_mm=80,
             default_warehouse_id=None,
         )
-        db.add(settings)
+        db.add(sys_settings)
         await db.commit()
 
     # Ensure default warehouse exists
@@ -67,8 +70,8 @@ async def seed_admin(db: AsyncSession) -> None:
         db.add(warehouse)
         await db.commit()
         await db.refresh(warehouse)
-    if settings and not settings.default_warehouse_id:
-        settings.default_warehouse_id = warehouse.id
+    if sys_settings and not sys_settings.default_warehouse_id:
+        sys_settings.default_warehouse_id = warehouse.id
         await db.commit()
 
     for role in ["admin", "cashier", "stock"]:
@@ -77,4 +80,26 @@ async def seed_admin(db: AsyncSession) -> None:
         for perm in default_permissions_for(role):
             if perm not in existing:
                 db.add(RolePermission(role=role, permission=perm))
+
+    if settings.bootstrap_dev_admin and settings.environment.lower() not in {"prod", "production"}:
+        username = settings.bootstrap_admin_username.strip()
+        password = settings.bootstrap_admin_password
+        if username and password:
+            validate_password(password)
+            user_res = await db.execute(select(User).where(User.username == username))
+            user = user_res.scalar_one_or_none()
+            password_hash = get_password_hash(password)
+            if user:
+                user.password_hash = password_hash
+                user.role = "admin"
+                user.is_active = True
+            else:
+                db.add(
+                    User(
+                        username=username,
+                        password_hash=password_hash,
+                        role="admin",
+                        is_active=True,
+                    )
+                )
     await db.commit()

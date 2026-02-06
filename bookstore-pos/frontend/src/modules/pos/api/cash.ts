@@ -1,5 +1,5 @@
 ﻿import { api } from "../../shared/api";
-import { CashSession, CashMovement, CashAudit, CashSummary, CashSessionReport } from "../../shared/types";
+import { CashSession, CashMovement, CashAudit, CashAuditValidation, CashSummary, CashSessionReport } from "../../shared/types";
 
 export const getCurrentCash = async (): Promise<CashSession | null> => {
   const res = await api.get("/cash/current");
@@ -31,7 +31,7 @@ export const createCashAudit = async (data: { type: string; counted_amount: numb
   return res.data;
 };
 
-export const listCashAudits = async (): Promise<CashAudit[]> => {
+export const listCashAudits = async (): Promise<CashAuditValidation[]> => {
   const res = await api.get("/cash/audits");
   return res.data;
 };

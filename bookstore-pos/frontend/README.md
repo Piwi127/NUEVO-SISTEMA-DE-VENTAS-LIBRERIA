@@ -22,6 +22,14 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
+## E2E (Playwright)
+
+```powershell
+npm run e2e
+```
+
+Detalle de flujo: `../docs/E2E_AUTOMATION.md`
+
 ## Notas
 - API por defecto: `http://localhost:8000`
 - Customer Display: abrir `http://localhost:5173/display/{sessionId}` (el POS genera el link)

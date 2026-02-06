@@ -34,6 +34,15 @@ async def test_security_headers_present(client):
 
 
 @pytest.mark.asyncio
+async def test_readiness_endpoint(client):
+    resp = await client.get("/health/ready")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert data["checks"]["database"] == "ok"
+
+
+@pytest.mark.asyncio
 async def test_request_id_header_is_returned(client):
     custom_id = "req-test-123"
     resp = await client.get("/health", headers={"X-Request-ID": custom_id})
@@ -155,6 +164,28 @@ async def test_rate_limit_returns_429(client):
     finally:
         settings.rate_limit_per_minute = old_limit
         settings.rate_limit_window_seconds = old_window
+        await rate_limiter.reset_for_tests()
+
+
+@pytest.mark.asyncio
+async def test_login_rate_limit_returns_429(client):
+    old_login_limit = settings.auth_login_rate_limit_count
+    old_login_window = settings.auth_login_rate_limit_window_seconds
+    try:
+        settings.auth_login_rate_limit_count = 2
+        settings.auth_login_rate_limit_window_seconds = 60
+        await rate_limiter.reset_for_tests()
+
+        r1 = await client.post("/auth/login", json={"username": "admin", "password": "admin123"})
+        r2 = await client.post("/auth/login", json={"username": "admin", "password": "admin123"})
+        r3 = await client.post("/auth/login", json={"username": "admin", "password": "admin123"})
+
+        assert r1.status_code == 200
+        assert r2.status_code == 200
+        assert r3.status_code == 429
+    finally:
+        settings.auth_login_rate_limit_count = old_login_limit
+        settings.auth_login_rate_limit_window_seconds = old_login_window
         await rate_limiter.reset_for_tests()
 
 

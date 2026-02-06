@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { ChangeEvent, SyntheticEvent, useState } from "react";
 import { Alert, Box, Button, Grid, MenuItem, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,7 +16,7 @@ import { EmptyState } from "../../../components/EmptyState";
 import { PageHeader } from "../../../components/PageHeader";
 import { useToast } from "../../../components/ToastProvider";
 import { detectTimeContext, formatDateTimeRegional } from "../../../utils/datetime";
-import { CashSessionReport } from "../../shared/types";
+import { CashAuditValidation, CashSessionReport } from "../../shared/types";
 
 export const CashPanel: React.FC = () => {
   const qc = useQueryClient();
@@ -219,7 +219,7 @@ export const CashPanel: React.FC = () => {
       />
 
       <Paper sx={{ p: 1.5 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+        <Tabs value={tab} onChange={(_event: SyntheticEvent, value: number) => setTab(value)}>
           <Tab label="Operacion" />
           <Tab label="Historial" />
         </Tabs>
@@ -248,7 +248,12 @@ export const CashPanel: React.FC = () => {
               </Box>
             ) : (
               <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-                <TextField label="Monto apertura" type="number" value={opening} onChange={(e) => setOpening(parseAmount(e.target.value))} />
+                <TextField
+                  label="Monto apertura"
+                  type="number"
+                  value={opening}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setOpening(parseAmount(e.target.value))}
+                />
                 <Button variant="contained" onClick={handleOpen}>
                   Abrir caja
                 </Button>
@@ -286,12 +291,22 @@ export const CashPanel: React.FC = () => {
               Movimiento
             </Typography>
             <Box sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
-              <TextField select label="Tipo" value={movementType} onChange={(e) => setMovementType(e.target.value)}>
+              <TextField
+                select
+                label="Tipo"
+                value={movementType}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setMovementType(e.target.value)}
+              >
                 <MenuItem value="IN">IN</MenuItem>
                 <MenuItem value="OUT">OUT</MenuItem>
               </TextField>
-              <TextField label="Monto" type="number" value={movementAmount} onChange={(e) => setMovementAmount(parseAmount(e.target.value))} />
-              <TextField label="Motivo" value={movementReason} onChange={(e) => setMovementReason(e.target.value)} />
+              <TextField
+                label="Monto"
+                type="number"
+                value={movementAmount}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setMovementAmount(parseAmount(e.target.value))}
+              />
+              <TextField label="Motivo" value={movementReason} onChange={(e: ChangeEvent<HTMLInputElement>) => setMovementReason(e.target.value)} />
               <Button variant="outlined" onClick={handleMovement} disabled={!canOperate || movementAmount <= 0 || !movementReason.trim()}>
                 Registrar
               </Button>
@@ -309,11 +324,16 @@ export const CashPanel: React.FC = () => {
                 Arqueo X/Z
               </Typography>
               <Box sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
-                <TextField select label="Tipo" value={auditType} onChange={(e) => setAuditType(e.target.value)}>
+                <TextField select label="Tipo" value={auditType} onChange={(e: ChangeEvent<HTMLInputElement>) => setAuditType(e.target.value)}>
                   <MenuItem value="X">X (parcial)</MenuItem>
                   <MenuItem value="Z">Z (cierre)</MenuItem>
                 </TextField>
-                <TextField label="Monto contado" type="number" value={counted} onChange={(e) => setCounted(parseAmount(e.target.value))} />
+                <TextField
+                  label="Monto contado"
+                  type="number"
+                  value={counted}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setCounted(parseAmount(e.target.value))}
+                />
                 <Button variant="contained" onClick={handleAudit} disabled={counted <= 0}>
                   Registrar arqueo
                 </Button>
@@ -336,7 +356,7 @@ export const CashPanel: React.FC = () => {
             <EmptyState title="No se pudo cargar" description="Error consultando historial de arqueos." />
           ) : audits && audits.length > 0 ? (
             <Box sx={{ display: "grid", gap: 1.5 }}>
-              {audits.map((a) => (
+              {audits.map((a: CashAuditValidation) => (
                 <Paper
                   key={a.id}
                   variant="outlined"

@@ -23,6 +23,12 @@ Entregables:
   - permisos por rol
 - Criterio de aceptacion: flujos criticos en verde en CI.
 
+Estado:
+- [x] Base Playwright con `webServer` para backend/frontend.
+- [x] Specs criticos (`caja`, `historial de ventas`, `permisos por rol`).
+- [x] Integrado en CI (`quality-gate.yml`, job `e2e`).
+- [x] Ejecucion local validada: `3 passed`.
+
 ## Fase 3 (Dias 10-14): Observabilidad, seguridad y cierre UX
 Objetivo: dejar el sistema listo para operacion empresarial.
 
@@ -31,6 +37,13 @@ Entregables:
 - Fortalecimiento de seguridad operativa (hardening de auth y secretos).
 - Pulido final UX/accesibilidad y checklist de salida a produccion.
 - Criterio de aceptacion: checklist de produccion completo y evidencia de monitoreo activo.
+
+Estado:
+- [x] Endpoint de readiness `GET /health/ready`.
+- [x] Rate limit dedicado para intentos de login.
+- [x] Metrica de bloqueos por rate limit (`bookstore_rate_limit_blocked_total`).
+- [x] Verificacion automatizada de backups (`scripts/verify_backup.py`, `.bat`).
+- [x] Checklist de produccion actualizado.
 
 ---
 

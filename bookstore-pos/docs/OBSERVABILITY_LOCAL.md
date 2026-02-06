@@ -24,9 +24,11 @@ Esto levanta:
 
 ## Verificacion rapida
 1. Abrir `http://localhost:8000/metrics` y confirmar que responde.
+2. Abrir `http://localhost:8000/health/ready` y confirmar `database: ok`.
 2. En Prometheus, consultar:
    - `bookstore_http_requests_total`
    - `bookstore_http_request_duration_seconds_count`
+   - `bookstore_rate_limit_blocked_total`
 3. En Grafana, abrir el dashboard `Bookstore API Overview`.
 4. Opcional: en Grafana `Explore`, ejecutar la misma metrica.
 5. En Prometheus, revisar reglas de alerta:

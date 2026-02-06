@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, Response, Request
+from fastapi import APIRouter, Depends, Response, Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user
+from app.core.rate_limit import rate_limiter
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse, MeResponse
 from app.core.config import settings
 import secrets
+from app.core.metrics import rate_limit_blocked_total
 from app.services.auth.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -13,6 +15,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login", response_model=TokenResponse)
 async def login(data: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    ip = request.client.host if request.client else "unknown"
+    username_key = (data.username or "").strip().lower() or "unknown"
+    limited = await rate_limiter.is_limited(
+        key=f"login:{ip}:{username_key}",
+        limit=settings.auth_login_rate_limit_count,
+        window_seconds=settings.auth_login_rate_limit_window_seconds,
+    )
+    if limited:
+        rate_limit_blocked_total.labels("login").inc()
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Demasiados intentos de login")
+
     service = AuthService(db)
     ip = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")

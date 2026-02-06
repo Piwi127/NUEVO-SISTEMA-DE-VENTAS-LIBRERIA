@@ -13,6 +13,7 @@
 - Crear backup: `scripts\backup_db.bat`
 - Restaurar backup: `scripts\restore_db.bat "RUTA\backup.db"`
 - Validar backup/restauracion en entorno de prueba.
+- Verificar integridad backup: `scripts\verify_backup.bat "RUTA\backup.db"`
 
 ## Usuario administrador
 - Crear admin con:
@@ -21,6 +22,7 @@
 
 ## Observabilidad
 - Verificar `GET /metrics`.
+- Verificar `GET /health/ready` responde `200` y `database: ok`.
 - Si usas Docker local, levantar:
   - `monitoring_up_windows.bat`
 - Confirmar dashboard `Bookstore API Overview` en Grafana.
@@ -30,3 +32,13 @@
 - Ejecutar:
   - `scripts\check_production_env.bat`
 - Debe responder `[OK] Preflight de produccion superado.`
+
+## QA de regresion
+- Ejecutar backend:
+  - `.venv\Scripts\python.exe -m pytest -q`
+- Ejecutar frontend:
+  - `npm run lint`
+  - `npm run test`
+  - `npm run build`
+- Ejecutar E2E:
+  - `npm run e2e` (desde `frontend`)

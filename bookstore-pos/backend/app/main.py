@@ -14,6 +14,7 @@ from app.core.metrics import (
     CONTENT_TYPE_LATEST,
     http_request_duration_seconds,
     http_requests_total,
+    rate_limit_blocked_total,
     render_metrics,
 )
 from app.core.rate_limit import rate_limiter
@@ -148,6 +149,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             window_seconds=settings.rate_limit_window_seconds,
         )
         if limited:
+            rate_limit_blocked_total.labels("global").inc()
             return Response(content="Rate limit exceeded", status_code=429)
         return await call_next(request)
 
@@ -307,6 +309,15 @@ async def health():
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+@app.get("/health/ready")
+async def health_ready():
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        return {"status": "ok", "checks": {"database": "ok"}}
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "degraded", "checks": {"database": "error"}})
 
 @app.get("/metrics")
 async def metrics():

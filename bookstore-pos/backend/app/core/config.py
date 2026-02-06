@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     rate_limit_per_minute: int = 120
     rate_limit_window_seconds: int = 60
+    auth_login_rate_limit_count: int = 10
+    auth_login_rate_limit_window_seconds: int = 300
     redis_url: str = ""
     password_min_length: int = 10
     password_require_upper: bool = True
@@ -25,6 +27,9 @@ class Settings(BaseSettings):
     twofa_encryption_key: str = ""
     health_allow_local_only: bool = True
     metrics_allow_local_only: bool = True
+    bootstrap_dev_admin: bool = False
+    bootstrap_admin_username: str = "e2e_admin"
+    bootstrap_admin_password: str = "E2EAdmin1234"
 
     model_config = ConfigDict(env_file=".env")
 

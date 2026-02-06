@@ -33,6 +33,12 @@ purchases_amount_total = Counter(
     "Accumulated amount from purchases",
 )
 
+rate_limit_blocked_total = Counter(
+    "bookstore_rate_limit_blocked_total",
+    "Total blocked requests due to rate limiting",
+    ["scope"],
+)
+
 
 def render_metrics() -> bytes:
     return generate_latest()
@@ -46,5 +52,6 @@ __all__ = [
     "sales_amount_total",
     "purchases_total",
     "purchases_amount_total",
+    "rate_limit_blocked_total",
     "render_metrics",
 ]
