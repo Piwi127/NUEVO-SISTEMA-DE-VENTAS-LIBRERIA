@@ -43,9 +43,11 @@ class SalesService:
 
         async with self._transaction():
             result = await self.db.execute(
-                select(CashSession).where(CashSession.user_id == self.user.id, CashSession.is_open == True)  # noqa: E712
+                select(CashSession)
+                .where(CashSession.user_id == self.user.id, CashSession.is_open == True)  # noqa: E712
+                .order_by(CashSession.opened_at.desc(), CashSession.id.desc())
             )
-            if not result.scalar_one_or_none():
+            if not result.scalars().first():
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Caja no abierta")
 
             settings_result = await self.db.execute(select(SystemSettings).limit(1))

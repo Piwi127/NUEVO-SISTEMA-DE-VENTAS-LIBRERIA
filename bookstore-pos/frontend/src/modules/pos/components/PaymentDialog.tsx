@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Typography, useMediaQuery, Stack } from "@mui/material";
 import { formatMoney } from "@/app/utils";
 import { useSettings } from "@/app/store";
-
-export type Payment = { method: string; amount: number };
+import { parseDecimalInput } from "@/modules/pos/utils/number";
+import type { Payment } from "@/modules/pos/types";
 
 type Props = {
   open: boolean;
@@ -28,12 +28,6 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
       setAmounts(next);
     }
   }, [open, methods]);
-
-  const parseAmount = (raw: string) => {
-    const v = raw.replace(",", ".");
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  };
 
   const sum = useMemo(() => methods.reduce((acc, m) => acc + (amounts[m] || 0), 0), [amounts, methods]);
   const hasCash = methods.includes("CASH");
@@ -74,7 +68,7 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
               onChange={(e) =>
                 setAmounts((prev) => ({
                   ...prev,
-                  [m]: e.target.value === "" ? 0 : parseAmount(e.target.value),
+                  [m]: e.target.value === "" ? 0 : parseDecimalInput(e.target.value),
                 }))
               }
             />
