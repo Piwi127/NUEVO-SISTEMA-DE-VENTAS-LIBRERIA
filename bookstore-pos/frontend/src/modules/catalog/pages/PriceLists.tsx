@@ -2,13 +2,13 @@ import React, { useState } from "react";
 import { Box, Button, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, Tab, Tabs, TextField, Typography, useMediaQuery } from "@mui/material";
 import PriceChangeIcon from "@mui/icons-material/PriceChange";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable } from "../../../components/CardTable";
-import { EmptyState } from "../../../components/EmptyState";
-import { PageHeader } from "../../../components/PageHeader";
-import { useToast } from "../../../components/ToastProvider";
-import { getPriceListItems, listPriceLists, replacePriceListItems, createPriceList } from "../api";
-import { listProducts } from "../api";
-import { useSettings } from "../../../store/useSettings";
+import { CardTable } from "@/app/components";
+import { EmptyState } from "@/app/components";
+import { PageHeader } from "@/app/components";
+import { useToast } from "@/app/components";
+import { getPriceListItems, listPriceLists, replacePriceListItems, createPriceList } from "@/modules/catalog/api";
+import { listProducts } from "@/modules/catalog/api";
+import { useSettings } from "@/app/store";
 
 const PriceLists: React.FC = () => {
   const qc = useQueryClient();

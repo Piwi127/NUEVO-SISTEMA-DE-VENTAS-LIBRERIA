@@ -3,10 +3,10 @@ import { lazy } from "react";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 
-import type { AppRoute, MenuSection } from "../shared/registryTypes";
+import type { AppRoute, MenuSection } from "@/modules/shared/registryTypes";
 
-const Inventory = lazy(() => import("./pages/Inventory"));
-const Purchases = lazy(() => import("./pages/Purchases"));
+const Inventory = lazy(() => import("@/modules/inventory/pages/Inventory"));
+const Purchases = lazy(() => import("@/modules/inventory/pages/Purchases"));
 
 export const inventoryRoutes: AppRoute[] = [
   { path: "/inventory", component: Inventory, roles: ["admin", "stock"], layout: true },

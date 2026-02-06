@@ -20,18 +20,18 @@ import {
 } from "@mui/material";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import DownloadIcon from "@mui/icons-material/Download";
-import { PageHeader } from "../../../components/PageHeader";
-import { LoadingState } from "../../../components/LoadingState";
-import { ErrorState } from "../../../components/ErrorState";
+import { PageHeader } from "@/app/components";
+import { LoadingState } from "@/app/components";
+import { ErrorState } from "@/app/components";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
-import { listProducts } from "../../catalog/api";
-import { createInventoryMovement, getKardex, uploadInventory, downloadInventoryTemplate, downloadInventoryTemplateXlsx } from "../api";
-import { listWarehouses, createWarehouse, createTransfer, createBatch, createCount } from "../api";
-import { useToast } from "../../../components/ToastProvider";
-import { useAuth } from "../../../auth/AuthProvider";
-import { ConfirmDialog } from "../../../components/ConfirmDialog";
-import { useSettings } from "../../../store/useSettings";
+import { listProducts } from "@/modules/catalog/api";
+import { createInventoryMovement, getKardex, uploadInventory, downloadInventoryTemplate, downloadInventoryTemplateXlsx } from "@/modules/inventory/api";
+import { listWarehouses, createWarehouse, createTransfer, createBatch, createCount } from "@/modules/inventory/api";
+import { useToast } from "@/app/components";
+import { useAuth } from "@/auth/AuthProvider";
+import { ConfirmDialog } from "@/app/components";
+import { useSettings } from "@/app/store";
 
 const REQUIRED = ["sku", "name", "category", "price", "cost", "stock", "stock_min"];
 const PREVIEW_LIMIT = 15;

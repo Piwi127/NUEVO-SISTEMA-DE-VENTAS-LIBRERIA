@@ -1,18 +1,18 @@
 import React, { useMemo, useState } from "react";
 import { Box, Button, Link, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import { PageHeader } from "../../../components/PageHeader";
-import { TableToolbar } from "../../../components/TableToolbar";
-import { EmptyState } from "../../../components/EmptyState";
-import { CardTable } from "../../../components/CardTable";
+import { PageHeader } from "@/app/components";
+import { TableToolbar } from "@/app/components";
+import { EmptyState } from "@/app/components";
+import { CardTable } from "@/app/components";
 import { useQuery } from "@tanstack/react-query";
-import { getReceipt, listSales } from "../api";
-import { todayISO } from "../../../utils/dates";
-import { detectTimeContext, formatDateTimeRegional } from "../../../utils/datetime";
-import { formatMoney } from "../../../utils/money";
-import { useSettings } from "../../../store/useSettings";
-import { openReceiptWindow } from "../utils/receiptWindow";
-import { useToast } from "../../../components/ToastProvider";
+import { getReceipt, listSales } from "@/modules/pos/api";
+import { todayISO } from "@/app/utils";
+import { detectTimeContext, formatDateTimeRegional } from "@/app/utils";
+import { formatMoney } from "@/app/utils";
+import { useSettings } from "@/app/store";
+import { openReceiptWindow } from "@/modules/pos/utils/receiptWindow";
+import { useToast } from "@/app/components";
 
 const daysAgoISO = (days: number) => {
   const d = new Date();

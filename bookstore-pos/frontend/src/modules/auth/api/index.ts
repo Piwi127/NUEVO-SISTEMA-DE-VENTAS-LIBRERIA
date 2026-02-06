@@ -1,1 +1,1 @@
-export * from './auth';
+export * from '@/modules/auth/api/auth';

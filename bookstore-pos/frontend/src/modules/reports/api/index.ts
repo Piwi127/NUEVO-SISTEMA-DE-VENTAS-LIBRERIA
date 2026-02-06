@@ -1,1 +1,1 @@
-export * from './reports';
+export * from '@/modules/reports/api/reports';

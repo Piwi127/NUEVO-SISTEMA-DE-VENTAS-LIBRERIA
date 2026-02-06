@@ -25,21 +25,21 @@ import SaveIcon from "@mui/icons-material/Save";
 import SecurityIcon from "@mui/icons-material/Security";
 import SettingsIcon from "@mui/icons-material/Settings";
 import HistoryIcon from "@mui/icons-material/History";
-import { PageHeader } from "../../../components/PageHeader";
-import { LoadingState } from "../../../components/LoadingState";
-import { ErrorState } from "../../../components/ErrorState";
-import { EmptyState } from "../../../components/EmptyState";
+import { PageHeader } from "@/app/components";
+import { LoadingState } from "@/app/components";
+import { ErrorState } from "@/app/components";
+import { EmptyState } from "@/app/components";
 import { useQuery } from "@tanstack/react-query";
-import { useSettings } from "../../../store/useSettings";
-import { getSettings, updateSettings, downloadBackup, listAuditLogs } from "../api";
-import { setup2fa, confirm2fa } from "../../auth/api";
-import { listWarehouses } from "../../inventory/api";
-import { useToast } from "../../../components/ToastProvider";
+import { useSettings } from "@/app/store";
+import { getSettings, updateSettings, downloadBackup, listAuditLogs } from "@/modules/admin/api";
+import { setup2fa, confirm2fa } from "@/modules/auth/api";
+import { listWarehouses } from "@/modules/inventory/api";
+import { useToast } from "@/app/components";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../../auth/AuthProvider";
+import { useAuth } from "@/auth/AuthProvider";
 import * as QRCode from "qrcode";
-import { api } from "../../shared/api";
-import { detectTimeContext } from "../../../utils/datetime";
+import { api } from "@/modules/shared/api";
+import { detectTimeContext } from "@/app/utils";
 
 const AdminPanel: React.FC = () => {
   const {

@@ -11,12 +11,12 @@ import {
   getCurrentCash,
   listCashAudits,
   openCash,
-} from "../api";
-import { EmptyState } from "../../../components/EmptyState";
-import { PageHeader } from "../../../components/PageHeader";
-import { useToast } from "../../../components/ToastProvider";
-import { detectTimeContext, formatDateTimeRegional } from "../../../utils/datetime";
-import { CashAuditValidation, CashSessionReport } from "../../shared/types";
+} from "@/modules/pos/api";
+import { EmptyState } from "@/app/components";
+import { PageHeader } from "@/app/components";
+import { useToast } from "@/app/components";
+import { detectTimeContext, formatDateTimeRegional } from "@/app/utils";
+import { CashAuditValidation, CashSessionReport } from "@/modules/shared/types";
 
 export const CashPanel: React.FC = () => {
   const qc = useQueryClient();

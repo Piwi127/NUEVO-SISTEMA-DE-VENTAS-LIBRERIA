@@ -1,5 +1,5 @@
-import { api } from "../../shared/api";
-import { DailyReport, TopProductReport, LowStockItem } from "../../shared/types";
+import { api } from "@/modules/shared/api";
+import { DailyReport, TopProductReport, LowStockItem } from "@/modules/shared/types";
 
 export const getDailyReport = async (date: string): Promise<DailyReport> => {
   const res = await api.get("/reports/daily", { params: { date } });

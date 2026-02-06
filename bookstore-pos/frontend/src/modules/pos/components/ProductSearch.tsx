@@ -15,11 +15,11 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { useQuery } from "@tanstack/react-query";
-import { listProducts } from "../../catalog/api";
-import { Product } from "../../shared/types";
-import { useCartStore } from "../../../store/useCartStore";
-import { formatMoney } from "../../../utils/money";
-import { useSettings } from "../../../store/useSettings";
+import { listProducts } from "@/modules/catalog/api";
+import { Product } from "@/modules/shared/types";
+import { useCartStore } from "@/app/store";
+import { formatMoney } from "@/app/utils";
+import { useSettings } from "@/app/store";
 
 const TERM_GROUPS: string[][] = [
   ["cuaderno", "cuadernos", "hoja", "hojas", "libreta", "notebook", "rayado", "cuadriculado"],

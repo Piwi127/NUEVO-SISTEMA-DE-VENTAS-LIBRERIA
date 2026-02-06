@@ -1,5 +1,5 @@
-import { api } from "../../shared/api";
-import { Customer } from "../../shared/types";
+import { api } from "@/modules/shared/api";
+import { Customer } from "@/modules/shared/types";
 
 export const listCustomers = async (): Promise<Customer[]> => {
   const res = await api.get("/customers");

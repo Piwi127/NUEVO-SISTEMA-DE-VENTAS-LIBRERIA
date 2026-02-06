@@ -1,4 +1,4 @@
-import { api } from "../../shared/api";
+import { api } from "@/modules/shared/api";
 
 export const createPurchaseOrder = async (data: { supplier_id: number; items: { product_id: number; qty: number; unit_cost: number }[] }) => {
   const res = await api.post("/purchasing/orders", data);

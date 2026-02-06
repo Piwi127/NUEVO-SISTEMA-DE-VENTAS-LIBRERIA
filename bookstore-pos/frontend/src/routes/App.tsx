@@ -1,10 +1,9 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Box } from "@mui/material";
-import { ProtectedRoute } from "../auth/ProtectedRoute";
-import { AppLayout } from "../components/AppLayout";
-import { LoadingState } from "../components/LoadingState";
-import { appRoutes } from "../modules/registry";
+import { ProtectedRoute } from "@/auth/ProtectedRoute";
+import { AppLayout, LoadingState } from "@/app/components";
+import { appRoutes } from "@/modules/registry";
 
 const App: React.FC = () => {
   const withSuspense = (node: React.ReactNode) => (

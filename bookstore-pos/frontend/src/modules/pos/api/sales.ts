@@ -1,5 +1,5 @@
-import { api } from "../../shared/api";
-import { SaleResponse, SaleListResponse } from "../../shared/types";
+import { api } from "@/modules/shared/api";
+import { SaleResponse, SaleListResponse } from "@/modules/shared/types";
 
 export const createSale = async (data: {
   customer_id?: number | null;

@@ -5,13 +5,13 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ReplayIcon from "@mui/icons-material/Replay";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 
-import type { AppRoute, MenuSection } from "../shared/registryTypes";
+import type { AppRoute, MenuSection } from "@/modules/shared/registryTypes";
 
-const POS = lazy(() => import("./pages/POS"));
-const Display = lazy(() => import("./pages/Display"));
-const Cash = lazy(() => import("./pages/Cash"));
-const Returns = lazy(() => import("./pages/Returns"));
-const SalesHistory = lazy(() => import("./pages/SalesHistory"));
+const POS = lazy(() => import("@/modules/pos/pages/POS"));
+const Display = lazy(() => import("@/modules/pos/pages/Display"));
+const Cash = lazy(() => import("@/modules/pos/pages/Cash"));
+const Returns = lazy(() => import("@/modules/pos/pages/Returns"));
+const SalesHistory = lazy(() => import("@/modules/pos/pages/SalesHistory"));
 
 export const posRoutes: AppRoute[] = [
   { path: "/display/:sessionId", component: Display, public: true },

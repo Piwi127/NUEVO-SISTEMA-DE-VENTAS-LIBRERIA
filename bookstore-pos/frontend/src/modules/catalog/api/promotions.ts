@@ -1,4 +1,4 @@
-import { api } from "../../shared/api";
+import { api } from "@/modules/shared/api";
 
 export type Promotion = { id: number; name: string; type: string; value: number; is_active: boolean };
 

@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Box, Button, Checkbox, FormControlLabel, Grid, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import SecurityIcon from "@mui/icons-material/Security";
-import { PageHeader } from "../../../components/PageHeader";
-import { useToast } from "../../../components/ToastProvider";
-import { getRolePermissions, updateRolePermissions } from "../api";
+import { PageHeader } from "@/app/components";
+import { useToast } from "@/app/components";
+import { getRolePermissions, updateRolePermissions } from "@/modules/admin/api";
 
 const PERMISSION_GROUPS: {
   title: string;

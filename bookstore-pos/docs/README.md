@@ -7,6 +7,7 @@ Esta carpeta está organizada por propósito:
 - `operations/`: producción, observabilidad y operación.
 - `qa/`: validaciones E2E y checklists de pruebas.
 - `planning/`: roadmap y planes de mejora.
+- `planning/`: roadmap, auditoría y plan de refactor.
 
 Documentación por módulos:
 - `modules/01-auth-security.md`
@@ -35,6 +36,7 @@ Module docs:
 - `modules/06-admin-permissions.md`
 - `modules/07-reports-analytics.md`
 - `modules/08-observability-devops.md`
+- Refactor plan: `planning/CODE_REFACTOR_STAGES.md`
 
 ## 日本語
 このフォルダーは目的別に整理されています。
@@ -53,3 +55,4 @@ Module docs:
 - `modules/06-admin-permissions.md`
 - `modules/07-reports-analytics.md`
 - `modules/08-observability-devops.md`
+- リファクタ計画: `planning/CODE_REFACTOR_STAGES.md`

@@ -18,17 +18,17 @@ import {
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import DownloadIcon from "@mui/icons-material/Download";
 import { useQuery } from "@tanstack/react-query";
-import { CardTable } from "../../../components/CardTable";
-import { EmptyState } from "../../../components/EmptyState";
-import { ErrorState } from "../../../components/ErrorState";
-import { LoadingState } from "../../../components/LoadingState";
-import { PageHeader } from "../../../components/PageHeader";
-import { TableToolbar } from "../../../components/TableToolbar";
-import { useToast } from "../../../components/ToastProvider";
-import { listProducts, listSuppliers } from "../../catalog/api";
-import { createPurchaseOrder, exportPurchases, listPurchaseOrderItems, listPurchaseOrders, listPurchases, receivePurchaseOrder, supplierPayment } from "../api";
-import { useSettings } from "../../../store/useSettings";
-import { formatMoney } from "../../../utils/money";
+import { CardTable } from "@/app/components";
+import { EmptyState } from "@/app/components";
+import { ErrorState } from "@/app/components";
+import { LoadingState } from "@/app/components";
+import { PageHeader } from "@/app/components";
+import { TableToolbar } from "@/app/components";
+import { useToast } from "@/app/components";
+import { listProducts, listSuppliers } from "@/modules/catalog/api";
+import { createPurchaseOrder, exportPurchases, listPurchaseOrderItems, listPurchaseOrders, listPurchases, receivePurchaseOrder, supplierPayment } from "@/modules/inventory/api";
+import { useSettings } from "@/app/store";
+import { formatMoney } from "@/app/utils";
 
 const Purchases: React.FC = () => {
   const { showToast } = useToast();

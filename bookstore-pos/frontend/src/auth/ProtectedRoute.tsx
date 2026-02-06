@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Box, Button, Paper, Typography } from "@mui/material";
-import { useAuth } from "./AuthProvider";
+import { useAuth } from "@/auth/AuthProvider";
 
 type Props = {
   children: React.ReactNode;

@@ -1,4 +1,4 @@
-import { api } from "../../shared/api";
+import { api } from "@/modules/shared/api";
 
 export const login = async (username: string, password: string, otp?: string) => {
   const res = await api.post("/auth/login", { username, password, otp });

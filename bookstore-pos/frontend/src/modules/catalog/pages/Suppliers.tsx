@@ -2,16 +2,16 @@ import React, { useState } from "react";
 import { Box, Button, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable } from "../../../components/CardTable";
-import { EmptyState } from "../../../components/EmptyState";
-import { ErrorState } from "../../../components/ErrorState";
-import { LoadingState } from "../../../components/LoadingState";
-import { PageHeader } from "../../../components/PageHeader";
-import { TableToolbar } from "../../../components/TableToolbar";
-import { useToast } from "../../../components/ToastProvider";
-import { createSupplier, deleteSupplier, listSuppliers, updateSupplier } from "../api";
-import { Supplier } from "../../shared/types";
-import { useSettings } from "../../../store/useSettings";
+import { CardTable } from "@/app/components";
+import { EmptyState } from "@/app/components";
+import { ErrorState } from "@/app/components";
+import { LoadingState } from "@/app/components";
+import { PageHeader } from "@/app/components";
+import { TableToolbar } from "@/app/components";
+import { useToast } from "@/app/components";
+import { createSupplier, deleteSupplier, listSuppliers, updateSupplier } from "@/modules/catalog/api";
+import { Supplier } from "@/modules/shared/types";
+import { useSettings } from "@/app/store";
 
 const empty: Omit<Supplier, "id"> = { name: "", phone: "" };
 

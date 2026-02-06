@@ -1,5 +1,5 @@
-import { api } from "../../shared/api";
-import { StockMovement } from "../../shared/types";
+import { api } from "@/modules/shared/api";
+import { StockMovement } from "@/modules/shared/types";
 
 export const createInventoryMovement = async (data: { product_id: number; type: string; qty: number; ref: string }) => {
   const res = await api.post("/inventory/movement", data);

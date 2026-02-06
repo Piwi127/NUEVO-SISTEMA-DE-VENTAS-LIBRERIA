@@ -1,10 +1,10 @@
-import { authRoutes } from "./auth";
-import { posRoutes, posMenu } from "./pos";
-import { catalogRoutes, catalogMenu } from "./catalog";
-import { inventoryRoutes, inventoryMenu } from "./inventory";
-import { reportsRoutes, reportsMenu } from "./reports";
-import { adminRoutes, adminMenu } from "./admin";
-import type { AppRoute, MenuSection } from "./shared/registryTypes";
+import { authRoutes } from "@/modules/auth";
+import { posRoutes, posMenu } from "@/modules/pos";
+import { catalogRoutes, catalogMenu } from "@/modules/catalog";
+import { inventoryRoutes, inventoryMenu } from "@/modules/inventory";
+import { reportsRoutes, reportsMenu } from "@/modules/reports";
+import { adminRoutes, adminMenu } from "@/modules/admin";
+import type { AppRoute, MenuSection } from "@/modules/shared/registryTypes";
 
 export const appRoutes: AppRoute[] = [
   ...authRoutes,

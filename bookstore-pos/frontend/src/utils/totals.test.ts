@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calcTotals } from "./totals";
+import { calcTotals } from "@/utils/totals";
 
 describe("calcTotals", () => {
   it("calculates tax over subtotal when tax is not included", () => {

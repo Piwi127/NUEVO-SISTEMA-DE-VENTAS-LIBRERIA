@@ -1,1 +1,1 @@
-export * from './dto';
+export * from '@/modules/shared/types/dto';

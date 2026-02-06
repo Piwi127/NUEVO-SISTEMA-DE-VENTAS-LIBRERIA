@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { settingsStore, Currency } from "./settingsStore";
+import { settingsStore, Currency } from "@/store/settingsStore";
 
 export const useSettings = () => {
   const snapshot = useSyncExternalStore(settingsStore.subscribe, settingsStore.get, settingsStore.get);

@@ -3,11 +3,11 @@ import GroupIcon from "@mui/icons-material/Group";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import SecurityIcon from "@mui/icons-material/Security";
 
-import type { AppRoute, MenuSection } from "../shared/registryTypes";
+import type { AppRoute, MenuSection } from "@/modules/shared/registryTypes";
 
-const Users = lazy(() => import("./pages/Users"));
-const AdminPanel = lazy(() => import("./pages/AdminPanel"));
-const RolePermissions = lazy(() => import("./pages/RolePermissions"));
+const Users = lazy(() => import("@/modules/admin/pages/Users"));
+const AdminPanel = lazy(() => import("@/modules/admin/pages/AdminPanel"));
+const RolePermissions = lazy(() => import("@/modules/admin/pages/RolePermissions"));
 
 export const adminRoutes: AppRoute[] = [
   { path: "/users", component: Users, roles: ["admin"], layout: true },

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography, Paper, List, ListItem, ListItemText } from "@mui/material";
-import { formatMoney } from "../../../utils/money";
-import { useSettings } from "../../../store/useSettings";
-import { getPublicSettings } from "../../admin/api";
+import { formatMoney } from "@/app/utils";
+import { useSettings } from "@/app/store";
+import { getPublicSettings } from "@/modules/admin/api";
 
 const wsBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace("http", "ws");
 

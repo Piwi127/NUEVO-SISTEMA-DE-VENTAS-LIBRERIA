@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { Box, Button, Paper, Stack, TextField, Typography } from "@mui/material";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useForm } from "react-hook-form";
-import { login } from "../api";
-import { useAuth } from "../../../auth/AuthProvider";
+import { login } from "@/modules/auth/api";
+import { useAuth } from "@/auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "../../../components/ToastProvider";
+import { useToast } from "@/app/components";
 
 type FormData = { username: string; password: string; otp?: string };
 

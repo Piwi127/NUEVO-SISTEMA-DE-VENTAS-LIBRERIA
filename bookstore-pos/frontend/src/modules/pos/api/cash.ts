@@ -1,5 +1,5 @@
-﻿import { api } from "../../shared/api";
-import { CashSession, CashMovement, CashAudit, CashAuditValidation, CashSummary, CashSessionReport } from "../../shared/types";
+﻿import { api } from "@/modules/shared/api";
+import { CashSession, CashMovement, CashAudit, CashAuditValidation, CashSummary, CashSessionReport } from "@/modules/shared/types";
 
 export const getCurrentCash = async (): Promise<CashSession | null> => {
   const res = await api.get("/cash/current");

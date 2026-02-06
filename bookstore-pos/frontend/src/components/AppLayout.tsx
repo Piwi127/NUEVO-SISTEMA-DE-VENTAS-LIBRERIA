@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AppBar,
   Toolbar,
@@ -21,11 +21,11 @@ import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthProvider";
-import { useSettings } from "../store/useSettings";
-import { getPublicSettings } from "../modules/admin/api";
-import { api } from "../modules/shared/api";
-import { menuSections } from "../modules/registry";
+import { useAuth } from "@/auth/AuthProvider";
+import { useSettings } from "@/app/store";
+import { getPublicSettings } from "@/modules/admin/api";
+import { api } from "@/modules/shared/api";
+import { menuSections } from "@/modules/registry";
 
 export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [open, setOpen] = useState(false);

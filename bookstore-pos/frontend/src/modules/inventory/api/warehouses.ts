@@ -1,4 +1,4 @@
-import { api } from "../../shared/api";
+import { api } from "@/modules/shared/api";
 
 export type Warehouse = { id: number; name: string; location: string };
 

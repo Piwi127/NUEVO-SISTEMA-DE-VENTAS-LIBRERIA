@@ -16,14 +16,14 @@ import {
 } from "@mui/material";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import DownloadIcon from "@mui/icons-material/Download";
-import { KpiCard } from "../../../components/KpiCard";
-import { LoadingState } from "../../../components/LoadingState";
-import { ErrorState } from "../../../components/ErrorState";
-import { PageHeader } from "../../../components/PageHeader";
-import { useSettings } from "../../../store/useSettings";
-import { todayISO } from "../../../utils/dates";
-import { formatMoney } from "../../../utils/money";
-import { exportDaily, exportLow, exportTop, getDailyReport, getLowStock, getTopProducts } from "../api";
+import { KpiCard } from "@/app/components";
+import { LoadingState } from "@/app/components";
+import { ErrorState } from "@/app/components";
+import { PageHeader } from "@/app/components";
+import { useSettings } from "@/app/store";
+import { todayISO } from "@/app/utils";
+import { formatMoney } from "@/app/utils";
+import { exportDaily, exportLow, exportTop, getDailyReport, getLowStock, getTopProducts } from "@/modules/reports/api";
 
 const Reports: React.FC = () => {
   const compact = useMediaQuery("(max-width:900px)");

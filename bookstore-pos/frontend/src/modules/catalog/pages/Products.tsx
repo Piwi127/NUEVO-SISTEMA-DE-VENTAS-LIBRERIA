@@ -1,18 +1,18 @@
 import React, { useMemo, useState } from "react";
 import { Box, Button, Paper, TextField, Typography, useMediaQuery, MenuItem } from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
-import { PageHeader } from "../../../components/PageHeader";
-import { TableToolbar } from "../../../components/TableToolbar";
-import { EmptyState } from "../../../components/EmptyState";
-import { LoadingState } from "../../../components/LoadingState";
-import { ErrorState } from "../../../components/ErrorState";
-import { CardTable } from "../../../components/CardTable";
+import { PageHeader } from "@/app/components";
+import { TableToolbar } from "@/app/components";
+import { EmptyState } from "@/app/components";
+import { LoadingState } from "@/app/components";
+import { ErrorState } from "@/app/components";
+import { CardTable } from "@/app/components";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createProduct, deleteProduct, listProducts, updateProduct } from "../api";
-import { Product } from "../../shared/types";
-import { useToast } from "../../../components/ToastProvider";
-import { useSettings } from "../../../store/useSettings";
+import { createProduct, deleteProduct, listProducts, updateProduct } from "@/modules/catalog/api";
+import { Product } from "@/modules/shared/types";
+import { useToast } from "@/app/components";
+import { useSettings } from "@/app/store";
 
 const emptyForm: Omit<Product, "id"> = {
   sku: "",

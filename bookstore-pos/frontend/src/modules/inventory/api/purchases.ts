@@ -1,5 +1,5 @@
-﻿import { api } from "../../shared/api";
-import { PurchaseListResponse, PurchaseResponse } from "../../shared/types";
+﻿import { api } from "@/modules/shared/api";
+import { PurchaseListResponse, PurchaseResponse } from "@/modules/shared/types";
 
 export const createPurchase = async (data: {
   supplier_id: number;

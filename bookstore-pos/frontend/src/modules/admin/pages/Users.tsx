@@ -2,16 +2,16 @@ import React, { useState } from "react";
 import { Box, Button, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable } from "../../../components/CardTable";
-import { EmptyState } from "../../../components/EmptyState";
-import { ErrorState } from "../../../components/ErrorState";
-import { LoadingState } from "../../../components/LoadingState";
-import { PageHeader } from "../../../components/PageHeader";
-import { TableToolbar } from "../../../components/TableToolbar";
-import { useToast } from "../../../components/ToastProvider";
-import { createUser, updateUser, updateUserPassword, updateUserStatus, unlockUser, setupUser2FA, confirmUser2FA, resetUser2FA, listUsers } from "../api";
-import { User } from "../../shared/types";
-import { useSettings } from "../../../store/useSettings";
+import { CardTable } from "@/app/components";
+import { EmptyState } from "@/app/components";
+import { ErrorState } from "@/app/components";
+import { LoadingState } from "@/app/components";
+import { PageHeader } from "@/app/components";
+import { TableToolbar } from "@/app/components";
+import { useToast } from "@/app/components";
+import { createUser, updateUser, updateUserPassword, updateUserStatus, unlockUser, setupUser2FA, confirmUser2FA, resetUser2FA, listUsers } from "@/modules/admin/api";
+import { User } from "@/modules/shared/types";
+import { useSettings } from "@/app/store";
 
 const empty: Omit<User, "id"> & { password?: string } = {
   username: "",

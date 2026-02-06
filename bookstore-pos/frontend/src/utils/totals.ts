@@ -1,4 +1,4 @@
-import { CartItem } from "../store/useCartStore";
+import { CartItem } from "@/app/store";
 
 export const calcTotals = (
   items: CartItem[],

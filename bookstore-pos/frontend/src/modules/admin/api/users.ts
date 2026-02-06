@@ -1,5 +1,5 @@
-﻿import { api } from "../../shared/api";
-import { User } from "../../shared/types";
+﻿import { api } from "@/modules/shared/api";
+import { User } from "@/modules/shared/types";
 
 export const listUsers = async (): Promise<User[]> => {
   const res = await api.get("/users");

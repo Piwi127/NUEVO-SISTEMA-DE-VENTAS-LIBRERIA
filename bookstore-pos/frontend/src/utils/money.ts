@@ -1,4 +1,4 @@
-import { settingsStore } from "../store/settingsStore";
+import { settingsStore } from "@/app/store";
 
 const mapLocale = (currency: string) => {
   if (currency === "PEN") return "es-PE";

@@ -1,4 +1,4 @@
-import { api } from "../../shared/api";
+import { api } from "@/modules/shared/api";
 
 export const downloadEscpos = async (saleId: number): Promise<Blob> => {
   const res = await api.get(`/printing/escpos/${saleId}`, { responseType: "blob" });

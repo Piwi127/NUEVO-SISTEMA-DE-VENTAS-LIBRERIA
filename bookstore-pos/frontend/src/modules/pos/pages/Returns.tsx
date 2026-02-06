@@ -15,15 +15,15 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import ReplayIcon from "@mui/icons-material/Replay";
-import { PageHeader } from "../../../components/PageHeader";
+import { PageHeader } from "@/app/components";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getReceipt, returnSale, listReturns } from "../api";
-import { useToast } from "../../../components/ToastProvider";
-import { EmptyState } from "../../../components/EmptyState";
-import { CardTable } from "../../../components/CardTable";
-import { useSettings } from "../../../store/useSettings";
-import { openReceiptWindow } from "../utils/receiptWindow";
-import { detectTimeContext, formatDateTimeRegional } from "../../../utils/datetime";
+import { getReceipt, returnSale, listReturns } from "@/modules/pos/api";
+import { useToast } from "@/app/components";
+import { EmptyState } from "@/app/components";
+import { CardTable } from "@/app/components";
+import { useSettings } from "@/app/store";
+import { openReceiptWindow } from "@/modules/pos/utils/receiptWindow";
+import { detectTimeContext, formatDateTimeRegional } from "@/app/utils";
 
 const Returns: React.FC = () => {
   const { showToast } = useToast();

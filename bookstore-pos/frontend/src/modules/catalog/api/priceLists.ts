@@ -1,4 +1,4 @@
-import { api } from "../../shared/api";
+import { api } from "@/modules/shared/api";
 
 export type PriceList = { id: number; name: string };
 export type PriceListItem = { id: number; product_id: number; price: number };

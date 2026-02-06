@@ -1,5 +1,5 @@
-﻿import { api } from "../../shared/api";
-import { Product } from "../../shared/types";
+﻿import { api } from "@/modules/shared/api";
+import { Product } from "@/modules/shared/types";
 
 export const listProducts = async (search?: string, limit?: number, offset?: number): Promise<Product[]> => {
   const params: Record<string, string | number> = {};

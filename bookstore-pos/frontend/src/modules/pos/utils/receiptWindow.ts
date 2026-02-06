@@ -1,4 +1,4 @@
-import { formatDateTimeRegional } from "../../../utils/datetime";
+import { formatDateTimeRegional } from "@/app/utils";
 
 type ReceiptItem = {
   product_id: number;

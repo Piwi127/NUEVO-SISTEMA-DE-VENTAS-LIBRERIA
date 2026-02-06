@@ -3,10 +3,10 @@ import { Box, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Text
 import DeleteIcon from "@mui/icons-material/Delete";
 import RemoveIcon from "@mui/icons-material/Remove";
 import AddIcon from "@mui/icons-material/Add";
-import { useCartStore } from "../../../store/useCartStore";
-import { formatMoney } from "../../../utils/money";
-import { useSettings } from "../../../store/useSettings";
-import { calcTotals } from "../../../utils/totals";
+import { useCartStore } from "@/app/store";
+import { formatMoney } from "@/app/utils";
+import { useSettings } from "@/app/store";
+import { calcTotals } from "@/app/utils";
 
 export const Cart: React.FC = () => {
   const cart = useCartStore();

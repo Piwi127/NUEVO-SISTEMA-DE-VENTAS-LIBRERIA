@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Typography, useMediaQuery, Stack } from "@mui/material";
-import { formatMoney } from "../../../utils/money";
-import { useSettings } from "../../../store/useSettings";
+import { formatMoney } from "@/app/utils";
+import { useSettings } from "@/app/store";
 
 export type Payment = { method: string; amount: number };
 
