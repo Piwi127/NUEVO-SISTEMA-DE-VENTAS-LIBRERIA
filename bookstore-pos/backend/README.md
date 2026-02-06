@@ -56,10 +56,10 @@ copy /b ticket_123.bin \\NOMBRE_PC\NOMBRE_IMPRESORA
 ```
 
 ## Monitoreo local
-- Ver `docs/OBSERVABILITY_LOCAL.md` para Prometheus + Grafana con Docker.
+- Ver `docs/operations/OBSERVABILITY_LOCAL.md` para Prometheus + Grafana con Docker.
 
 ## Produccion
-- Checklist: `docs/PRODUCTION_CHECKLIST.md`
+- Checklist: `docs/operations/PRODUCTION_CHECKLIST.md`
 - Preflight rapido: `..\scripts\check_production_env.bat`
 - Backup DB: `..\scripts\backup_db.bat`
 - Restore DB: `..\scripts\restore_db.bat "RUTA_AL_BACKUP.db"`

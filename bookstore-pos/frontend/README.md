@@ -28,7 +28,7 @@ npm run dev
 npm run e2e
 ```
 
-Detalle de flujo: `../docs/E2E_AUTOMATION.md`
+Detalle de flujo: `../docs/qa/E2E_AUTOMATION.md`
 
 ## Notas
 - API por defecto: `http://localhost:8000`
