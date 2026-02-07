@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Box, Button, Divider, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack, Chip } from "@mui/material";
+import { Alert, Badge, Box, Button, Divider, Drawer, Fab, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack, Chip } from "@mui/material";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShoppingCartCheckoutIcon from "@mui/icons-material/ShoppingCartCheckout";
@@ -80,6 +80,8 @@ const POS: React.FC = () => {
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   const barcodeRef = useRef<HTMLInputElement | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+  const prevItemCountRef = useRef(0);
 
   useEffect(() => {
     const ws = new WebSocket(`${wsBase}/ws/display/${sessionId}`);
@@ -118,6 +120,13 @@ const POS: React.FC = () => {
     barcodeRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (itemCount > prevItemCountRef.current && itemCount > 0) {
+      setCartOpen(true);
+    }
+    prevItemCountRef.current = itemCount;
+  }, [itemCount]);
+
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       <PageHeader
@@ -143,20 +152,15 @@ const POS: React.FC = () => {
         </Box>
       </Paper>
 
-      <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
-        <Grid item xs={12} sm={4}>
-          <KpiCard label="Venta" value={formatMoney(total)} accent="#0b1e3b" />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <KpiCard label="Descuento" value={formatMoney(cart.discount)} accent="#c9a227" />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <KpiCard label="Impuesto" value={formatMoney(tax)} accent="#2f4858" />
-        </Grid>
-      </Grid>
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Busqueda de productos
+        </Typography>
+        <ProductSearch priceMap={priceMap} inputRef={searchRef} />
+      </Paper>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12}>
           <Paper
             sx={{
               p: 2,
@@ -209,63 +213,18 @@ const POS: React.FC = () => {
               </Grid>
             </Grid>
           </Paper>
-
-          <Paper sx={{ p: 2, height: "100%" }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Busqueda de productos
-            </Typography>
-            <ProductSearch priceMap={priceMap} inputRef={searchRef} />
-          </Paper>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: "100%", position: { md: "sticky" }, top: { md: 12 } }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-              <ReceiptLongIcon color="primary" />
-              <Typography variant="h6">Carrito</Typography>
-              {lastSaleId ? <Chip size="small" color="success" label={`Ultima venta #${lastSaleId}`} sx={{ ml: "auto" }} /> : null}
-            </Stack>
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-              <Button size="small" variant="text" onClick={() => cart.clear()} disabled={itemCount === 0}>
-                Limpiar carrito
-              </Button>
-            </Box>
-            <Cart />
-            <Divider sx={{ my: 2 }} />
-            {!cashQuery.isLoading && !cash?.is_open ? (
-              <Alert
-                severity="warning"
-                sx={{ mb: 2 }}
-                action={
-                  <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
-                    Ir a Caja
-                  </Button>
-                }
-              >
-                Caja cerrada. Debes abrir caja para poder cobrar.
-              </Alert>
-            ) : null}
-            <Box sx={{ display: "grid", gap: 1.5 }}>
-              <Button fullWidth variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)}>
-                Cobrar
-              </Button>
-              <Button fullWidth variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>
-                Imprimir ticket
-              </Button>
-              <Button fullWidth variant="outlined" disabled={!lastSaleId} onClick={handleEscpos}>
-                Descargar ESC/POS
-              </Button>
-              {!canCharge ? (
-                <Typography variant="caption" color="text.secondary">
-                  Para cobrar necesitas una caja abierta y al menos un producto en el carrito.
-                </Typography>
-              ) : null}
-              {canCharge ? (
-                <Typography variant="caption" color="success.main">
-                  Listo para cobrar. Atajo rapido: F4
-                </Typography>
-              ) : null}
-            </Box>
-          </Paper>
+      </Grid>
+
+      <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
+        <Grid item xs={12} sm={4}>
+          <KpiCard label="Venta" value={formatMoney(total)} accent="#0b1e3b" />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <KpiCard label="Descuento" value={formatMoney(cart.discount)} accent="#c9a227" />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <KpiCard label="Impuesto" value={formatMoney(tax)} accent="#2f4858" />
         </Grid>
       </Grid>
 
@@ -276,6 +235,102 @@ const POS: React.FC = () => {
         onClose={() => setPayOpen(false)}
         onConfirm={(payments: Payment[]) => handlePayment(payments)}
       />
+
+      <Fab
+        color="primary"
+        variant="extended"
+        onClick={() => setCartOpen(true)}
+        sx={{ position: "fixed", right: 20, bottom: 20, zIndex: (theme) => theme.zIndex.drawer + 1 }}
+      >
+        <Badge badgeContent={itemCount} color="error" sx={{ mr: 1 }}>
+          <ReceiptLongIcon />
+        </Badge>
+        Carrito
+      </Fab>
+
+      <Drawer
+        anchor="right"
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        PaperProps={{
+          sx: {
+            bgcolor: "rgba(11, 42, 74, 0.72)",
+            color: "#ffffff",
+            borderLeft: "1px solid rgba(255,255,255,0.18)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            backgroundImage: "linear-gradient(180deg, rgba(7,31,56,0.78) 0%, rgba(11,42,74,0.68) 100%)",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            width: { xs: "100vw", sm: 470 },
+            maxWidth: "100vw",
+            p: 2,
+            color: "#ffffff",
+            "& .MuiTypography-root": { color: "#ffffff", fontWeight: 700 },
+            "& .MuiTableCell-root": { color: "#ffffff", borderColor: "rgba(255,255,255,0.22)", fontWeight: 700 },
+            "& .MuiInputBase-input": { color: "#ffffff", fontWeight: 700 },
+            "& .MuiInputLabel-root": { color: "rgba(255,255,255,0.85)", fontWeight: 700 },
+            "& .MuiSvgIcon-root": { color: "#ffffff" },
+            "& .MuiButton-text": { color: "#ffffff", fontWeight: 700 },
+            "& .MuiButton-outlined": { borderColor: "rgba(255,255,255,0.5)", color: "#ffffff", fontWeight: 700 },
+            "& .MuiChip-label": { color: "#ffffff", fontWeight: 700 },
+            "& .MuiFormLabel-root": { color: "rgba(255,255,255,0.85)", fontWeight: 700 },
+            "& .MuiTypography-colorTextSecondary": { color: "rgba(255,255,255,0.9)" },
+            "& .MuiButton-contained.Mui-disabled": { bgcolor: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.72)" },
+            "& .MuiButton-outlined.Mui-disabled": { borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.62)" },
+          }}
+        >
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+            <ReceiptLongIcon sx={{ color: "#ffffff" }} />
+            <Typography variant="h6">Carrito</Typography>
+            {lastSaleId ? <Chip size="small" color="success" label={`Ultima venta #${lastSaleId}`} sx={{ ml: "auto" }} /> : null}
+          </Stack>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+            <Button size="small" variant="text" onClick={() => cart.clear()} disabled={itemCount === 0}>
+              Limpiar carrito
+            </Button>
+          </Box>
+          <Cart />
+          <Divider sx={{ my: 2 }} />
+          {!cashQuery.isLoading && !cash?.is_open ? (
+            <Alert
+              severity="warning"
+              sx={{ mb: 2 }}
+              action={
+                <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
+                  Ir a Caja
+                </Button>
+              }
+            >
+              Caja cerrada. Debes abrir caja para poder cobrar.
+            </Alert>
+          ) : null}
+          <Box sx={{ display: "grid", gap: 1.5 }}>
+            <Button fullWidth variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)}>
+              Cobrar
+            </Button>
+            <Button fullWidth variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>
+              Imprimir ticket
+            </Button>
+            <Button fullWidth variant="outlined" disabled={!lastSaleId} onClick={handleEscpos}>
+              Descargar ESC/POS
+            </Button>
+            {!canCharge ? (
+              <Typography variant="caption" color="text.secondary">
+                Para cobrar necesitas una caja abierta y al menos un producto en el carrito.
+              </Typography>
+            ) : null}
+            {canCharge ? (
+              <Typography variant="caption" color="success.main">
+                Listo para cobrar. Atajo rapido: F4
+              </Typography>
+            ) : null}
+          </Box>
+        </Box>
+      </Drawer>
     </Box>
   );
 };
