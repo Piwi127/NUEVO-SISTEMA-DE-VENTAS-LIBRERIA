@@ -7,10 +7,40 @@ type PageHeaderProps = {
   icon?: React.ReactNode;
   chips?: Array<string>;
   right?: React.ReactNode;
+  rightAlign?: "left" | "right";
+  rightPlacement?: "beforeTitle" | "afterTitle";
   loading?: boolean;
 };
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, icon, chips, right, loading }) => {
+export const PageHeader: React.FC<PageHeaderProps> = ({
+  title,
+  subtitle,
+  icon,
+  chips,
+  right,
+  rightAlign = "right",
+  rightPlacement = "afterTitle",
+  loading,
+}) => {
+  const meta = (
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{
+        ml: { md: rightAlign === "right" ? "auto" : 0 },
+        width: { xs: "100%", md: rightPlacement === "afterTitle" ? "auto" : "100%" },
+        flex: { md: rightPlacement === "afterTitle" && rightAlign === "right" ? 1 : "initial" },
+        justifyContent: { xs: "flex-start", md: rightAlign === "right" ? "flex-end" : "flex-start" },
+      }}
+    >
+      {loading ? <Chip label="Cargando" size="small" color="default" sx={{ bgcolor: "rgba(18,53,90,0.08)" }} /> : null}
+      {(chips || []).map((c, i) => (
+        <Chip key={i} label={c} size="small" sx={{ bgcolor: "rgba(18,53,90,0.08)" }} />
+      ))}
+      {right}
+    </Stack>
+  );
+
   return (
     <Paper
       sx={{
@@ -20,6 +50,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, icon, c
       }}
     >
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+        {rightPlacement === "beforeTitle" ? meta : null}
         <Stack direction="row" spacing={1.25} alignItems="center">
           <Box
             sx={{
@@ -45,13 +76,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, icon, c
             ) : null}
           </Box>
         </Stack>
-        <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
-          {loading ? <Chip label="Cargando" size="small" color="default" sx={{ bgcolor: "rgba(18,53,90,0.08)" }} /> : null}
-          {(chips || []).map((c, i) => (
-            <Chip key={i} label={c} size="small" sx={{ bgcolor: "rgba(18,53,90,0.08)" }} />
-          ))}
-          {right}
-        </Stack>
+        {rightPlacement === "afterTitle" ? meta : null}
       </Stack>
     </Paper>
   );

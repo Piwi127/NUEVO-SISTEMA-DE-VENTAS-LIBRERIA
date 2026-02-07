@@ -8,7 +8,7 @@ import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { KpiCard, PageHeader } from "@/app/components";
+import { PageHeader } from "@/app/components";
 import { calcTotals, formatMoney } from "@/app/utils";
 import {
   selectCanCharge,
@@ -60,7 +60,7 @@ const POS: React.FC = () => {
     setCartDiscount: cart.setDiscount,
   });
 
-  const { payOpen, setPayOpen, lastSaleId, handlePayment, handleBarcode, handlePrint, handleEscpos } = usePosCheckout({
+  const { payOpen, setPayOpen, lastSaleId, handlePayment, handlePrint, handleEscpos } = usePosCheckout({
     cart,
     cashIsOpen: !!cash?.is_open,
     customerId,
@@ -79,7 +79,6 @@ const POS: React.FC = () => {
   });
 
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const barcodeRef = useRef<HTMLInputElement | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const prevItemCountRef = useRef(0);
 
@@ -117,15 +116,15 @@ const POS: React.FC = () => {
   }, [itemCount, setPayOpen]);
 
   useEffect(() => {
-    barcodeRef.current?.focus();
+    searchRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    if (itemCount > prevItemCountRef.current && itemCount > 0) {
+    if (isCompact && itemCount > prevItemCountRef.current && itemCount > 0) {
       setCartOpen(true);
     }
     prevItemCountRef.current = itemCount;
-  }, [itemCount]);
+  }, [itemCount, isCompact]);
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -133,7 +132,78 @@ const POS: React.FC = () => {
         title="Punto de venta"
         subtitle="Cobro rapido, promociones y facturacion."
         icon={<PointOfSaleIcon color="primary" />}
-        chips={[cash?.is_open ? "Caja abierta" : "Caja cerrada", `Items: ${itemCount}`, isCompact ? "Compacto" : "Normal"]}
+        chips={[]}
+        rightAlign="right"
+        rightPlacement="afterTitle"
+        right={
+          <Stack
+            direction="row"
+            spacing={1.5}
+            sx={{
+              flexWrap: { xs: "wrap", md: "nowrap" },
+              justifyContent: { md: "flex-end" },
+              pl: { md: 1 },
+            }}
+          >
+            <Box
+              sx={{
+                width: 134,
+                minHeight: 58,
+                px: 1.4,
+                py: 0.9,
+                borderRadius: 2,
+                border: "1px solid #cbd2d9",
+                bgcolor: "rgba(255,255,255,0.82)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
+              <Typography variant="caption" sx={{ color: "#486581", fontWeight: 700 }}>
+                Venta
+              </Typography>
+              <Typography sx={{ color: "#102a43", fontWeight: 900, lineHeight: 1.1 }}>{formatMoney(total)}</Typography>
+            </Box>
+            <Box
+              sx={{
+                width: 134,
+                minHeight: 58,
+                px: 1.4,
+                py: 0.9,
+                borderRadius: 2,
+                border: "1px solid #e1c478",
+                bgcolor: "rgba(255,250,240,0.85)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
+              <Typography variant="caption" sx={{ color: "#8a6b0f", fontWeight: 700 }}>
+                Descuento
+              </Typography>
+              <Typography sx={{ color: "#6e5300", fontWeight: 900, lineHeight: 1.1 }}>{formatMoney(cart.discount)}</Typography>
+            </Box>
+            <Box
+              sx={{
+                width: 134,
+                minHeight: 58,
+                px: 1.4,
+                py: 0.9,
+                borderRadius: 2,
+                border: "1px solid #b8c9db",
+                bgcolor: "rgba(245,250,255,0.9)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
+              <Typography variant="caption" sx={{ color: "#334e68", fontWeight: 700 }}>
+                Impuesto
+              </Typography>
+              <Typography sx={{ color: "#102a43", fontWeight: 900, lineHeight: 1.1 }}>{formatMoney(tax)}</Typography>
+            </Box>
+          </Stack>
+        }
         loading={isLoading}
       />
 
@@ -152,80 +222,120 @@ const POS: React.FC = () => {
         </Box>
       </Paper>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Busqueda de productos
-        </Typography>
-        <ProductSearch priceMap={priceMap} inputRef={searchRef} />
-      </Paper>
-
       <Grid container spacing={2}>
-        <Grid item xs={12}>
-          <Paper
-            sx={{
-              p: 2,
-              mb: 2,
-              background: "linear-gradient(125deg, rgba(18,53,90,0.06) 0%, rgba(18,53,90,0.02) 48%, rgba(154,123,47,0.08) 100%)",
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Centro de venta
-            </Typography>
-            <Grid container spacing={1.5}>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  inputRef={barcodeRef}
-                  label="Escaner (SKU)"
-                  placeholder="Escanea y Enter"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleBarcode((e.target as HTMLInputElement).value);
-                      (e.target as HTMLInputElement).value = "";
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField fullWidth select label="Cliente" value={customerId} onChange={(e) => setCustomerId(Number(e.target.value))}>
-                  <MenuItem value="">Sin cliente</MenuItem>
-                  {(customers || []).map((customer) => (
-                    <MenuItem key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField fullWidth select label="Promo" value={promoId} onChange={(e) => setPromoId(Number(e.target.value))}>
-                  <MenuItem value="">Sin promo</MenuItem>
-                  {(promos || []).map((promo) => (
-                    <MenuItem key={promo.id} value={promo.id}>
-                      {promo.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <Button fullWidth variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)} sx={{ height: "100%" }}>
-                  Cobrar
-                </Button>
-              </Grid>
-            </Grid>
+        <Grid item xs={12} lg={7}>
+          <Paper sx={{ p: 1.5, border: "1px solid #cbd2d9", bgcolor: "#f8fbff" }}>
+            <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" />
           </Paper>
         </Grid>
-      </Grid>
 
-      <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
-        <Grid item xs={12} sm={4}>
-          <KpiCard label="Venta" value={formatMoney(total)} accent="#0b1e3b" />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <KpiCard label="Descuento" value={formatMoney(cart.discount)} accent="#c9a227" />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <KpiCard label="Impuesto" value={formatMoney(tax)} accent="#2f4858" />
-        </Grid>
+        {!isCompact ? (
+          <Grid item xs={12} lg={5}>
+            <Paper sx={{ p: 2, border: "1px solid #cbd2d9", bgcolor: "#f8fbff", position: "sticky", top: 12 }}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <ReceiptLongIcon color="primary" />
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                  Carrito
+                </Typography>
+                {lastSaleId ? <Chip size="small" color="success" label={`Ultima venta #${lastSaleId}`} sx={{ ml: "auto" }} /> : null}
+              </Stack>
+
+              <Cart />
+              <Divider sx={{ my: 2 }} />
+              {!cashQuery.isLoading && !cash?.is_open ? (
+                <Alert
+                  severity="warning"
+                  sx={{ mb: 2 }}
+                  action={
+                    <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
+                      Ir a Caja
+                    </Button>
+                  }
+                >
+                  Caja cerrada. Debes abrir caja para poder cobrar.
+                </Alert>
+              ) : null}
+
+              <Grid container spacing={1} sx={{ mb: 2 }}>
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth select label="Cliente" value={customerId} onChange={(e) => setCustomerId(Number(e.target.value))}>
+                    <MenuItem value="">Sin cliente</MenuItem>
+                    {(customers || []).map((customer) => (
+                      <MenuItem key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth select label="Promo" value={promoId} onChange={(e) => setPromoId(Number(e.target.value))}>
+                    <MenuItem value="">Sin promo</MenuItem>
+                    {(promos || []).map((promo) => (
+                      <MenuItem key={promo.id} value={promo.id}>
+                        {promo.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ display: "grid", gap: 1.5 }}>
+                <Button fullWidth variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)}>
+                  Cobrar
+                </Button>
+                <Button fullWidth variant="outlined" disabled={!lastSaleId} onClick={handlePrint}>
+                  Imprimir ticket
+                </Button>
+                <Button fullWidth variant="outlined" disabled={!lastSaleId} onClick={handleEscpos}>
+                  Descargar ESC/POS
+                </Button>
+              </Box>
+            </Paper>
+          </Grid>
+        ) : null}
+
+        {isCompact ? (
+          <Grid item xs={12}>
+            <Paper
+              sx={{
+                p: 2,
+                mb: 2,
+                background: "linear-gradient(125deg, rgba(18,53,90,0.06) 0%, rgba(18,53,90,0.02) 48%, rgba(154,123,47,0.08) 100%)",
+              }}
+            >
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Centro de venta
+              </Typography>
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth select label="Cliente" value={customerId} onChange={(e) => setCustomerId(Number(e.target.value))}>
+                    <MenuItem value="">Sin cliente</MenuItem>
+                    {(customers || []).map((customer) => (
+                      <MenuItem key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField fullWidth select label="Promo" value={promoId} onChange={(e) => setPromoId(Number(e.target.value))}>
+                    <MenuItem value="">Sin promo</MenuItem>
+                    {(promos || []).map((promo) => (
+                      <MenuItem key={promo.id} value={promo.id}>
+                        {promo.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <Button fullWidth variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)} sx={{ height: "100%" }}>
+                    Cobrar
+                  </Button>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Grid>
+        ) : null}
       </Grid>
 
       <PaymentDialog
@@ -236,21 +346,23 @@ const POS: React.FC = () => {
         onConfirm={(payments: Payment[]) => handlePayment(payments)}
       />
 
-      <Fab
-        color="primary"
-        variant="extended"
-        onClick={() => setCartOpen(true)}
-        sx={{ position: "fixed", right: 20, bottom: 20, zIndex: (theme) => theme.zIndex.drawer + 1 }}
-      >
-        <Badge badgeContent={itemCount} color="error" sx={{ mr: 1 }}>
-          <ReceiptLongIcon />
-        </Badge>
-        Carrito
-      </Fab>
+      {isCompact ? (
+        <Fab
+          color="primary"
+          variant="extended"
+          onClick={() => setCartOpen(true)}
+          sx={{ position: "fixed", right: 20, bottom: 20, zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        >
+          <Badge badgeContent={itemCount} color="error" sx={{ mr: 1 }}>
+            <ReceiptLongIcon />
+          </Badge>
+          Carrito
+        </Fab>
+      ) : null}
 
       <Drawer
         anchor="right"
-        open={cartOpen}
+        open={isCompact ? cartOpen : false}
         onClose={() => setCartOpen(false)}
         PaperProps={{
           sx: {

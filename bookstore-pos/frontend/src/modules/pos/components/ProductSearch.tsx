@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Avatar,
   Box,
   Button,
   CircularProgress,
@@ -12,11 +13,14 @@ import {
   ListItemText,
   MenuItem,
   Paper,
+  Tab,
+  Tabs,
   Switch,
   TextField,
   Typography,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
 import { useQuery } from "@tanstack/react-query";
 import { listProductCategories, listProducts } from "@/modules/catalog/api";
 import { Product } from "@/modules/shared/types";
@@ -182,13 +186,20 @@ const fuzzyIncludes = (token: string, value: string): boolean => {
   });
 };
 
-export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputRef?: React.Ref<HTMLInputElement> }> = ({ priceMap, inputRef }) => {
+type ProductSearchView = "dropdown" | "panel";
+
+export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputRef?: React.Ref<HTMLInputElement>; view?: ProductSearchView }> = ({
+  priceMap,
+  inputRef,
+  view = "dropdown",
+}) => {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [onlyStock, setOnlyStock] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [resultTab, setResultTab] = useState<"all" | "stock" | "suggested">("all");
 
   const cart = useCartStore();
   const { currency, compactMode } = useSettings();
@@ -251,6 +262,18 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
       .map((item) => item.product);
   }, [products, fallbackQuery.data, canSearch, rawTokens, expanded]);
   const visibleResults = useMemo(() => rankedProducts.slice(0, 15), [rankedProducts]);
+  const panelResults = useMemo(() => {
+    const source = rankedProducts.slice(0, 60);
+    if (resultTab === "stock") return source.filter((p) => p.stock > 0);
+    if (resultTab === "suggested") {
+      const tokenSet = new Set(expanded);
+      return source.filter((p) => {
+        const haystack = normalize(`${p.name} ${p.category || ""} ${p.tags || ""}`);
+        return Array.from(tokenSet).some((t) => haystack.includes(t));
+      });
+    }
+    return source;
+  }, [rankedProducts, resultTab, expanded]);
 
   const smartHint = useMemo(() => {
     if (!canSearch || correctedSearch === normalizedSearch) return null;
@@ -316,7 +339,7 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
             }}
           />
 
-          {canSearch && isDropdownOpen ? (
+          {view === "dropdown" && canSearch && isDropdownOpen ? (
             <Paper
               elevation={8}
               sx={{
@@ -426,7 +449,7 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
         </Box>
       ) : null}
 
-      {canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching && rankedProducts.length === 0 ? (
+      {view === "dropdown" && canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching && rankedProducts.length === 0 ? (
         <Box sx={{ mt: 2 }}>
           <Typography variant="body2" color="text.secondary">
             No se encontraron coincidencias. Prueba por nombre, SKU, categoria o por utilidad (ej. tinta, hojas, imprimir).
@@ -442,6 +465,82 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
               {smartHint}
             </Button>
           </Typography>
+        </Box>
+      ) : null}
+
+      {view === "panel" ? (
+        <Box sx={{ mt: 1 }}>
+          <Paper sx={{ bgcolor: "rgba(255,255,255,0.9)", border: "1px solid #d9e2ec" }}>
+            <Tabs value={resultTab} onChange={(_, v) => setResultTab(v)} variant="fullWidth">
+              <Tab label={`Todos (${rankedProducts.length})`} value="all" />
+              <Tab label="Con stock" value="stock" />
+              <Tab label="Relacionados" value="suggested" />
+            </Tabs>
+          </Paper>
+
+          <Paper sx={{ mt: 1, border: "1px solid #d9e2ec", maxHeight: 560, overflowY: "auto" }}>
+            {!canSearch ? (
+              <Box sx={{ p: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Escribe para buscar y mostrar resultados.
+                </Typography>
+              </Box>
+            ) : null}
+
+            {canSearch && (productsQuery.isFetching || fallbackQuery.isFetching) ? (
+              <Box sx={{ p: 2, display: "flex", gap: 1, alignItems: "center" }}>
+                <CircularProgress size={18} />
+                <Typography variant="body2" color="text.secondary">
+                  Buscando productos...
+                </Typography>
+              </Box>
+            ) : null}
+
+            {canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching && panelResults.length === 0 ? (
+              <Box sx={{ p: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Sin resultados para los filtros seleccionados.
+                </Typography>
+              </Box>
+            ) : null}
+
+            {canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching ? (
+              <List disablePadding>
+                {panelResults.map((product) => {
+                  const price = priceMap?.[product.id] ?? product.price;
+                  return (
+                    <ListItem
+                      key={product.id}
+                      sx={{ borderBottom: "1px solid #e4e7eb", py: 1.2, pr: 1.5 }}
+                      secondaryAction={
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={() => addProduct(product)}
+                          sx={{ minWidth: 44, width: 44, height: 44, borderRadius: "50%", p: 0 }}
+                        >
+                          <AddIcon />
+                        </Button>
+                      }
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", pr: 7 }}>
+                        <Avatar variant="rounded" sx={{ width: 56, height: 56, bgcolor: "#d9e2ec", color: "#486581", fontWeight: 700 }}>
+                          {product.name.slice(0, 1).toUpperCase()}
+                        </Avatar>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 700, color: "#102a43" }}>{product.name}</Typography>
+                          <Typography variant="caption" sx={{ color: "#486581" }}>
+                            SKU: {product.sku} | Cat: {product.category || "-"} | Stock: {product.stock}
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ fontWeight: 800, color: "#243b53", minWidth: 92, textAlign: "right" }}>{formatMoney(price)}</Typography>
+                      </Box>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            ) : null}
+          </Paper>
         </Box>
       ) : null}
     </Box>
