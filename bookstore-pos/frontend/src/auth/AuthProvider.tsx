@@ -37,7 +37,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   useEffect(() => {
     refreshMe().catch(() => {
-      // ignore
+      setState({ username: null, role: null, csrfToken: null });
+      localStorage.removeItem(STORAGE_KEY);
     }).finally(() => {
       setReady(true);
     });

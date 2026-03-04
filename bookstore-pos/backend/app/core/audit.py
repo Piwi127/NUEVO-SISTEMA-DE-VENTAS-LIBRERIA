@@ -12,6 +12,8 @@ async def log_event(
     details: str = "",
     ip: str | None = None,
     user_agent: str | None = None,
+    *,
+    commit: bool = False,
 ):
     db.add(
         AuditLog(
@@ -24,4 +26,6 @@ async def log_event(
             user_agent=user_agent,
         )
     )
-    await db.commit()
+    await db.flush()
+    if commit:
+        await db.commit()

@@ -3,6 +3,7 @@ import tempfile
 
 import pytest_asyncio
 import httpx
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.db.base import Base
@@ -24,6 +25,13 @@ async def test_app():
         os.remove(db_path)
 
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", future=True)
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, _connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

@@ -38,6 +38,32 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+async def _validate_display_token(token: str) -> bool:
+    try:
+        payload = decode_token(token)
+        username = payload.get("sub")
+        jti = payload.get("jti")
+    except Exception:
+        return False
+    if not username or not jti:
+        return False
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+        if not user or not user.is_active:
+            return False
+        sess_result = await db.execute(select(UserSession).where(UserSession.jti == jti))
+        session = sess_result.scalar_one_or_none()
+        if not session or session.revoked_at is not None:
+            return False
+        expires_at = session.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            return False
+    return True
+
+
 @router.websocket("/ws/display/{session_id}")
 async def display_ws(websocket: WebSocket, session_id: str):
     origin = websocket.headers.get("origin")
@@ -53,36 +79,11 @@ async def display_ws(websocket: WebSocket, session_id: str):
             if name == settings.auth_cookie_name:
                 token = value
                 break
-    if not token:
+
+    if not token or not await _validate_display_token(token):
         await websocket.close(code=1008)
         return
-    try:
-        payload = decode_token(token)
-        username = payload.get("sub")
-        jti = payload.get("jti")
-    except Exception:
-        await websocket.close(code=1008)
-        return
-    if not username or not jti:
-        await websocket.close(code=1008)
-        return
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(User).where(User.username == username))
-        user = result.scalar_one_or_none()
-        if not user or not user.is_active:
-            await websocket.close(code=1008)
-            return
-        sess_result = await db.execute(select(UserSession).where(UserSession.jti == jti))
-        session = sess_result.scalar_one_or_none()
-        if not session or session.revoked_at is not None:
-            await websocket.close(code=1008)
-            return
-        expires_at = session.expires_at
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        if expires_at < datetime.now(timezone.utc):
-            await websocket.close(code=1008)
-            return
+
     await manager.connect(session_id, websocket)
     try:
         while True:

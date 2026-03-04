@@ -8,7 +8,7 @@ from app.services.pos.returns_service import ReturnsService
 router = APIRouter(prefix="/returns", tags=["returns"], dependencies=[Depends(require_role("admin", "cashier"))])
 
 
-@router.get("", response_model=list[SaleReturnListOut], dependencies=[Depends(require_permission("returns.create"))])
+@router.get("", response_model=list[SaleReturnListOut], dependencies=[Depends(require_permission("returns.read"))])
 async def list_returns(
     limit: int = 100,
     db: AsyncSession = Depends(get_db),

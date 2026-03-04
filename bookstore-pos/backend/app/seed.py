@@ -14,6 +14,7 @@ def default_permissions_for(role: str) -> list[str]:
         return ["*"]
     if role == "cashier":
         return [
+            "returns.read",
             "sales.read",
             "sales.create",
             "returns.create",

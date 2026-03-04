@@ -1,17 +1,18 @@
-﻿from pydantic import BaseModel
 from datetime import datetime
+
+from pydantic import BaseModel, Field
 
 
 class PurchaseItemCreate(BaseModel):
-    product_id: int
-    qty: int
-    unit_cost: float
+    product_id: int = Field(gt=0)
+    qty: int = Field(gt=0)
+    unit_cost: float = Field(ge=0)
 
 
 class PurchaseCreate(BaseModel):
-    supplier_id: int
-    items: list[PurchaseItemCreate]
-    total: float
+    supplier_id: int = Field(gt=0)
+    items: list[PurchaseItemCreate] = Field(min_length=1)
+    total: float | None = Field(default=None, ge=0)
 
 
 class PurchaseOut(BaseModel):

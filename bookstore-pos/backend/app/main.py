@@ -83,8 +83,11 @@ logger = logging.getLogger("bookstore")
 def _validate_security_settings() -> None:
     env = settings.environment.lower()
     is_prod = env in {"prod", "production"}
-    if not settings.jwt_secret or settings.jwt_secret == "change_me_super_secret":
+    if not settings.jwt_secret:
         raise RuntimeError("JWT_SECRET debe configurarse y no usar valores por defecto")
+    weak_jwt_values = {"change_me_super_secret", "dev_local_secret_change_this", "dev", "secret"}
+    if is_prod and settings.jwt_secret in weak_jwt_values:
+        raise RuntimeError("JWT_SECRET usa un valor inseguro para produccion")
     if is_prod and not settings.cookie_secure:
         raise RuntimeError("COOKIE_SECURE debe ser true en produccion")
     samesite = settings.cookie_samesite.lower()
@@ -200,7 +203,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 class HealthGuardMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in {"/health", "/healthz"}:
+        if request.url.path in {"/health", "/healthz", "/health/ready"}:
             env = settings.environment.lower()
             if env in {"prod", "production"} and settings.health_allow_local_only:
                 ip = request.client.host if request.client else ""

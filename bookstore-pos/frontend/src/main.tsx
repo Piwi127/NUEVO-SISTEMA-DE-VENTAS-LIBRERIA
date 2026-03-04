@@ -10,6 +10,21 @@ import { ToastProvider } from "@/app/components";
 import { theme } from "@/theme";
 
 const queryClient = new QueryClient();
+const PRELOAD_RELOAD_GUARD = "bookstore_preload_reload_guard";
+
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault();
+    if (window.sessionStorage.getItem(PRELOAD_RELOAD_GUARD) === "1") {
+      return;
+    }
+    window.sessionStorage.setItem(PRELOAD_RELOAD_GUARD, "1");
+    window.location.reload();
+  });
+  window.addEventListener("load", () => {
+    window.sessionStorage.removeItem(PRELOAD_RELOAD_GUARD);
+  });
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

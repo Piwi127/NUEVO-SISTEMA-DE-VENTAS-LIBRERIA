@@ -15,4 +15,4 @@ class User(Base):
     failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
     twofa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    twofa_secret: Mapped[str] = mapped_column(String(64), default="")
+    twofa_secret: Mapped[str] = mapped_column(String(255), default="")

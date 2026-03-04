@@ -9,6 +9,9 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  optimizeDeps: {
+    include: ["xlsx", "@mui/icons-material/Download"],
+  },
   server: {
     port: 5173,
   },

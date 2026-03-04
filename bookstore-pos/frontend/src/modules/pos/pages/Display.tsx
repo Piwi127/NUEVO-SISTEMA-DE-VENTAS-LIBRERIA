@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography, Paper, List, ListItem, ListItemText } from "@mui/material";
 import { formatMoney } from "@/app/utils";
@@ -17,6 +17,7 @@ type CartPayload = {
 
 const Display: React.FC = () => {
   const { sessionId } = useParams();
+  const wsRef = useRef<WebSocket | null>(null);
   const [items, setItems] = useState<CartItem[]>([]);
   const [total, setTotal] = useState(0);
   const [message, setMessage] = useState("");
@@ -83,21 +84,40 @@ const Display: React.FC = () => {
 
   useEffect(() => {
     if (!sessionId) return;
-    const ws = new WebSocket(`${wsBase}/ws/display/${sessionId}`);
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data) as CartPayload;
-      if (data.type === "CART_UPDATE") {
-        setMessage("");
-        setItems(data.items || []);
-        setTotal(data.totals?.total || 0);
-      }
-      if (data.type === "SALE_OK") {
-        setItems([]);
-        setTotal(0);
-        setMessage("Gracias por su compra");
+    let active = true;
+    const timer = window.setTimeout(() => {
+      if (!active) return;
+      const ws = new WebSocket(`${wsBase}/ws/display/${sessionId}`);
+      wsRef.current = ws;
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data) as CartPayload;
+        if (data.type === "CART_UPDATE") {
+          setMessage("");
+          setItems(data.items || []);
+          setTotal(data.totals?.total || 0);
+        }
+        if (data.type === "SALE_OK") {
+          setItems([]);
+          setTotal(0);
+          setMessage("Gracias por su compra");
+        }
+      };
+      ws.onclose = () => {
+        if (wsRef.current === ws) {
+          wsRef.current = null;
+        }
+      };
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      const ws = wsRef.current;
+      wsRef.current = null;
+      if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+        ws.close(1000, "cleanup");
       }
     };
-    return () => ws.close();
   }, [sessionId]);
 
   return (

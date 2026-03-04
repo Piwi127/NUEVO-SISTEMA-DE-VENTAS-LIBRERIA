@@ -52,10 +52,10 @@ class AuthService:
                 user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)
                 user.failed_attempts = 0
                 locked = True
-            await self.db.commit()
             await log_event(self.db, user.id, "login_failed", "user", str(user.id), "", ip=ip, user_agent=user_agent)
             if locked:
                 await log_event(self.db, user.id, "user_locked", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+            await self.db.commit()
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
 
         if user.twofa_enabled:
@@ -69,15 +69,14 @@ class AuthService:
                     user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)
                     user.failed_attempts = 0
                     locked = True
-                await self.db.commit()
                 await log_event(self.db, user.id, "login_otp_failed", "user", str(user.id), "", ip=ip, user_agent=user_agent)
                 if locked:
                     await log_event(self.db, user.id, "user_locked", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+                await self.db.commit()
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP invalido")
 
         user.failed_attempts = 0
         user.locked_until = None
-        await self.db.commit()
 
         jti = generate_jti()
         token = create_access_token(subject=user.username, role=user.role, jti=jti)
@@ -90,6 +89,7 @@ class AuthService:
         )
         self.db.add(session)
         await log_event(self.db, user.id, "login", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+        await self.db.commit()
         return {"access_token": token, "role": user.role, "username": user.username}
 
     async def setup_2fa(self, current_user):
@@ -122,5 +122,5 @@ class AuthService:
         session = result.scalar_one_or_none()
         if session and session.revoked_at is None:
             session.revoked_at = datetime.now(timezone.utc)
-            await self.db.commit()
             await log_event(self.db, session.user_id, "logout", "user", str(session.user_id), "", ip=ip, user_agent=user_agent)
+            await self.db.commit()

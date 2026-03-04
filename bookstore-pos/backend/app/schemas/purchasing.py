@@ -1,15 +1,15 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PurchaseOrderItemCreate(BaseModel):
-    product_id: int
-    qty: int
-    unit_cost: float
+    product_id: int = Field(gt=0)
+    qty: int = Field(gt=0)
+    unit_cost: float = Field(ge=0)
 
 
 class PurchaseOrderCreate(BaseModel):
-    supplier_id: int
-    items: list[PurchaseOrderItemCreate]
+    supplier_id: int = Field(gt=0)
+    items: list[PurchaseOrderItemCreate] = Field(min_length=1)
 
 
 class PurchaseOrderOut(BaseModel):
@@ -32,16 +32,16 @@ class PurchaseOrderItemOut(BaseModel):
 
 
 class ReceiveItem(BaseModel):
-    product_id: int
-    qty: int
+    product_id: int = Field(gt=0)
+    qty: int = Field(gt=0)
 
 
 class ReceiveOrder(BaseModel):
-    items: list[ReceiveItem]
+    items: list[ReceiveItem] = Field(min_length=1)
 
 
 class SupplierPaymentCreate(BaseModel):
-    supplier_id: int
-    amount: float
-    method: str
+    supplier_id: int = Field(gt=0)
+    amount: float = Field(gt=0)
+    method: str = Field(min_length=1)
     reference: str = ""

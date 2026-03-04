@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.rate_limit import rate_limiter
@@ -19,6 +20,15 @@ async def test_public_settings(client):
     data = resp.json()
     assert data["project_name"] == "Bookstore POS"
     assert data["default_warehouse_id"] is not None
+
+
+@pytest.mark.asyncio
+async def test_sqlite_foreign_keys_enabled_in_test_db(client):
+    import app.db.session as db_session
+
+    async with db_session.AsyncSessionLocal() as session:
+        pragma_result = await session.execute(text("PRAGMA foreign_keys"))
+        assert pragma_result.scalar() == 1
 
 
 @pytest.mark.asyncio
@@ -313,3 +323,214 @@ async def test_close_cash_requires_z_audit(client):
     close_resp = await client.post("/cash/close", json={}, headers=headers)
     assert close_resp.status_code == 409
     assert "tipo Z" in (close_resp.text or "")
+
+
+@pytest.mark.asyncio
+async def test_purchase_total_is_calculated_server_side(client):
+    headers = await _login_admin(client)
+
+    supplier_resp = await client.post("/suppliers", json={"name": "Prov test", "phone": "999"}, headers=headers)
+    assert supplier_resp.status_code == 201
+    supplier_id = supplier_resp.json()["id"]
+
+    product_resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-PUR-001",
+            "name": "Libro compra",
+            "category": "Compras",
+            "price": 20.0,
+            "cost": 5.0,
+            "stock": 0,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert product_resp.status_code == 201
+    product_id = product_resp.json()["id"]
+
+    purchase_resp = await client.post(
+        "/purchases",
+        json={
+            "supplier_id": supplier_id,
+            "items": [{"product_id": product_id, "qty": 3, "unit_cost": 7.5}],
+            "total": 1.0,
+        },
+        headers=headers,
+    )
+    assert purchase_resp.status_code == 201
+    assert purchase_resp.json()["total"] == pytest.approx(22.5)
+
+
+@pytest.mark.asyncio
+async def test_purchase_rejects_negative_qty(client):
+    headers = await _login_admin(client)
+
+    supplier_resp = await client.post("/suppliers", json={"name": "Prov qty", "phone": "111"}, headers=headers)
+    assert supplier_resp.status_code == 201
+    supplier_id = supplier_resp.json()["id"]
+
+    product_resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-PUR-NEG-001",
+            "name": "Libro negativo",
+            "category": "Compras",
+            "price": 18.0,
+            "cost": 4.0,
+            "stock": 0,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert product_resp.status_code == 201
+    product_id = product_resp.json()["id"]
+
+    purchase_resp = await client.post(
+        "/purchases",
+        json={
+            "supplier_id": supplier_id,
+            "items": [{"product_id": product_id, "qty": -2, "unit_cost": 4.0}],
+            "total": 0,
+        },
+        headers=headers,
+    )
+    assert purchase_resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_purchase_rejects_unknown_supplier(client):
+    headers = await _login_admin(client)
+
+    product_resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-PUR-UNK-001",
+            "name": "Libro proveedor invalido",
+            "category": "Compras",
+            "price": 18.0,
+            "cost": 4.0,
+            "stock": 0,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert product_resp.status_code == 201
+    product_id = product_resp.json()["id"]
+
+    purchase_resp = await client.post(
+        "/purchases",
+        json={
+            "supplier_id": 999999,
+            "items": [{"product_id": product_id, "qty": 1, "unit_cost": 4.0}],
+            "total": 0,
+        },
+        headers=headers,
+    )
+    assert purchase_resp.status_code == 404
+    assert "Proveedor" in purchase_resp.text
+
+
+@pytest.mark.asyncio
+async def test_purchase_order_rejects_unknown_supplier(client):
+    headers = await _login_admin(client)
+
+    product_resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-PO-UNK-001",
+            "name": "Libro OC invalida",
+            "category": "Compras",
+            "price": 22.0,
+            "cost": 6.0,
+            "stock": 0,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert product_resp.status_code == 201
+    product_id = product_resp.json()["id"]
+
+    po_resp = await client.post(
+        "/purchasing/orders",
+        json={
+            "supplier_id": 999999,
+            "items": [{"product_id": product_id, "qty": 2, "unit_cost": 6.0}],
+        },
+        headers=headers,
+    )
+    assert po_resp.status_code == 404
+    assert "Proveedor" in po_resp.text
+
+
+@pytest.mark.asyncio
+async def test_receive_order_rejects_product_not_in_order(client):
+    headers = await _login_admin(client)
+
+    supplier_resp = await client.post("/suppliers", json={"name": "Prov receive", "phone": "555"}, headers=headers)
+    assert supplier_resp.status_code == 201
+    supplier_id = supplier_resp.json()["id"]
+
+    product_a_resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-PO-REC-A-001",
+            "name": "Libro OC A",
+            "category": "Compras",
+            "price": 20.0,
+            "cost": 7.0,
+            "stock": 0,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert product_a_resp.status_code == 201
+    product_a_id = product_a_resp.json()["id"]
+
+    product_b_resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-PO-REC-B-001",
+            "name": "Libro OC B",
+            "category": "Compras",
+            "price": 24.0,
+            "cost": 8.0,
+            "stock": 0,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert product_b_resp.status_code == 201
+    product_b_id = product_b_resp.json()["id"]
+
+    po_resp = await client.post(
+        "/purchasing/orders",
+        json={
+            "supplier_id": supplier_id,
+            "items": [{"product_id": product_a_id, "qty": 3, "unit_cost": 7.0}],
+        },
+        headers=headers,
+    )
+    assert po_resp.status_code == 201
+    order_id = po_resp.json()["id"]
+
+    receive_resp = await client.post(
+        f"/purchasing/orders/{order_id}/receive",
+        json={"items": [{"product_id": product_b_id, "qty": 1}]},
+        headers=headers,
+    )
+    assert receive_resp.status_code == 400
+    assert "fuera de la OC" in receive_resp.text
+
+
+@pytest.mark.asyncio
+async def test_supplier_payment_rejects_unknown_supplier(client):
+    headers = await _login_admin(client)
+
+    pay_resp = await client.post(
+        "/purchasing/payments",
+        json={"supplier_id": 999999, "amount": 50.0, "method": "CASH", "reference": "R-1"},
+        headers=headers,
+    )
+    assert pay_resp.status_code == 404
+    assert "Proveedor" in pay_resp.text
