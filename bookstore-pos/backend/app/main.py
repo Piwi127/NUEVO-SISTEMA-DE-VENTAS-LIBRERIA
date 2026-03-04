@@ -43,32 +43,31 @@ from app.routers.reports import reports as reports_router
 from app.seed import seed_admin
 from app.db.session import AsyncSessionLocal
 
-async def ensure_schema_updates() -> None:
+
+async def verify_schema_compatibility() -> None:
     async with AsyncSessionLocal() as session:
-        try:
-            dialect = session.bind.dialect.name if session.bind else ""
-            has_tags = False
-            if dialect == "sqlite":
-                result = await session.execute(text("PRAGMA table_info(products)"))
-                columns = [row[1] for row in result.fetchall()]
-                has_tags = "tags" in columns
-            else:
-                result = await session.execute(
-                    text(
-                        "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_name = 'products' AND column_name = 'tags'"
-                    )
+        dialect = session.bind.dialect.name if session.bind else ""
+        if dialect == "sqlite":
+            result = await session.execute(text("PRAGMA table_info(products)"))
+            columns = {row[1] for row in result.fetchall()}
+            has_tags = "tags" in columns
+        else:
+            result = await session.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'products' AND column_name = 'tags'"
                 )
-                has_tags = result.first() is not None
-            if not has_tags:
-                await session.execute(text("ALTER TABLE products ADD COLUMN tags VARCHAR(500) DEFAULT ''"))
-                await session.commit()
-        except Exception:
-            await session.rollback()
+            )
+            has_tags = result.first() is not None
+        if not has_tags:
+            raise RuntimeError(
+                "Esquema desactualizado: falta la columna products.tags. "
+                "Ejecute 'alembic upgrade head' antes de iniciar la API."
+            )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await ensure_schema_updates()
+    await verify_schema_compatibility()
     async with AsyncSessionLocal() as session:
         await seed_admin(session)
     try:
@@ -144,7 +143,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 sub = payload.get("sub")
                 if sub:
                     key = f"user:{sub}"
-            except Exception:
+            except ValueError:
                 pass
         limited = await rate_limiter.is_limited(
             key=key,
@@ -221,7 +220,7 @@ class CsrfMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method == "OPTIONS":
             return await call_next(request)
-        if request.url.path in {"/auth/login", "/auth/logout", "/auth/2fa/setup", "/auth/2fa/confirm"}:
+        if request.url.path in {"/auth/login", "/auth/logout"}:
             return await call_next(request)
         if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             has_auth_header = bool(request.headers.get("authorization"))

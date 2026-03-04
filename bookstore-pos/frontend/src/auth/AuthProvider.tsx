@@ -60,9 +60,11 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const refreshMe = async () => {
     const res = await api.get("/auth/me");
-    const next = { username: res.data.username, role: res.data.role, csrfToken: state.csrfToken ?? null };
-    setState(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    setState((prev) => {
+      const next = { username: res.data.username, role: res.data.role, csrfToken: prev.csrfToken ?? null };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   };
 
   const value = useMemo(() => ({ ...state, login, logout, refreshMe, ready }), [state, ready]);

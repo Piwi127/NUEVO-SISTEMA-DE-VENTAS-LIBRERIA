@@ -14,7 +14,7 @@ const Returns = lazy(() => import("@/modules/pos/pages/Returns"));
 const SalesHistory = lazy(() => import("@/modules/pos/pages/SalesHistory"));
 
 export const posRoutes: AppRoute[] = [
-  { path: "/display/:sessionId", component: Display, public: true },
+  { path: "/display/:sessionId", component: Display, roles: ["admin", "cashier"] },
   { path: "/pos", component: POS, roles: ["admin", "cashier"], layout: true },
   { path: "/returns", component: Returns, roles: ["admin", "cashier"], layout: true },
   { path: "/sales-history", component: SalesHistory, roles: ["admin", "cashier"], layout: true },

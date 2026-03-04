@@ -156,6 +156,23 @@ async def test_csrf_rejects_cookie_auth_without_header(client):
 
 
 @pytest.mark.asyncio
+async def test_csrf_protects_2fa_setup(client):
+    resp = await client.post("/auth/login", json={"username": "admin", "password": "admin123"})
+    assert resp.status_code == 200
+
+    blocked = await client.post("/auth/2fa/setup")
+    assert blocked.status_code == 403
+    assert "CSRF" in blocked.text
+
+    csrf = resp.cookies.get("csrf_token")
+    allowed = await client.post("/auth/2fa/setup", headers={"X-CSRF-Token": csrf})
+    assert allowed.status_code == 200
+    payload = allowed.json()
+    assert payload.get("secret")
+    assert payload.get("otpauth")
+
+
+@pytest.mark.asyncio
 async def test_rate_limit_returns_429(client):
     old_limit = settings.rate_limit_per_minute
     old_window = settings.rate_limit_window_seconds
@@ -534,3 +551,75 @@ async def test_supplier_payment_rejects_unknown_supplier(client):
     )
     assert pay_resp.status_code == 404
     assert "Proveedor" in pay_resp.text
+
+
+@pytest.mark.asyncio
+async def test_inventory_upload_rejects_invalid_numeric_values(client):
+    await rate_limiter.reset_for_tests()
+    headers = await _login_admin(client)
+    content = "\n".join(
+        [
+            "sku,name,category,price,cost,stock,stock_min",
+            "BK-BAD-001,Libro malo,Errores,abc,2,1,1",
+        ]
+    )
+    resp = await client.post(
+        "/inventory/upload",
+        files={"file": ("inventory_bad.csv", content, "text/csv")},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+    assert "Fila 2" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_inventory_upload_ignores_empty_rows(client):
+    await rate_limiter.reset_for_tests()
+    headers = await _login_admin(client)
+    content = "\n".join(
+        [
+            "sku,name,category,price,cost,stock,stock_min",
+            "BK-OK-EMPTY-001,Libro ok,Import,10,5,2,1",
+            "",
+        ]
+    )
+    resp = await client.post(
+        "/inventory/upload",
+        files={"file": ("inventory_empty_rows.csv", content, "text/csv")},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_inventory_upload_xlsx_without_headers_returns_400(client):
+    await rate_limiter.reset_for_tests()
+    headers = await _login_admin(client)
+    try:
+        from openpyxl import Workbook
+    except Exception:
+        pytest.skip("openpyxl no disponible")
+
+    import io
+
+    wb = Workbook()
+    ws = wb.active
+    ws["A1"] = ""
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    resp = await client.post(
+        "/inventory/upload",
+        files={
+            "file": (
+                "inventory_no_headers.xlsx",
+                buffer.getvalue(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 400
+    assert "encabezados" in resp.text.lower()

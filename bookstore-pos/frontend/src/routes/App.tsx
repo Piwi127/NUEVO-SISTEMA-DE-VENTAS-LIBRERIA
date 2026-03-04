@@ -2,20 +2,49 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
-import { AppLayout, LoadingState } from "@/app/components";
+import { AppLayout, ErrorState, LoadingState } from "@/app/components";
 import { appRoutes } from "@/modules/registry";
+
+class RouteErrorBoundary extends React.Component<React.PropsWithChildren, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error("Route render error", error);
+  }
+
+  private handleReload = () => {
+    window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box sx={{ p: 2 }}>
+          <ErrorState title="No se pudo cargar la vista" onRetry={this.handleReload} />
+        </Box>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const App: React.FC = () => {
   const withSuspense = (node: React.ReactNode) => (
-    <React.Suspense
-      fallback={
-        <Box sx={{ p: 2 }}>
-          <LoadingState title="Cargando modulo..." rows={6} />
-        </Box>
-      }
-    >
-      {node}
-    </React.Suspense>
+    <RouteErrorBoundary>
+      <React.Suspense
+        fallback={
+          <Box sx={{ p: 2 }}>
+            <LoadingState title="Cargando modulo..." rows={6} />
+          </Box>
+        }
+      >
+        {node}
+      </React.Suspense>
+    </RouteErrorBoundary>
   );
 
   return (

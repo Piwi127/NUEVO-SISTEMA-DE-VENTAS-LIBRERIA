@@ -78,6 +78,12 @@ const Purchases: React.FC = () => {
     fields: [],
   }));
 
+  const extractErrorDetail = (error: unknown, fallback: string): string => {
+    const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    return fallback;
+  };
+
   const addItem = () => {
     if (!productId || qty <= 0) return;
     setItems((prev) => [...prev, { product_id: Number(productId), qty, unit_cost: unitCost }]);
@@ -87,35 +93,56 @@ const Purchases: React.FC = () => {
 
   const handleCreateOC = async () => {
     if (!supplierId || items.length === 0) return;
-    await createPurchaseOrder({ supplier_id: Number(supplierId), items });
-    showToast({ message: "OC creada", severity: "success" });
-    setItems([]);
+    try {
+      await createPurchaseOrder({ supplier_id: Number(supplierId), items });
+      showToast({ message: "OC creada", severity: "success" });
+      setItems([]);
+    } catch (error: unknown) {
+      showToast({ message: extractErrorDetail(error, "No se pudo crear la OC"), severity: "error" });
+    }
   };
 
   const handleReceive = async () => {
     if (!receiveOrderId || !receiveProductId || receiveQty <= 0) return;
-    await receivePurchaseOrder(Number(receiveOrderId), [{ product_id: Number(receiveProductId), qty: receiveQty }]);
-    showToast({ message: "Recepcion registrada", severity: "success" });
+    try {
+      await receivePurchaseOrder(Number(receiveOrderId), [{ product_id: Number(receiveProductId), qty: receiveQty }]);
+      showToast({ message: "Recepcion registrada", severity: "success" });
+    } catch (error: unknown) {
+      showToast({ message: extractErrorDetail(error, "No se pudo registrar la recepcion"), severity: "error" });
+    }
   };
 
   const handlePay = async () => {
     if (!paySupplierId || payAmount <= 0) return;
-    await supplierPayment({ supplier_id: Number(paySupplierId), amount: payAmount, method: payMethod, reference: payRef });
-    showToast({ message: "Pago registrado", severity: "success" });
+    try {
+      await supplierPayment({
+        supplier_id: Number(paySupplierId),
+        amount: payAmount,
+        method: payMethod,
+        reference: payRef,
+      });
+      showToast({ message: "Pago registrado", severity: "success" });
+    } catch (error: unknown) {
+      showToast({ message: extractErrorDetail(error, "No se pudo registrar el pago"), severity: "error" });
+    }
   };
 
   const handleExport = async () => {
-    const blob = await exportPurchases({
-      from_date: histFrom || undefined,
-      to: histTo || undefined,
-      supplier_id: histSupplier ? Number(histSupplier) : undefined,
-    });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "compras.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
+    try {
+      const blob = await exportPurchases({
+        from_date: histFrom || undefined,
+        to: histTo || undefined,
+        supplier_id: histSupplier ? Number(histSupplier) : undefined,
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "compras.csv";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error: unknown) {
+      showToast({ message: extractErrorDetail(error, "No se pudo exportar el historial"), severity: "error" });
+    }
   };
 
   return (
@@ -217,8 +244,13 @@ const Purchases: React.FC = () => {
                 }
                 const v = Number(raw);
                 setReceiveOrderId(v);
-                const loadedItems = await listPurchaseOrderItems(v);
-                setOrderItems(loadedItems);
+                try {
+                  const loadedItems = await listPurchaseOrderItems(v);
+                  setOrderItems(loadedItems);
+                } catch (error: unknown) {
+                  setOrderItems([]);
+                  showToast({ message: extractErrorDetail(error, "No se pudieron cargar los items de la OC"), severity: "error" });
+                }
               }}
             >
               <MenuItem value="">Seleccione</MenuItem>

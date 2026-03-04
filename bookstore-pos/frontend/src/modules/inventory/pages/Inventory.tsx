@@ -24,7 +24,6 @@ import { PageHeader } from "@/app/components";
 import { LoadingState } from "@/app/components";
 import { ErrorState } from "@/app/components";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import * as XLSX from "xlsx";
 import { listProducts } from "@/modules/catalog/api";
 import { createInventoryMovement, getKardex, uploadInventory, downloadInventoryTemplate, downloadInventoryTemplateXlsx } from "@/modules/inventory/api";
 import { listWarehouses, createWarehouse, createTransfer, createBatch, createCount } from "@/modules/inventory/api";
@@ -178,6 +177,7 @@ const Inventory: React.FC = () => {
   };
 
   const parseXlsx = async (f: File) => {
+    const XLSX = await import("xlsx");
     const buf = await f.arrayBuffer();
     const wb = XLSX.read(buf, { type: "array" });
     const sheetName = wb.SheetNames[0];
@@ -419,7 +419,7 @@ const Inventory: React.FC = () => {
             <Box sx={{ display: "grid", gap: 1, maxHeight: 320, overflow: "auto" }}>
               {(kardex || []).map((k) => (
                 <Paper key={k.id} sx={{ p: 1.5 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{k.type} • {k.qty}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{k.type} | {k.qty}</Typography>
                   <Typography variant="body2" color="text.secondary">{k.created_at}</Typography>
                   <Typography variant="body2">{k.ref}</Typography>
                 </Paper>

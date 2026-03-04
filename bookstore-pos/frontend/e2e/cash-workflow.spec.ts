@@ -6,12 +6,24 @@ test("flujo de caja: apertura, movimiento y arqueo Z visible en historial", asyn
   await page.goto("/cash");
   await expect(page.getByText("Caja y arqueos")).toBeVisible();
 
-  const openButton = page.getByRole("button", { name: "Abrir caja" });
-  if (await openButton.isVisible()) {
-    await page.getByLabel("Monto apertura").fill("100");
-    await openButton.click();
-    await expect(page.getByText("Caja abierta desde:")).toBeVisible();
+  if (await page.getByRole("button", { name: "Abrir caja" }).isVisible()) {
+    let opened = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const amountInput = page.getByLabel("Monto apertura");
+        await amountInput.fill("100");
+        await page.getByRole("button", { name: "Abrir caja" }).click();
+        opened = true;
+        break;
+      } catch {
+        await page.waitForTimeout(300);
+      }
+    }
+    if (!opened) {
+      throw new Error("No se pudo abrir caja: el formulario se recargo durante el llenado");
+    }
   }
+  await expect(page.getByText("Caja abierta desde:")).toBeVisible();
 
   await page.getByLabel("Monto", { exact: true }).fill("15");
   await page.getByLabel("Motivo").fill("Movimiento E2E");

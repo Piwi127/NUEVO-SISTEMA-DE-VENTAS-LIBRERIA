@@ -28,6 +28,25 @@ class StockService:
             async with self.db.begin():
                 yield
 
+    def _parse_float(self, row_number: int, row: dict, field: str, *, min_value: float = 0.0) -> float:
+        raw = row.get(field)
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"Fila {row_number}: '{field}' invalido")
+        if value < min_value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Fila {row_number}: '{field}' debe ser mayor o igual a {min_value}",
+            )
+        return value
+
+    def _parse_int(self, row_number: int, row: dict, field: str, *, min_value: int = 0) -> int:
+        number = self._parse_float(row_number, row, field, min_value=float(min_value))
+        if not number.is_integer():
+            raise HTTPException(status_code=400, detail=f"Fila {row_number}: '{field}' debe ser entero")
+        return int(number)
+
     async def create_movement(self, data):
         if data.qty == 0:
             raise HTTPException(status_code=400, detail="Cantidad invalida")
@@ -63,19 +82,43 @@ class StockService:
         if not rows:
             return {"ok": True, "count": 0}
 
+        parsed_rows: list[dict[str, str | int | float]] = []
+        for row_number, row in enumerate(rows, start=2):
+            # Ignore fully empty rows (common with trailing blank lines in CSV/XLSX exports).
+            if all(str(value or "").strip() == "" for value in row.values()):
+                continue
+            sku = str(row.get("sku") or "").strip()
+            name = str(row.get("name") or "").strip()
+            if not sku:
+                raise HTTPException(status_code=400, detail=f"Fila {row_number}: 'sku' es obligatorio")
+            if not name:
+                raise HTTPException(status_code=400, detail=f"Fila {row_number}: 'name' es obligatorio")
+            parsed_rows.append(
+                {
+                    "sku": sku,
+                    "name": name,
+                    "category": str(row.get("category") or "").strip(),
+                    "price": self._parse_float(row_number, row, "price"),
+                    "cost": self._parse_float(row_number, row, "cost"),
+                    "stock": self._parse_int(row_number, row, "stock"),
+                    "stock_min": self._parse_int(row_number, row, "stock_min"),
+                }
+            )
+
+        if not parsed_rows:
+            return {"ok": True, "count": 0}
+
         default_warehouse_id = await require_default_warehouse_id(self.db)
 
         async with self._transaction():
-            for r in rows:
-                sku = str(r.get("sku") or "").strip()
-                name = str(r.get("name") or "").strip()
-                if not sku or not name:
-                    continue
-                category = str(r.get("category") or "").strip()
-                price = float(r.get("price") or 0)
-                cost = float(r.get("cost") or 0)
-                stock = int(float(r.get("stock") or 0))
-                stock_min = int(float(r.get("stock_min") or 0))
+            for r in parsed_rows:
+                sku = r["sku"]
+                name = r["name"]
+                category = r["category"]
+                price = r["price"]
+                cost = r["cost"]
+                stock = r["stock"]
+                stock_min = r["stock_min"]
 
                 result = await self.db.execute(select(Product).where(Product.sku == sku))
                 product = result.scalar_one_or_none()
@@ -114,8 +157,15 @@ class StockService:
                             type="IN",
                             qty=stock,
                             ref="BULK_IMPORT",
-                        )
+                    )
                         self.db.add(movement)
 
-            await log_event(self.db, self.user.id, "inventory_import", "stock_movement", "", f"rows={len(rows)}")
-            return {"ok": True, "count": len(rows)}
+            await log_event(
+                self.db,
+                self.user.id,
+                "inventory_import",
+                "stock_movement",
+                "",
+                f"rows={len(parsed_rows)}",
+            )
+            return {"ok": True, "count": len(parsed_rows)}

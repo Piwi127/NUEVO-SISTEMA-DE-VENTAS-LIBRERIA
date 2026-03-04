@@ -85,7 +85,12 @@ async def upload_inventory(
         data = await file.read()
         wb = load_workbook(filename=BytesIO(data))
         ws = wb.active
-        headers = [str(c.value).strip() if c.value is not None else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
+        header_rows = list(ws.iter_rows(min_row=1, max_row=1))
+        if not header_rows:
+            raise HTTPException(status_code=400, detail="XLSX sin encabezados")
+        headers = [str(c.value).strip() if c.value is not None else "" for c in header_rows[0]]
+        if not any(headers):
+            raise HTTPException(status_code=400, detail="XLSX sin encabezados")
         header = {h for h in headers if h}
         if not REQUIRED_COLUMNS.issubset(header):
             missing = ", ".join(sorted(REQUIRED_COLUMNS - header))
