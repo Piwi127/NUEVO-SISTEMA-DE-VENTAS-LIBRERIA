@@ -356,7 +356,7 @@ const ProductForm: React.FC = () => {
       <Paper sx={{ p: 2.5 }}>
         <Tabs value={mainTab} onChange={(_event, value) => setMainTab(value)} sx={{ mb: 2 }}>
           <Tab value="details" label="Datos del producto" />
-          <Tab value="margin" label="Precio por Margen (Excel)" />
+          <Tab value="margin" label="Precio por Margen" />
         </Tabs>
 
         {mainTab === "details" ? (
@@ -421,7 +421,7 @@ const ProductForm: React.FC = () => {
           </Box>
         ) : (
           <Box sx={{ display: "grid", gap: 2 }}>
-            <Typography variant="h6">Precio por Margen (Excel)</Typography>
+            <Typography variant="h6">Precio por Margen</Typography>
             <Typography variant="body2" color="text.secondary">
               Formula: ((cost_total + costos directos) / (1 - margen)) / qty
             </Typography>
