@@ -24,14 +24,16 @@ En produccion, revisar `COOKIE_SECURE`, `COOKIE_SAMESITE` y `COOKIE_DOMAIN`.
 3) Ejecutar migraciones:
 
 ```powershell
-alembic upgrade head
+.\.venv\Scripts\python.exe -m alembic upgrade head
 ```
 
 4) Levantar API:
 
 ```powershell
-uvicorn app.main:app --reload --port 8000
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+Importante: si ejecutas `python -m uvicorn` con el Python global, puede fallar por dependencias faltantes (por ejemplo `prometheus_client`).
 
 ## Usuario administrador inicial
 El sistema no crea un usuario admin automaticamente al iniciar.

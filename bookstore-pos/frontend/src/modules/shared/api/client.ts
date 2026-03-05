@@ -1,15 +1,20 @@
 ﻿import axios from "axios";
+import { getApiBaseUrl, getApiHealthTimeoutMs, getApiTimeoutMs } from "@/modules/shared/api/runtime";
 
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const baseURL = getApiBaseUrl();
+const apiTimeout = getApiTimeoutMs();
+const healthTimeout = getApiHealthTimeoutMs();
 
 export const api = axios.create({
   baseURL,
   withCredentials: true,
+  timeout: apiTimeout,
 });
 
 export const apiHealth = axios.create({
   baseURL,
   withCredentials: true,
+  timeout: healthTimeout,
 });
 
 const getCookie = (name: string): string | null => {

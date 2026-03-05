@@ -21,11 +21,12 @@ import {
 import { listActivePromotions } from "@/modules/catalog/api";
 import { listCustomers } from "@/modules/catalog/api";
 import { getCurrentCash } from "@/modules/pos/api";
+import { getWsBaseUrl } from "@/modules/shared/api/runtime";
 import { Cart, PaymentDialog, ProductSearch } from "@/modules/pos/components";
 import { usePosCheckout, usePosPricing } from "@/modules/pos/hooks";
 import type { Payment } from "@/modules/pos/types";
 
-const wsBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace("http", "ws");
+const wsBase = getWsBaseUrl();
 
 const makeSessionId = () => {
   const cryptoAny = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;

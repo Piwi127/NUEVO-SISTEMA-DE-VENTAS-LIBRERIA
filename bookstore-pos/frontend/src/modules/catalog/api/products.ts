@@ -25,6 +25,11 @@ export const listProductCategories = async (): Promise<string[]> => {
   return res.data;
 };
 
+export const getProduct = async (id: number): Promise<Product> => {
+  const res = await api.get(`/products/${id}`);
+  return res.data as Product;
+};
+
 export const createProduct = async (data: Omit<Product, "id">) => {
   const res = await api.post("/products", data);
   return res.data as Product;

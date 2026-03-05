@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +56,15 @@ async def list_product_categories(db: AsyncSession = Depends(get_db)):
     )
     result = await db.execute(stmt)
     return [row[0] for row in result.fetchall()]
+
+
+@router.get("/{product_id}", response_model=ProductOut, dependencies=[Depends(require_permission("products.read"))])
+async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    return product
 
 
 @router.get("", response_model=list[ProductOut], dependencies=[Depends(require_permission("products.read"))])

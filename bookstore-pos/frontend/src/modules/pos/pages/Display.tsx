@@ -4,8 +4,9 @@ import { Box, Typography, Paper, List, ListItem, ListItemText } from "@mui/mater
 import { formatMoney } from "@/app/utils";
 import { useSettings } from "@/app/store";
 import { getPublicSettings } from "@/modules/admin/api";
+import { getWsBaseUrl } from "@/modules/shared/api/runtime";
 
-const wsBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace("http", "ws");
+const wsBase = getWsBaseUrl();
 
 type CartItem = { name: string; qty: number; price: number };
 

@@ -38,13 +38,14 @@ export const CashPanel: React.FC = () => {
   const { timeZone } = detectTimeContext();
   const cash = currentCashQuery.data;
   const summary = summaryQuery.data;
+  const cashStatusChip = currentCashQuery.isLoading ? "Cargando caja..." : cash?.is_open ? "Caja abierta" : "Caja cerrada";
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       <PageHeader
         title="Caja y arqueos"
         subtitle="Control de apertura, movimientos, arqueos X/Z y reportes de cierre."
-        chips={[cash?.is_open ? "Caja abierta" : "Caja cerrada", `Zona horaria: ${timeZone}`]}
+        chips={[cashStatusChip, `Zona horaria: ${timeZone}`]}
       />
 
       <Paper sx={{ p: 1.5 }}>
@@ -60,7 +61,20 @@ export const CashPanel: React.FC = () => {
             <Typography variant="h6" sx={{ mb: 2 }}>
               Estado de Caja
             </Typography>
-            {cash?.is_open ? (
+            {currentCashQuery.isLoading ? (
+              <Typography color="text.secondary">Cargando estado de caja...</Typography>
+            ) : currentCashQuery.isError ? (
+              <Alert
+                severity="error"
+                action={
+                  <Button color="inherit" size="small" onClick={() => currentCashQuery.refetch()}>
+                    Reintentar
+                  </Button>
+                }
+              >
+                No se pudo cargar el estado de caja.
+              </Alert>
+            ) : cash?.is_open ? (
               <Box sx={{ mb: 2 }}>
                 <Typography>Caja abierta desde: {formatDateTimeRegional(cash.opened_at)}</Typography>
                 <Alert severity="warning" sx={{ mt: 1, mb: 1 }}>

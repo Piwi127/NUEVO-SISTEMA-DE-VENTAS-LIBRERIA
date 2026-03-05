@@ -53,6 +53,13 @@ const removeItem = (product_id: number) => {
   emit();
 };
 
+const removeItems = (product_ids: number[]) => {
+  if (!product_ids.length) return;
+  const toRemove = new Set(product_ids);
+  state.items = state.items.filter((i) => !toRemove.has(i.product_id));
+  emit();
+};
+
 const setQty = (product_id: number, qty: number) => {
   const item = state.items.find((i) => i.product_id === product_id);
   if (!item) return;
@@ -98,6 +105,7 @@ export const useCartStore = () => {
     ...snapshot,
     addItem,
     removeItem,
+    removeItems,
     setQty,
     clear,
     setDiscount,

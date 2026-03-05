@@ -9,6 +9,7 @@ import CampaignIcon from "@mui/icons-material/Campaign";
 import type { AppRoute, MenuSection } from "@/modules/shared/registryTypes";
 
 const Products = lazy(() => import("@/modules/catalog/pages/Products"));
+const ProductForm = lazy(() => import("@/modules/catalog/pages/ProductForm"));
 const Customers = lazy(() => import("@/modules/catalog/pages/Customers"));
 const Suppliers = lazy(() => import("@/modules/catalog/pages/Suppliers"));
 const Promotions = lazy(() => import("@/modules/catalog/pages/Promotions"));
@@ -17,6 +18,8 @@ const PriceLists = lazy(() => import("@/modules/catalog/pages/PriceLists"));
 export const catalogRoutes: AppRoute[] = [
   { path: "/customers", component: Customers, roles: ["admin", "cashier"], layout: true },
   { path: "/products", component: Products, roles: ["admin", "stock"], layout: true },
+  { path: "/products/new", component: ProductForm, roles: ["admin", "stock"], layout: true },
+  { path: "/products/:productId/edit", component: ProductForm, roles: ["admin", "stock"], layout: true },
   { path: "/suppliers", component: Suppliers, roles: ["admin", "stock"], layout: true },
   { path: "/promotions", component: Promotions, roles: ["admin"], layout: true },
   { path: "/price-lists", component: PriceLists, roles: ["admin"], layout: true },

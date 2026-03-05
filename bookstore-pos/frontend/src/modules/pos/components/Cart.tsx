@@ -1,5 +1,21 @@
-import React from "react";
-import { Box, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, useMediaQuery, Paper, Typography, Stack } from "@mui/material";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Box,
+  Button,
+  Checkbox,
+  IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  useMediaQuery,
+  Paper,
+  Typography,
+  Stack,
+} from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RemoveIcon from "@mui/icons-material/Remove";
 import AddIcon from "@mui/icons-material/Add";
@@ -16,9 +32,50 @@ export const Cart: React.FC = () => {
   const discount = cart.discount;
   const { subtotal, total, tax } = calcTotals(cart.items, discount, taxRate, taxIncluded);
   const normalizeQty = (value: number) => (value < 1 ? 1 : value);
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    const existingIds = new Set(cart.items.map((item) => item.product_id));
+    setSelectedProductIds((prev) => prev.filter((id) => existingIds.has(id)));
+  }, [cart.items]);
+
+  const selectedSet = useMemo(() => new Set(selectedProductIds), [selectedProductIds]);
+  const cartProductIds = useMemo(() => cart.items.map((item) => item.product_id), [cart.items]);
+  const allSelected = cartProductIds.length > 0 && cartProductIds.every((id) => selectedSet.has(id));
+  const someSelected = cartProductIds.some((id) => selectedSet.has(id));
+
+  const toggleProduct = (productId: number) => {
+    setSelectedProductIds((prev) => (prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]));
+  };
+
+  const toggleAllProducts = () => {
+    setSelectedProductIds(allSelected ? [] : cartProductIds);
+  };
+
+  const removeSelectedProducts = () => {
+    if (!selectedProductIds.length) return;
+    cart.removeItems(selectedProductIds);
+    setSelectedProductIds([]);
+  };
 
   return (
     <Box>
+      <Box sx={{ mb: 1.5, display: "flex", gap: 1, flexWrap: "wrap" }}>
+        <Button variant="outlined" size="small" onClick={toggleAllProducts} disabled={!cart.items.length}>
+          {allSelected ? "Quitar seleccion" : "Seleccionar todo"}
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          startIcon={<DeleteIcon />}
+          disabled={!selectedProductIds.length}
+          onClick={removeSelectedProducts}
+        >
+          Eliminar seleccionados ({selectedProductIds.length})
+        </Button>
+      </Box>
+
       {isCompact ? (
         <Box sx={{ display: "grid", gap: 1 }}>
           {cart.items.map((item) => (
@@ -27,7 +84,14 @@ export const Cart: React.FC = () => {
               sx={{ p: 1.5, display: "grid", gap: 1, bgcolor: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)" }}
             >
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Typography sx={{ fontWeight: 600 }}>{item.name}</Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Checkbox
+                    checked={selectedSet.has(item.product_id)}
+                    onChange={() => toggleProduct(item.product_id)}
+                    sx={{ p: 0.5, color: "rgba(255,255,255,0.9)" }}
+                  />
+                  <Typography sx={{ fontWeight: 600 }}>{item.name}</Typography>
+                </Box>
                 <IconButton onClick={() => cart.removeItem(item.product_id)} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
                   <DeleteIcon />
                 </IconButton>
@@ -82,6 +146,14 @@ export const Cart: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={allSelected}
+                    indeterminate={someSelected && !allSelected}
+                    onChange={toggleAllProducts}
+                    sx={{ color: "#fff" }}
+                  />
+                </TableCell>
                 <TableCell>Producto</TableCell>
                 <TableCell>Cant</TableCell>
                 <TableCell>Precio</TableCell>
@@ -92,6 +164,13 @@ export const Cart: React.FC = () => {
             <TableBody>
               {cart.items.map((item) => (
                 <TableRow key={item.product_id} hover sx={{ "&:hover": { bgcolor: "rgba(255,255,255,0.08)" } }}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedSet.has(item.product_id)}
+                      onChange={() => toggleProduct(item.product_id)}
+                      sx={{ color: "#fff" }}
+                    />
+                  </TableCell>
                   <TableCell sx={{ maxWidth: 170, fontWeight: 700 }}>{item.name}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={0.5} alignItems="center">

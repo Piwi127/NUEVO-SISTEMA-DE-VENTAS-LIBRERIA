@@ -11,7 +11,20 @@ type Props = {
 export const ProtectedRoute: React.FC<Props> = ({ children, roles }) => {
   const { role, ready } = useAuth();
   const navigate = useNavigate();
-  if (!ready) return null;
+  if (!ready) {
+    return (
+      <Box sx={{ minHeight: "70vh", display: "grid", placeItems: "center", p: 2 }}>
+        <Paper sx={{ p: 3, maxWidth: 420, textAlign: "center" }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Cargando sesion
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Espere un momento mientras validamos su acceso.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
   if (!role) return <Navigate to="/login" replace />;
   if (roles && role && !roles.includes(role)) {
     return (

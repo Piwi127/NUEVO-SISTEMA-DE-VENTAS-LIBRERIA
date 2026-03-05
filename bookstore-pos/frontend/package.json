@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --force",
+    "dev": "vite --force --host 0.0.0.0 --port 5173 --strictPort",
     "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc -b --pretty false",
