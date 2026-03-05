@@ -1,66 +1,131 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
+import { Box, Button, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable } from "@/app/components";
-import { EmptyState } from "@/app/components";
-import { ErrorState } from "@/app/components";
-import { LoadingState } from "@/app/components";
-import { PageHeader } from "@/app/components";
-import { TableToolbar } from "@/app/components";
-import { useToast } from "@/app/components";
+import { CardTable, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, TableToolbar, useToast } from "@/app/components";
 import { createSupplier, deleteSupplier, listSuppliers, updateSupplier } from "@/modules/catalog/api";
 import { Supplier } from "@/modules/shared/types";
+import { normalizeOptionalText, optionalPhoneSchema } from "@/app/utils";
 import { useSettings } from "@/app/store";
 
-const empty: Omit<Supplier, "id"> = { name: "", phone: "" };
+const supplierFormSchema = z.object({
+  name: z.string().trim().min(2, "Ingresa al menos 2 caracteres.").max(120, "El nombre es demasiado largo."),
+  phone: optionalPhoneSchema,
+});
+
+type SupplierFormValues = z.infer<typeof supplierFormSchema>;
+
+const defaultValues: SupplierFormValues = {
+  name: "",
+  phone: "",
+};
 
 const Suppliers: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers, staleTime: 60_000 });
 
-  const [form, setForm] = useState<Omit<Supplier, "id">>(empty);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [query, setQuery] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null);
+  const [submitError, setSubmitError] = useState("");
 
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
 
-  const filtered = (data || []).filter((s) => {
-    const term = query.trim().toLowerCase();
-    if (!term) return true;
-    return `${s.name} ${s.phone || ""}`.toLowerCase().includes(term);
+  const {
+    register,
+    reset,
+    handleSubmit,
+    formState: { errors, isDirty, isSubmitting, isValid },
+  } = useForm<SupplierFormValues>({
+    resolver: zodResolver(supplierFormSchema),
+    mode: "onChange",
+    defaultValues,
   });
 
-  const cardRows = filtered.map((s) => ({
-    key: s.id,
-    title: s.name,
-    subtitle: s.phone || "-",
-    right: <Typography sx={{ fontWeight: 700 }}>{s.phone || "-"}</Typography>,
+  const filtered = (data || []).filter((supplier) => {
+    const term = query.trim().toLowerCase();
+    if (!term) return true;
+    return `${supplier.name} ${supplier.phone || ""}`.toLowerCase().includes(term);
+  });
+
+  const startEdit = (supplier: Supplier) => {
+    setEditingId(supplier.id);
+    setSubmitError("");
+    reset({
+      name: supplier.name,
+      phone: supplier.phone || "",
+    });
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setSubmitError("");
+    reset(defaultValues);
+  };
+
+  const onSubmit = async (values: SupplierFormValues) => {
+    setSubmitError("");
+    const payload: Omit<Supplier, "id"> = {
+      name: values.name.trim(),
+      phone: normalizeOptionalText(values.phone),
+    };
+    try {
+      if (editingId) {
+        await updateSupplier(editingId, payload);
+        showToast({ message: "Proveedor actualizado", severity: "success" });
+      } else {
+        await createSupplier(payload);
+        showToast({ message: "Proveedor creado", severity: "success" });
+      }
+      resetForm();
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || "No se pudo guardar el proveedor.";
+      setSubmitError(message);
+      showToast({ message, severity: "error" });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteSupplier(deleteTarget.id);
+      showToast({ message: "Proveedor eliminado", severity: "success" });
+      setDeleteTarget(null);
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || "No se pudo eliminar el proveedor.";
+      showToast({ message, severity: "error" });
+    }
+  };
+
+  const cardRows = filtered.map((supplier) => ({
+    key: supplier.id,
+    title: supplier.name,
+    subtitle: supplier.phone || "-",
+    right: (
+      <Stack spacing={1} sx={{ alignItems: "flex-end", minWidth: 140 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          {supplier.phone || "Sin telefono"}
+        </Typography>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Button size="small" onClick={() => startEdit(supplier)}>
+            Editar
+          </Button>
+          <Button size="small" color="error" onClick={() => setDeleteTarget(supplier)}>
+            Eliminar
+          </Button>
+        </Box>
+      </Stack>
+    ),
     fields: [],
   }));
-
-  const handleSubmit = async () => {
-    if (editingId) {
-      await updateSupplier(editingId, form);
-      showToast({ message: "Proveedor actualizado", severity: "success" });
-    } else {
-      await createSupplier(form);
-      showToast({ message: "Proveedor creado", severity: "success" });
-    }
-    setForm(empty);
-    setEditingId(null);
-    qc.invalidateQueries({ queryKey: ["suppliers"] });
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Eliminar proveedor?")) return;
-    await deleteSupplier(id);
-    showToast({ message: "Proveedor eliminado", severity: "success" });
-    qc.invalidateQueries({ queryKey: ["suppliers"] });
-  };
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -89,13 +154,17 @@ const Suppliers: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>{s.name}</TableCell>
-                  <TableCell>{s.phone || "-"}</TableCell>
+              {filtered.map((supplier) => (
+                <TableRow key={supplier.id}>
+                  <TableCell>{supplier.name}</TableCell>
+                  <TableCell>{supplier.phone || "-"}</TableCell>
                   <TableCell>
-                    <Button size="small" onClick={() => { setEditingId(s.id); setForm({ name: s.name, phone: s.phone || "" }); }}>Editar</Button>
-                    <Button size="small" color="error" onClick={() => handleDelete(s.id)}>Eliminar</Button>
+                    <Button size="small" onClick={() => startEdit(supplier)}>
+                      Editar
+                    </Button>
+                    <Button size="small" color="error" onClick={() => setDeleteTarget(supplier)}>
+                      Eliminar
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -105,13 +174,58 @@ const Suppliers: React.FC = () => {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>{editingId ? "Editar proveedor" : "Nuevo proveedor"}</Typography>
-        <Box sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
-          <TextField label="Nombre" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-          <TextField label="Telefono" value={form.phone || ""} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-          <Button variant="contained" onClick={handleSubmit} disabled={!form.name.trim()}>Guardar</Button>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {editingId ? "Editar proveedor" : "Nuevo proveedor"}
+        </Typography>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
+          {submitError ? (
+            <Typography variant="body2" color="error">
+              {submitError}
+            </Typography>
+          ) : null}
+          {isDirty ? (
+            <Typography variant="caption" color="text.secondary">
+              Hay cambios pendientes por guardar.
+            </Typography>
+          ) : null}
+          <TextField
+            label="Nombre"
+            error={!!errors.name}
+            helperText={errors.name?.message || "Nombre visible para compras y directorio."}
+            {...register("name", {
+              onChange: () => setSubmitError(""),
+            })}
+          />
+          <TextField
+            label="Telefono"
+            error={!!errors.phone}
+            helperText={errors.phone?.message || "Opcional. Usa numeros y signos comunes."}
+            {...register("phone", {
+              onChange: () => setSubmitError(""),
+            })}
+          />
+          <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
+            <Button type="submit" variant="contained" disabled={!isValid || isSubmitting}>
+              {isSubmitting ? "Guardando..." : editingId ? "Guardar cambios" : "Guardar"}
+            </Button>
+            {editingId ? (
+              <Button type="button" variant="outlined" onClick={resetForm} disabled={isSubmitting}>
+                Cancelar edicion
+              </Button>
+            ) : null}
+          </Stack>
         </Box>
       </Paper>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Eliminar proveedor"
+        description={deleteTarget ? `Se eliminara el proveedor "${deleteTarget.name}".` : undefined}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        confirmText="Eliminar"
+        confirmColor="error"
+      />
     </Box>
   );
 };

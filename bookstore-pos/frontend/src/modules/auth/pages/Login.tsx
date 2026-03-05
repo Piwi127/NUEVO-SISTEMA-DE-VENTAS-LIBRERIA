@@ -1,33 +1,71 @@
 import React, { useState } from "react";
-import { Box, Button, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Paper, Stack, TextField, Typography } from "@mui/material";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { login } from "@/modules/auth/api";
 import { useAuth } from "@/auth/AuthProvider";
+import { getLandingRoute } from "@/auth/navigation";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/app/components";
 
-type FormData = { username: string; password: string; otp?: string };
+const loginSchema = z.object({
+  username: z.string().trim().min(1, "Ingresa tu usuario."),
+  password: z.string().min(1, "Ingresa tu contrasena."),
+  otp: z.string().optional(),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 const Login: React.FC = () => {
-  const { register, handleSubmit } = useForm<FormData>();
   const { login: doLogin } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [requireOtp, setRequireOtp] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
-  const onSubmit = async (data: FormData) => {
+  const {
+    register,
+    handleSubmit,
+    setFocus,
+    watch,
+    formState: { errors, isSubmitting, isValid },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    mode: "onChange",
+    defaultValues: {
+      username: "",
+      password: "",
+      otp: "",
+    },
+  });
+
+  const otpValue = watch("otp");
+  const otpMissing = requireOtp && !otpValue?.trim();
+
+  const onSubmit = async (data: LoginFormData) => {
+    setSubmitError("");
+    if (requireOtp && !data.otp?.trim()) {
+      setSubmitError("Ingresa el codigo 2FA para continuar.");
+      setFocus("otp");
+      return;
+    }
     try {
-      const res = await login(data.username, data.password, data.otp);
+      const res = await login(data.username.trim(), data.password, data.otp?.trim() || undefined);
       doLogin(res.username, res.role, res.csrf_token || null);
-      navigate("/pos");
+      navigate(getLandingRoute(res.role));
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       if (detail === "2FA_REQUIRED") {
         setRequireOtp(true);
+        setSubmitError("Ingresa el codigo 2FA para completar el acceso.");
         showToast({ message: "Ingrese codigo 2FA", severity: "info" });
+        window.setTimeout(() => setFocus("otp"), 0);
       } else {
-        showToast({ message: detail || "Error de login", severity: "error" });
+        const message = detail || "Error de login";
+        setSubmitError(message);
+        showToast({ message, severity: "error" });
       }
     }
   };
@@ -88,11 +126,43 @@ const Login: React.FC = () => {
             </Stack>
 
             <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 2 }}>
-              <TextField label="Usuario" {...register("username", { required: true })} />
-              <TextField label="Contrasena" type="password" {...register("password", { required: true })} />
-              {requireOtp && <TextField label="Codigo 2FA" {...register("otp")} />}
-              <Button variant="contained" size="large" type="submit">
-                Entrar
+              {submitError ? <Alert severity={requireOtp ? "info" : "error"}>{submitError}</Alert> : null}
+
+              <TextField
+                label="Usuario"
+                autoComplete="username"
+                error={!!errors.username}
+                helperText={errors.username?.message || "Ingresa tu usuario de acceso."}
+                {...register("username", {
+                  onChange: () => setSubmitError(""),
+                })}
+              />
+
+              <TextField
+                label="Contrasena"
+                type="password"
+                autoComplete="current-password"
+                error={!!errors.password}
+                helperText={errors.password?.message || "Ingresa tu contrasena."}
+                {...register("password", {
+                  onChange: () => setSubmitError(""),
+                })}
+              />
+
+              {requireOtp ? (
+                <TextField
+                  label="Codigo 2FA"
+                  autoComplete="one-time-code"
+                  error={otpMissing}
+                  helperText={otpMissing ? "Ingresa el codigo OTP para continuar." : "Codigo temporal generado por tu app autenticadora."}
+                  {...register("otp", {
+                    onChange: () => setSubmitError(""),
+                  })}
+                />
+              ) : null}
+
+              <Button variant="contained" size="large" type="submit" disabled={!isValid || isSubmitting || otpMissing}>
+                {isSubmitting ? "Validando..." : "Entrar"}
               </Button>
             </Box>
           </Box>

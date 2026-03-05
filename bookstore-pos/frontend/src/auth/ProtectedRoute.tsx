@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Box, Button, Paper, Typography } from "@mui/material";
 import { useAuth } from "@/auth/AuthProvider";
+import { getLandingRoute } from "@/auth/navigation";
 
 type Props = {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ type Props = {
 export const ProtectedRoute: React.FC<Props> = ({ children, roles }) => {
   const { role, ready } = useAuth();
   const navigate = useNavigate();
+
   if (!ready) {
     return (
       <Box sx={{ minHeight: "70vh", display: "grid", placeItems: "center", p: 2 }}>
@@ -25,8 +27,10 @@ export const ProtectedRoute: React.FC<Props> = ({ children, roles }) => {
       </Box>
     );
   }
+
   if (!role) return <Navigate to="/login" replace />;
-  if (roles && role && !roles.includes(role)) {
+
+  if (roles && !roles.includes(role)) {
     return (
       <Box sx={{ minHeight: "70vh", display: "grid", placeItems: "center", p: 2 }}>
         <Paper sx={{ p: 3, maxWidth: 480, textAlign: "center" }}>
@@ -36,10 +40,13 @@ export const ProtectedRoute: React.FC<Props> = ({ children, roles }) => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Usted no tiene permisos para ingresar a este apartado. Consulte con el administrador del sistema.
           </Typography>
-          <Button variant="contained" onClick={() => navigate("/pos")}>Volver al inicio</Button>
+          <Button variant="contained" onClick={() => navigate(getLandingRoute(role))}>
+            Volver al inicio
+          </Button>
         </Paper>
       </Box>
     );
   }
+
   return <>{children}</>;
 };

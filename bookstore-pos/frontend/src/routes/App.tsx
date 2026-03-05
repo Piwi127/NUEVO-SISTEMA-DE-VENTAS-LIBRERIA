@@ -2,6 +2,8 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
+import { useAuth } from "@/auth/AuthProvider";
+import { getLandingRoute } from "@/auth/navigation";
 import { AppLayout, ErrorState, LoadingState } from "@/app/components";
 import { appRoutes } from "@/modules/registry";
 
@@ -32,6 +34,11 @@ class RouteErrorBoundary extends React.Component<React.PropsWithChildren, { hasE
   }
 }
 
+const RoleHomeRedirect: React.FC = () => {
+  const { role } = useAuth();
+  return <Navigate to={getLandingRoute(role)} replace />;
+};
+
 const App: React.FC = () => {
   const withSuspense = (node: React.ReactNode) => (
     <RouteErrorBoundary>
@@ -59,7 +66,7 @@ const App: React.FC = () => {
         element={
           <ProtectedRoute>
             <AppLayout>
-              <Navigate to="/pos" replace />
+              <RoleHomeRedirect />
             </AppLayout>
           </ProtectedRoute>
         }

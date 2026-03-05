@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Typography, useMediaQuery, Stack } from "@mui/material";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+  useMediaQuery,
+} from "@mui/material";
 import { formatMoney } from "@/app/utils";
 import { useSettings } from "@/app/store";
 import { parseDecimalInput } from "@/modules/pos/utils/number";
@@ -13,6 +25,16 @@ type Props = {
   onConfirm: (payments: Payment[]) => void;
 };
 
+const METHOD_LABELS: Record<string, string> = {
+  CASH: "Efectivo",
+  CARD: "Tarjeta",
+  TRANSFER: "Transferencia",
+  YAPE: "Yape",
+  PLIN: "Plin",
+};
+
+const getMethodLabel = (method: string) => METHOD_LABELS[method] || method;
+
 export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, onConfirm }) => {
   const [amounts, setAmounts] = useState<Record<string, number>>({});
   const { compactMode } = useSettings();
@@ -22,30 +44,31 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
   useEffect(() => {
     if (open) {
       const next: Record<string, number> = {};
-      methods.forEach((m) => {
-        next[m] = amounts[m] ?? 0;
+      methods.forEach((method) => {
+        next[method] = amounts[method] ?? 0;
       });
       setAmounts(next);
     }
   }, [open, methods]);
 
-  const sum = useMemo(() => methods.reduce((acc, m) => acc + (amounts[m] || 0), 0), [amounts, methods]);
+  const sum = useMemo(() => methods.reduce((acc, method) => acc + (amounts[method] || 0), 0), [amounts, methods]);
   const hasCash = methods.includes("CASH");
   const valid = total > 0 && sum > 0 && (hasCash ? sum + 0.0001 >= total : Math.abs(sum - total) < 0.01);
   const change = hasCash ? Math.max(0, sum - total) : 0;
+  const remaining = Math.max(0, total - sum);
 
   const handleConfirm = () => {
     const payments: Payment[] = [];
-    methods.forEach((m) => {
-      const amt = amounts[m] || 0;
-      if (amt > 0) payments.push({ method: m, amount: amt });
+    methods.forEach((method) => {
+      const amount = amounts[method] || 0;
+      if (amount > 0) payments.push({ method, amount });
     });
     onConfirm(payments);
   };
 
   const handleExact = () => {
     if (!methods.includes("CASH")) return;
-    const other = methods.reduce((acc, m) => (m === "CASH" ? acc : acc + (amounts[m] || 0)), 0);
+    const other = methods.reduce((acc, method) => (method === "CASH" ? acc : acc + (amounts[method] || 0)), 0);
     setAmounts((prev) => ({
       ...prev,
       CASH: Math.max(0, total - other),
@@ -54,47 +77,82 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" fullScreen={isCompact}>
-      <DialogTitle>Pago</DialogTitle>
+      <DialogTitle>Cobrar venta</DialogTitle>
       <DialogContent>
-        <Typography sx={{ mb: 2 }}>Total: {formatMoney(total)}</Typography>
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(2, 1fr)" }}>
-          {methods.map((m) => (
-            <TextField
-              key={m}
-              label={m}
-              type="number"
-              size={isCompact ? "small" : "medium"}
-              value={amounts[m] || 0}
-              onChange={(e) =>
-                setAmounts((prev) => ({
-                  ...prev,
-                  [m]: e.target.value === "" ? 0 : parseDecimalInput(e.target.value),
-                }))
-              }
-            />
-          ))}
-        </Box>
-        <Box sx={{ mt: 2, display: "flex", gap: 2, flexWrap: "wrap" }}>
-          {methods.includes("CASH") ? (
-            <Button variant="outlined" onClick={handleExact}>
-              Pagar exacto
-            </Button>
-          ) : null}
-        </Box>
-        <Typography sx={{ mt: 2 }} color={valid ? "success.main" : "error.main"}>
-          Suma: {formatMoney(sum)}
-        </Typography>
-        {valid && change > 0 ? (
-          <Typography sx={{ mt: 1 }} color="success.main">
-            Vuelto: {formatMoney(change)}
+        <Stack spacing={2}>
+          <Paper
+            sx={{
+              p: 2,
+              background: "linear-gradient(155deg, rgba(18,53,90,0.06) 0%, rgba(18,53,90,0.02) 52%, rgba(154,123,47,0.08) 100%)",
+            }}
+          >
+            <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Total
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 900 }}>
+                  {formatMoney(total)}
+                </Typography>
+              </Box>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Ingresado
+                </Typography>
+                <Typography sx={{ fontWeight: 800 }}>{formatMoney(sum)}</Typography>
+              </Box>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {change > 0 ? "Vuelto" : "Pendiente"}
+                </Typography>
+                <Typography sx={{ fontWeight: 800, color: change > 0 ? "success.main" : remaining > 0 ? "error.main" : "text.primary" }}>
+                  {formatMoney(change > 0 ? change : remaining)}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+
+          <Typography variant="body2" color="text.secondary">
+            Registra uno o varios medios de pago. Si usas efectivo, puedes completar el faltante automaticamente.
           </Typography>
-        ) : null}
+
+          <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(2, minmax(0, 1fr))" }}>
+            {methods.map((method) => (
+              <TextField
+                key={method}
+                label={getMethodLabel(method)}
+                type="number"
+                size={isCompact ? "small" : "medium"}
+                value={amounts[method] || 0}
+                onChange={(event) =>
+                  setAmounts((prev) => ({
+                    ...prev,
+                    [method]: event.target.value === "" ? 0 : parseDecimalInput(event.target.value),
+                  }))
+                }
+                helperText="Ingresa 0 si no aplica."
+              />
+            ))}
+          </Box>
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+            {methods.includes("CASH") ? (
+              <Button variant="outlined" onClick={handleExact}>
+                Completar efectivo exacto
+              </Button>
+            ) : null}
+          </Stack>
+
+          <Typography color={valid ? "success.main" : "error.main"} sx={{ fontWeight: 700 }}>
+            {valid ? "Pago listo para confirmar." : hasCash ? "El monto recibido debe cubrir el total." : "La suma debe coincidir exactamente con el total."}
+          </Typography>
+        </Stack>
       </DialogContent>
       <DialogActions>
         {isCompact ? (
           <Stack direction="column" spacing={1} sx={{ width: "100%", px: 2, pb: 2 }}>
             <Button onClick={handleConfirm} variant="contained" disabled={!valid} fullWidth>
-              Confirmar
+              Confirmar cobro
             </Button>
             <Button onClick={onClose} variant="outlined" fullWidth>
               Cancelar
@@ -104,7 +162,7 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
           <>
             <Button onClick={onClose}>Cancelar</Button>
             <Button onClick={handleConfirm} variant="contained" disabled={!valid}>
-              Confirmar
+              Confirmar cobro
             </Button>
           </>
         )}

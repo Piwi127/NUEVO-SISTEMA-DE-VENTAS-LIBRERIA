@@ -24,7 +24,7 @@ export const listActivePromotions = async (): Promise<Promotion[]> => {
   return res.data;
 };
 
-export const createPromotion = async (data: Promotion) => {
+export const createPromotion = async (data: Omit<Promotion, "id">) => {
   const res = await api.post("/promotions", data);
   return res.data as Promotion;
 };

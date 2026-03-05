@@ -22,7 +22,7 @@ import PriceChangeIcon from "@mui/icons-material/PriceChange";
 import { useNavigate } from "react-router-dom";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable, EmptyState, ErrorState, LoadingState, PageHeader, TableToolbar, useToast } from "@/app/components";
+import { CardTable, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, TableToolbar, useToast } from "@/app/components";
 import { applyBulkProductPricing, deleteProduct, listProductCategories, listProducts } from "@/modules/catalog/api";
 import { Product } from "@/modules/shared/types";
 import { useSettings } from "@/app/store";
@@ -43,19 +43,12 @@ const Products: React.FC = () => {
   const [bulkTarget, setBulkTarget] = useState<"selected" | "category" | "all">("selected");
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkMarginPercent, setBulkMarginPercent] = useState("35");
+  const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
   const normalizedQuery = query.trim();
 
   const productsQuery = useQuery({
     queryKey: ["products", normalizedQuery, category],
-    queryFn: () =>
-      listProducts(
-        normalizedQuery || undefined,
-        MAX_PRODUCTS,
-        0,
-        category || undefined,
-        undefined,
-        false
-      ),
+    queryFn: () => listProducts(normalizedQuery || undefined, MAX_PRODUCTS, 0, category || undefined, undefined, false),
     staleTime: 30_000,
     placeholderData: (previous) => previous,
   });
@@ -80,6 +73,7 @@ const Products: React.FC = () => {
     },
     onSuccess: async (deletedIds) => {
       setSelectedIds((prev) => prev.filter((id) => !deletedIds.includes(id)));
+      setDeleteTargetIds([]);
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["products"] }),
         qc.invalidateQueries({ queryKey: ["product-categories"] }),
@@ -137,18 +131,19 @@ const Products: React.FC = () => {
     setSelectedIds((prev) => prev.filter((id) => rowIds.has(id)));
   }, [rows]);
 
-  const handleDeleteIds = (ids: number[]) => {
+  const requestDeleteIds = (ids: number[]) => {
     if (!ids.length || deleteMutation.isPending) return;
-    const message =
-      ids.length === 1
-        ? "¿Eliminar este producto del catalogo?"
-        : `¿Eliminar ${ids.length} productos seleccionados del catalogo?`;
-    if (typeof window !== "undefined" && !window.confirm(message)) return;
-    deleteMutation.mutate(ids);
+    setDeleteTargetIds(ids);
   };
 
-  const handleDeleteOne = (id: number) => handleDeleteIds([id]);
-  const handleDeleteSelected = () => handleDeleteIds(selectedIds);
+  const handleConfirmDelete = () => {
+    if (!deleteTargetIds.length || deleteMutation.isPending) return;
+    deleteMutation.mutate(deleteTargetIds);
+  };
+
+  const handleDeleteOne = (id: number) => requestDeleteIds([id]);
+  const handleDeleteSelected = () => requestDeleteIds(selectedIds);
+
   const handleBulkApply = () => {
     if (bulkPricingMutation.isPending) return;
     bulkPricingMutation.mutate();
@@ -280,14 +275,7 @@ const Products: React.FC = () => {
             >
               Ajuste masivo de precios
             </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              component="a"
-              href="/products/new"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/products/new")}>
               Agregar nuevo producto
             </Button>
           </Box>
@@ -327,11 +315,7 @@ const Products: React.FC = () => {
         ) : isError ? (
           <ErrorState title="No se pudieron cargar productos" onRetry={() => productsQuery.refetch()} />
         ) : rows.length === 0 ? (
-          <EmptyState
-            title="Sin productos"
-            description="No hay productos con ese filtro."
-            icon={<CategoryIcon color="disabled" />}
-          />
+          <EmptyState title="Sin productos" description="No hay productos con ese filtro." icon={<CategoryIcon color="disabled" />} />
         ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
@@ -379,13 +363,7 @@ const Products: React.FC = () => {
             <MenuItem value="all">Todo el catalogo</MenuItem>
           </TextField>
           {bulkTarget === "category" ? (
-            <TextField
-              select
-              label="Categoria"
-              value={bulkCategory}
-              onChange={(event) => setBulkCategory(event.target.value)}
-              fullWidth
-            >
+            <TextField select label="Categoria" value={bulkCategory} onChange={(event) => setBulkCategory(event.target.value)} fullWidth>
               <MenuItem value="">Seleccione</MenuItem>
               {categories.map((item) => (
                 <MenuItem key={item} value={item}>
@@ -412,6 +390,21 @@ const Products: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteTargetIds.length > 0}
+        title={deleteTargetIds.length === 1 ? "Eliminar producto" : "Eliminar productos"}
+        description={
+          deleteTargetIds.length === 1
+            ? "El producto seleccionado se eliminara del catalogo."
+            : `Se eliminaran ${deleteTargetIds.length} productos del catalogo.`
+        }
+        onCancel={() => setDeleteTargetIds([])}
+        onConfirm={handleConfirmDelete}
+        confirmText="Eliminar"
+        confirmColor="error"
+        loading={deleteMutation.isPending}
+      />
     </Box>
   );
 };

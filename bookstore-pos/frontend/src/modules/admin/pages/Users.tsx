@@ -1,22 +1,41 @@
 import React, { useState } from "react";
-import { Box, Button, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
+import { Box, Button, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable } from "@/app/components";
-import { EmptyState } from "@/app/components";
-import { ErrorState } from "@/app/components";
-import { LoadingState } from "@/app/components";
-import { PageHeader } from "@/app/components";
-import { TableToolbar } from "@/app/components";
-import { useToast } from "@/app/components";
-import { createUser, updateUser, updateUserPassword, updateUserStatus, unlockUser, setupUser2FA, confirmUser2FA, resetUser2FA, listUsers } from "@/modules/admin/api";
+import { CardTable, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, TableToolbar, useToast } from "@/app/components";
+import { confirmUser2FA, createUser, listUsers, resetUser2FA, setupUser2FA, unlockUser, updateUser, updateUserPassword, updateUserStatus } from "@/modules/admin/api";
 import { User } from "@/modules/shared/types";
+import { getPasswordStrengthLabel, getPasswordStrengthScore, hasRequiredPasswordStrength } from "@/app/utils";
 import { useSettings } from "@/app/store";
 
-const empty: Omit<User, "id"> & { password?: string } = {
+const roleOptions = ["admin", "cashier", "stock"] as const;
+
+const userFormSchema = z.object({
+  username: z.string().trim().min(3, "Ingresa al menos 3 caracteres.").max(50, "El usuario es demasiado largo."),
+  role: z.enum(roleOptions),
+  password: z.string(),
+});
+
+type UserFormValues = z.infer<typeof userFormSchema>;
+
+type UserActionTarget = {
+  id: number;
+  username: string;
+  is_active: boolean;
+  twofa_enabled: boolean;
+};
+
+type Setup2FAState = {
+  user: UserActionTarget;
+  secret: string;
+};
+
+const defaultValues: UserFormValues = {
   username: "",
   role: "cashier",
-  is_active: true,
   password: "",
 };
 
@@ -25,35 +44,55 @@ const Users: React.FC = () => {
   const { showToast } = useToast();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["users"], queryFn: listUsers });
 
-  const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingIsActive, setEditingIsActive] = useState(true);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [statusTarget, setStatusTarget] = useState<UserActionTarget | null>(null);
+  const [reset2FATarget, setReset2FATarget] = useState<UserActionTarget | null>(null);
+  const [setup2FAState, setSetup2FAState] = useState<Setup2FAState | null>(null);
+  const [setup2FAOtp, setSetup2FAOtp] = useState("");
+  const [setup2FALoading, setSetup2FALoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [reset2FALoading, setReset2FALoading] = useState(false);
+  const [unlockingUserId, setUnlockingUserId] = useState<number | null>(null);
+  const [setupRequestUserId, setSetupRequestUserId] = useState<number | null>(null);
+  const [submitError, setSubmitError] = useState("");
 
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
 
-  const filtered = (data || []).filter((u) => {
-    if (roleFilter && u.role !== roleFilter) return false;
+  const {
+    register,
+    reset,
+    setValue,
+    watch,
+    handleSubmit,
+    formState: { errors, isDirty, isSubmitting, isValid },
+  } = useForm<UserFormValues>({
+    resolver: zodResolver(userFormSchema),
+    mode: "onChange",
+    defaultValues,
+  });
+
+  const filtered = (data || []).filter((user) => {
+    if (roleFilter && user.role !== roleFilter) return false;
     const term = query.trim().toLowerCase();
     if (!term) return true;
-    return `${u.username} ${u.role}`.toLowerCase().includes(term);
+    return `${user.username} ${user.role}`.toLowerCase().includes(term);
   });
-  const passwordValue = form.password || "";
-  const passwordScore = [
-    passwordValue.length >= 10,
-    /[A-Z]/.test(passwordValue),
-    /[a-z]/.test(passwordValue),
-    /[0-9]/.test(passwordValue),
-    /[^A-Za-z0-9]/.test(passwordValue),
-  ].filter(Boolean).length;
-  const passwordLabel = passwordScore >= 5 ? "Fuerte" : passwordScore >= 4 ? "Media" : "Debil";
+
+  const passwordValue = watch("password");
+  const passwordScore = getPasswordStrengthScore(passwordValue);
+  const passwordLabel = passwordValue ? getPasswordStrengthLabel(passwordValue) : editingId ? "Sin cambios" : "Pendiente";
+  const passwordColor = passwordValue ? (passwordScore >= 4 ? "success.main" : "warning.main") : "text.secondary";
+  const passwordMissingOnCreate = !editingId && !passwordValue;
 
   const errorMessage = (err: any) => {
     const detail = err?.response?.data?.detail;
     if (Array.isArray(detail)) {
-      return detail.map((d) => d?.msg || d?.message || JSON.stringify(d)).join(", ");
+      return detail.map((item) => item?.msg || item?.message || JSON.stringify(item)).join(", ");
     }
     if (detail && typeof detail === "object") {
       try {
@@ -67,79 +106,166 @@ const Users: React.FC = () => {
 
   const generateStrongPassword = () => {
     const base = `BsP${Math.random().toString(36).slice(2, 6).toUpperCase()}${Math.floor(1000 + Math.random() * 9000)}!a`;
-    setForm((p) => ({ ...p, password: base }));
+    setSubmitError("");
+    setValue("password", base, { shouldDirty: true, shouldValidate: true });
     showToast({ message: "Password sugerida generada.", severity: "info" });
   };
 
-  const handleSubmit = async () => {
+  const startEdit = (user: User) => {
+    const normalizedRole = roleOptions.includes(user.role as (typeof roleOptions)[number]) ? (user.role as UserFormValues["role"]) : "cashier";
+    setEditingId(user.id);
+    setEditingIsActive(user.is_active);
+    setSubmitError("");
+    reset({
+      username: user.username,
+      role: normalizedRole,
+      password: "",
+    });
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setEditingIsActive(true);
+    setSubmitError("");
+    reset(defaultValues);
+  };
+
+  const onSubmit = async (values: UserFormValues) => {
+    setSubmitError("");
     try {
       if (editingId) {
-        await updateUser(editingId, { username: form.username, role: form.role, is_active: form.is_active });
-        if (form.password) {
-          await updateUserPassword(editingId, form.password);
+        await updateUser(editingId, { username: values.username.trim(), role: values.role, is_active: editingIsActive });
+        if (values.password) {
+          await updateUserPassword(editingId, values.password);
         }
         showToast({ message: "Usuario actualizado", severity: "success" });
       } else {
-        if (!form.password || !form.password.trim()) {
-          showToast({ message: "Password requerido (min 10, mayuscula, minuscula y numero).", severity: "warning" });
-          return;
-        }
-        await createUser({ username: form.username, password: form.password, role: form.role, is_active: form.is_active });
+        await createUser({ username: values.username.trim(), password: values.password, role: values.role, is_active: true });
         showToast({ message: "Usuario creado", severity: "success" });
       }
-      setForm(empty);
-      setEditingId(null);
+      resetForm();
       qc.invalidateQueries({ queryKey: ["users"] });
     } catch (err: any) {
-      showToast({ message: errorMessage(err), severity: "error" });
+      const message = errorMessage(err);
+      setSubmitError(message);
+      showToast({ message, severity: "error" });
     }
   };
 
-  const handleStatus = async (id: number, isActive: boolean) => {
-    if (!window.confirm(isActive ? "Desactivar usuario?" : "Activar usuario?")) return;
-    await updateUserStatus(id, !isActive);
-    qc.invalidateQueries({ queryKey: ["users"] });
+  const handleConfirmStatus = async () => {
+    if (!statusTarget) return;
+    try {
+      setStatusLoading(true);
+      await updateUserStatus(statusTarget.id, !statusTarget.is_active);
+      qc.invalidateQueries({ queryKey: ["users"] });
+      showToast({ message: statusTarget.is_active ? "Usuario desactivado" : "Usuario activado", severity: "success" });
+      if (editingId === statusTarget.id) {
+        setEditingIsActive(!statusTarget.is_active);
+      }
+      setStatusTarget(null);
+    } catch (err: any) {
+      showToast({ message: errorMessage(err), severity: "error" });
+    } finally {
+      setStatusLoading(false);
+    }
   };
 
   const handleUnlock = async (id: number) => {
-    await unlockUser(id);
-    qc.invalidateQueries({ queryKey: ["users"] });
-    showToast({ message: "Usuario desbloqueado", severity: "success" });
+    try {
+      setUnlockingUserId(id);
+      await unlockUser(id);
+      qc.invalidateQueries({ queryKey: ["users"] });
+      showToast({ message: "Usuario desbloqueado", severity: "success" });
+    } catch (err: any) {
+      showToast({ message: errorMessage(err), severity: "error" });
+    } finally {
+      setUnlockingUserId(null);
+    }
   };
 
-  const handleSetup2FA = async (id: number) => {
-    const setup = await setupUser2FA(id);
-    showToast({ message: "2FA generado. Confirma con codigo OTP.", severity: "info" });
-    const code = window.prompt("Ingrese el codigo OTP para confirmar 2FA:");
-    if (!code) return;
-    await confirmUser2FA(id, code);
-    qc.invalidateQueries({ queryKey: ["users"] });
-    showToast({ message: `2FA activado. Secreto: ${setup.secret}`, severity: "success" });
+  const handleSetup2FA = async (user: UserActionTarget) => {
+    try {
+      setSetupRequestUserId(user.id);
+      const setup = await setupUser2FA(user.id);
+      setSetup2FAState({ user, secret: setup.secret });
+      setSetup2FAOtp("");
+      showToast({ message: "2FA generado. Ingresa el codigo OTP para confirmarlo.", severity: "info" });
+    } catch (err: any) {
+      showToast({ message: errorMessage(err), severity: "error" });
+    } finally {
+      setSetupRequestUserId(null);
+    }
   };
 
-  const handleReset2FA = async (id: number) => {
-    await resetUser2FA(id);
-    qc.invalidateQueries({ queryKey: ["users"] });
-    showToast({ message: "2FA desactivado", severity: "success" });
+  const handleConfirmSetup2FA = async () => {
+    if (!setup2FAState || !setup2FAOtp.trim()) return;
+    try {
+      setSetup2FALoading(true);
+      await confirmUser2FA(setup2FAState.user.id, setup2FAOtp.trim());
+      qc.invalidateQueries({ queryKey: ["users"] });
+      showToast({ message: `2FA activado para ${setup2FAState.user.username}`, severity: "success" });
+      setSetup2FAState(null);
+      setSetup2FAOtp("");
+    } catch (err: any) {
+      showToast({ message: errorMessage(err), severity: "error" });
+    } finally {
+      setSetup2FALoading(false);
+    }
   };
 
-  const cardRows = filtered.map((u) => {
-    const locked = u.locked_until && new Date(u.locked_until).getTime() > Date.now();
+  const handleReset2FA = async () => {
+    if (!reset2FATarget) return;
+    try {
+      setReset2FALoading(true);
+      await resetUser2FA(reset2FATarget.id);
+      qc.invalidateQueries({ queryKey: ["users"] });
+      showToast({ message: "2FA desactivado", severity: "success" });
+      setReset2FATarget(null);
+    } catch (err: any) {
+      showToast({ message: errorMessage(err), severity: "error" });
+    } finally {
+      setReset2FALoading(false);
+    }
+  };
+
+  const cardRows = filtered.map((user) => {
+    const locked = user.locked_until && new Date(user.locked_until).getTime() > Date.now();
+    const actionTarget: UserActionTarget = {
+      id: user.id,
+      username: user.username,
+      is_active: user.is_active,
+      twofa_enabled: !!user.twofa_enabled,
+    };
     return {
-      key: u.id,
-      title: u.username,
-      subtitle: u.role,
+      key: user.id,
+      title: user.username,
+      subtitle: user.role,
       right: (
-        <Box sx={{ display: "grid", gap: 0.5, textAlign: "right" }}>
-          <Typography sx={{ fontWeight: 700 }}>{u.is_active ? "Activo" : "Inactivo"}</Typography>
-          <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-            <Button size="small" onClick={() => { setEditingId(u.id); setForm({ username: u.username, role: u.role, is_active: u.is_active, password: "" }); }}>Editar</Button>
-            <Button size="small" onClick={() => handleStatus(u.id, u.is_active)}>{u.is_active ? "Desactivar" : "Activar"}</Button>
+        <Stack spacing={1} sx={{ alignItems: "flex-end", minWidth: 220 }}>
+          <Typography sx={{ fontWeight: 700 }}>{user.is_active ? "Activo" : "Inactivo"}</Typography>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Button size="small" onClick={() => startEdit(user)}>
+              Editar
+            </Button>
+            <Button size="small" onClick={() => setStatusTarget(actionTarget)}>
+              {user.is_active ? "Desactivar" : "Activar"}
+            </Button>
+            <Button size="small" onClick={() => handleUnlock(user.id)} disabled={!locked || unlockingUserId === user.id}>
+              {unlockingUserId === user.id ? "Desbloqueando..." : "Desbloquear"}
+            </Button>
+            <Button size="small" onClick={() => handleSetup2FA(actionTarget)} disabled={setupRequestUserId === user.id}>
+              {setupRequestUserId === user.id ? "Preparando..." : "Config 2FA"}
+            </Button>
+            <Button size="small" color="warning" onClick={() => setReset2FATarget(actionTarget)} disabled={!user.twofa_enabled}>
+              Reset 2FA
+            </Button>
           </Box>
-          <Typography variant="caption" color="text.secondary">2FA: {u.twofa_enabled ? "Activo" : "No"} | Bloqueo: {locked ? "Si" : "No"}</Typography>
-        </Box>
+        </Stack>
       ),
-      fields: [],
+      fields: [
+        { label: "2FA", value: user.twofa_enabled ? "Activo" : "No" },
+        { label: "Bloqueo", value: locked ? "Si" : "No" },
+      ],
     };
   });
 
@@ -157,14 +283,18 @@ const Users: React.FC = () => {
         <TextField label="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} sx={{ minWidth: 220 }} />
         <TextField select label="Rol" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} sx={{ minWidth: 160 }}>
           <MenuItem value="">Todos</MenuItem>
-          <MenuItem value="admin">admin</MenuItem>
-          <MenuItem value="cashier">cashier</MenuItem>
-          <MenuItem value="stock">stock</MenuItem>
+          {roleOptions.map((role) => (
+            <MenuItem key={role} value={role}>
+              {role}
+            </MenuItem>
+          ))}
         </TextField>
       </TableToolbar>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Usuarios</Typography>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Usuarios
+        </Typography>
         {isLoading ? (
           <LoadingState title="Cargando usuarios..." />
         ) : isError ? (
@@ -185,20 +315,39 @@ const Users: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map((u) => {
-                const locked = u.locked_until && new Date(u.locked_until).getTime() > Date.now();
+              {filtered.map((user) => {
+                const locked = user.locked_until && new Date(user.locked_until).getTime() > Date.now();
+                const actionTarget: UserActionTarget = {
+                  id: user.id,
+                  username: user.username,
+                  is_active: user.is_active,
+                  twofa_enabled: !!user.twofa_enabled,
+                };
                 return (
-                  <TableRow key={u.id}>
-                    <TableCell>{u.username}</TableCell>
-                    <TableCell>{u.role}</TableCell>
-                    <TableCell>{u.is_active ? "Activo" : "Inactivo"}{locked ? " | Bloqueado" : ""}</TableCell>
-                    <TableCell>{u.twofa_enabled ? "Activo" : "No"}</TableCell>
+                  <TableRow key={user.id}>
+                    <TableCell>{user.username}</TableCell>
+                    <TableCell>{user.role}</TableCell>
                     <TableCell>
-                      <Button size="small" onClick={() => { setEditingId(u.id); setForm({ username: u.username, role: u.role, is_active: u.is_active, password: "" }); }}>Editar</Button>
-                      <Button size="small" onClick={() => handleStatus(u.id, u.is_active)}>{u.is_active ? "Desactivar" : "Activar"}</Button>
-                      <Button size="small" onClick={() => handleUnlock(u.id)} disabled={!locked}>Desbloquear</Button>
-                      <Button size="small" onClick={() => handleSetup2FA(u.id)}>Config 2FA</Button>
-                      <Button size="small" onClick={() => handleReset2FA(u.id)}>Reset 2FA</Button>
+                      {user.is_active ? "Activo" : "Inactivo"}
+                      {locked ? " | Bloqueado" : ""}
+                    </TableCell>
+                    <TableCell>{user.twofa_enabled ? "Activo" : "No"}</TableCell>
+                    <TableCell>
+                      <Button size="small" onClick={() => startEdit(user)}>
+                        Editar
+                      </Button>
+                      <Button size="small" onClick={() => setStatusTarget(actionTarget)}>
+                        {user.is_active ? "Desactivar" : "Activar"}
+                      </Button>
+                      <Button size="small" onClick={() => handleUnlock(user.id)} disabled={!locked || unlockingUserId === user.id}>
+                        {unlockingUserId === user.id ? "Desbloqueando..." : "Desbloquear"}
+                      </Button>
+                      <Button size="small" onClick={() => handleSetup2FA(actionTarget)} disabled={setupRequestUserId === user.id}>
+                        {setupRequestUserId === user.id ? "Preparando..." : "Config 2FA"}
+                      </Button>
+                      <Button size="small" color="warning" onClick={() => setReset2FATarget(actionTarget)} disabled={!user.twofa_enabled}>
+                        Reset 2FA
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
@@ -209,30 +358,141 @@ const Users: React.FC = () => {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>{editingId ? "Editar usuario" : "Nuevo usuario"}</Typography>
-        <Box sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
-          <TextField label="Usuario" value={form.username} onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))} />
-          <TextField select label="Rol" value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}>
-            <MenuItem value="admin">admin</MenuItem>
-            <MenuItem value="cashier">cashier</MenuItem>
-            <MenuItem value="stock">stock</MenuItem>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {editingId ? "Editar usuario" : "Nuevo usuario"}
+        </Typography>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
+          {submitError ? (
+            <Typography variant="body2" color="error">
+              {submitError}
+            </Typography>
+          ) : null}
+          {isDirty ? (
+            <Typography variant="caption" color="text.secondary">
+              Hay cambios pendientes por guardar.
+            </Typography>
+          ) : null}
+          <TextField
+            label="Usuario"
+            error={!!errors.username}
+            helperText={errors.username?.message || "Nombre de acceso visible en auditoria y reportes."}
+            {...register("username", {
+              onChange: () => setSubmitError(""),
+            })}
+          />
+          <TextField
+            select
+            label="Rol"
+            error={!!errors.role}
+            helperText={errors.role?.message || "Define el permiso principal del usuario."}
+            {...register("role", {
+              onChange: () => setSubmitError(""),
+            })}
+          >
+            {roleOptions.map((role) => (
+              <MenuItem key={role} value={role}>
+                {role}
+              </MenuItem>
+            ))}
           </TextField>
           <TextField
             label="Password"
             type="password"
-            value={form.password || ""}
-            onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-            helperText={editingId ? "Dejar en blanco para no cambiar" : "Min 10, mayuscula, minuscula y numero"}
+            error={!!errors.password}
+            helperText={
+              errors.password?.message ||
+              (editingId
+                ? "Dejalo vacio si no quieres cambiar la clave."
+                : "Minimo 10 caracteres, con mayuscula, minuscula y numero.")
+            }
+            {...register("password", {
+              onChange: () => setSubmitError(""),
+              validate: (value) => {
+                if (!editingId && !value) {
+                  return "Ingresa un password seguro para crear el usuario.";
+                }
+                if (value && !hasRequiredPasswordStrength(value)) {
+                  return "Usa al menos 10 caracteres, una mayuscula, una minuscula y un numero.";
+                }
+                return true;
+              },
+            })}
           />
-          <Typography variant="caption" color={passwordScore >= 4 ? "success.main" : "warning.main"}>
+          <Typography variant="caption" color={passwordColor}>
             Seguridad de password: {passwordLabel}
           </Typography>
-          <Button variant="outlined" onClick={generateStrongPassword}>
-            Generar password segura
-          </Button>
-          <Button variant="contained" onClick={handleSubmit}>Guardar</Button>
+          <Typography variant="caption" color="text.secondary">
+            {editingId ? `Estado actual: ${editingIsActive ? "Activo" : "Inactivo"}.` : "Los usuarios nuevos se crean activos por defecto."} Los cambios de estado se gestionan desde las acciones rapidas.
+          </Typography>
+          <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
+            <Button type="button" variant="outlined" onClick={generateStrongPassword} disabled={isSubmitting}>
+              Generar password segura
+            </Button>
+            <Button type="submit" variant="contained" disabled={!isValid || isSubmitting || passwordMissingOnCreate}>
+              {isSubmitting ? "Guardando..." : editingId ? "Guardar cambios" : "Guardar"}
+            </Button>
+            {editingId ? (
+              <Button type="button" variant="outlined" onClick={resetForm} disabled={isSubmitting}>
+                Cancelar edicion
+              </Button>
+            ) : null}
+          </Stack>
         </Box>
       </Paper>
+
+      <ConfirmDialog
+        open={!!statusTarget}
+        title={statusTarget?.is_active ? "Desactivar usuario" : "Activar usuario"}
+        description={
+          statusTarget
+            ? `${statusTarget.is_active ? "Se desactivara" : "Se activara"} el usuario "${statusTarget.username}".`
+            : undefined
+        }
+        onCancel={() => setStatusTarget(null)}
+        onConfirm={handleConfirmStatus}
+        confirmText={statusTarget?.is_active ? "Desactivar" : "Activar"}
+        confirmColor={statusTarget?.is_active ? "warning" : "primary"}
+        loading={statusLoading}
+      />
+
+      <ConfirmDialog
+        open={!!reset2FATarget}
+        title="Resetear 2FA"
+        description={reset2FATarget ? `Se eliminara la configuracion 2FA de "${reset2FATarget.username}".` : undefined}
+        onCancel={() => setReset2FATarget(null)}
+        onConfirm={handleReset2FA}
+        confirmText="Resetear 2FA"
+        confirmColor="warning"
+        loading={reset2FALoading}
+      />
+
+      <ConfirmDialog
+        open={!!setup2FAState}
+        title={setup2FAState ? `Confirmar 2FA para ${setup2FAState.user.username}` : "Confirmar 2FA"}
+        description="Se genero un secreto para este usuario. Ingresa el codigo OTP para terminar la activacion."
+        content={
+          setup2FAState ? (
+            <Box sx={{ display: "grid", gap: 2 }}>
+              <TextField label="Secreto generado" value={setup2FAState.secret} InputProps={{ readOnly: true }} />
+              <TextField
+                autoFocus
+                label="Codigo OTP"
+                value={setup2FAOtp}
+                onChange={(e) => setSetup2FAOtp(e.target.value)}
+                inputProps={{ inputMode: "numeric" }}
+              />
+            </Box>
+          ) : undefined
+        }
+        onCancel={() => {
+          setSetup2FAState(null);
+          setSetup2FAOtp("");
+        }}
+        onConfirm={handleConfirmSetup2FA}
+        confirmText="Activar 2FA"
+        disableConfirm={!setup2FAOtp.trim()}
+        loading={setup2FALoading}
+      />
     </Box>
   );
 };

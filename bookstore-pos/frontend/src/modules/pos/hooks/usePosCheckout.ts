@@ -55,9 +55,17 @@ type ReceiptPayload = {
   };
 };
 
+type LastSaleSummary = {
+  id: number;
+  invoiceNumber: string;
+  total: number;
+  status: string;
+  createdAt: string;
+};
+
 export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap, totals, wsRef }: UsePosCheckoutArgs) => {
   const [payOpen, setPayOpen] = useState(false);
-  const [lastSaleId, setLastSaleId] = useState<number | null>(null);
+  const [lastSale, setLastSale] = useState<LastSaleSummary | null>(null);
   const { showToast } = useToast();
   const qc = useQueryClient();
 
@@ -67,7 +75,13 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap
       cart.clear();
       wsRef.current?.send(JSON.stringify({ type: "SALE_OK" }));
       showToast({ message: `Venta registrada ${res.invoice_number || ""}`, severity: "success" });
-      setLastSaleId(res.id);
+      setLastSale({
+        id: res.id,
+        invoiceNumber: res.invoice_number,
+        total: res.total,
+        status: res.status,
+        createdAt: new Date().toISOString(),
+      });
       qc.invalidateQueries({ queryKey: ["cash-current"] });
     },
     onError: (err: unknown) => {
@@ -97,7 +111,7 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap
   const handleBarcode = async (code: string) => {
     if (!code.trim()) return;
     const list = await listProducts(code.trim());
-    const exact = list.find((p) => p.sku === code.trim());
+    const exact = list.find((product) => product.sku === code.trim());
     if (exact) {
       const price = priceMap[exact.id] ?? exact.sale_price ?? exact.price;
       cart.addItem({ product_id: exact.id, sku: exact.sku, name: exact.name, price });
@@ -107,8 +121,8 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap
   };
 
   const handlePrint = async () => {
-    if (!lastSaleId) return;
-    const receipt = (await getReceipt(lastSaleId)) as ReceiptPayload;
+    if (!lastSale) return;
+    const receipt = (await getReceipt(lastSale.id)) as ReceiptPayload;
     const header = receipt.receipt?.header || "";
     const footer = receipt.receipt?.footer || "Gracias por su compra";
     const paperWidth = receipt.receipt?.paper_width_mm || 80;
@@ -169,20 +183,25 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap
   };
 
   const handleEscpos = async () => {
-    if (!lastSaleId) return;
-    const blob = await downloadEscpos(lastSaleId);
+    if (!lastSale) return;
+    const blob = await downloadEscpos(lastSale.id);
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ticket_${lastSaleId}.bin`;
+    a.download = `ticket_${lastSale.id}.bin`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const clearLastSale = () => {
+    setLastSale(null);
   };
 
   return {
     payOpen,
     setPayOpen,
-    lastSaleId,
+    lastSale,
+    clearLastSale,
     mutation,
     handlePayment,
     handleBarcode,
