@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, require_permission
+from app.core.audit import log_event
+from app.core.deps import get_current_user, get_db, require_permission
+from app.models.product import Product
 from app.schemas.pricing import PricingApplyOut, PricingPreviewIn, PricingPreviewOut
 from app.services.catalog.pricing_service import apply_pricing_to_product, preview_pricing
 
@@ -36,9 +39,27 @@ async def pricing_preview(data: PricingPreviewIn):
     response_model=PricingApplyOut,
     dependencies=[Depends(require_permission("products.write"))],
 )
-async def pricing_apply(product_id: int, data: PricingPreviewIn, db: AsyncSession = Depends(get_db)):
+async def pricing_apply(
+    product_id: int,
+    data: PricingPreviewIn,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    before_res = await db.execute(select(Product).where(Product.id == product_id))
+    before = before_res.scalar_one_or_none()
+    if not before:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    old_sale_price = float(before.sale_price or before.price or 0)
+    old_unit_cost = float(before.unit_cost or before.cost or 0)
+
     async with db.begin():
         _, result = await apply_pricing_to_product(db, product_id, data)
+        details = (
+            f"pricing_apply p:{old_sale_price:.2f}->{float(result.sale_price_unit):.2f} "
+            f"c:{old_unit_cost:.2f}->{float(result.unit_cost):.2f} "
+            f"m:{float(result.desired_margin):.4f}"
+        )
+        await log_event(db, current_user.id, "product_pricing_apply", "product", str(product_id), details[:255])
 
     return PricingApplyOut(
         product_id=product_id,

@@ -1,16 +1,41 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Badge, Box, Button, Divider, Drawer, Fab, Paper, Typography, Grid, MenuItem, TextField, useMediaQuery, Stack, Chip } from "@mui/material";
+import {
+  Alert,
+  Badge,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Drawer,
+  Fab,
+  Grid,
+  List,
+  ListItemButton,
+  ListItemText,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+  useMediaQuery,
+} from "@mui/material";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShoppingCartCheckoutIcon from "@mui/icons-material/ShoppingCartCheckout";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import PauseCircleIcon from "@mui/icons-material/PauseCircle";
+import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { PageHeader } from "@/app/components";
+import { PageHeader, useToast } from "@/app/components";
 import { formatMoney } from "@/app/utils";
 import {
+  type CartItem,
   selectCanCharge,
   selectCartItemCount,
   selectCustomerLabel,
@@ -28,6 +53,19 @@ import { usePosCheckout, usePosPricing } from "@/modules/pos/hooks";
 import type { Payment } from "@/modules/pos/types";
 
 const wsBase = getWsBaseUrl();
+const HELD_CARTS_KEY = "pos-held-carts-v1";
+const MAX_HELD_CARTS = 20;
+
+type HeldCart = {
+  id: string;
+  label: string;
+  created_at: string;
+  customer_id: number | null;
+  promo_id: number | null;
+  discount: number;
+  tax: number;
+  items: CartItem[];
+};
 
 const makeSessionId = () => {
   const cryptoAny = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
@@ -38,6 +76,7 @@ const makeSessionId = () => {
 const POS: React.FC = () => {
   const cart = useCartStore();
   const { taxRate, taxIncluded, paymentMethods, compactMode } = useSettings();
+  const { showToast } = useToast();
   const compact = useMediaQuery("(max-width:900px)");
   const isCompact = compactMode || compact;
 
@@ -105,7 +144,70 @@ const POS: React.FC = () => {
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const [heldOpen, setHeldOpen] = useState(false);
+  const [heldCarts, setHeldCarts] = useState<HeldCart[]>([]);
   const prevItemCountRef = useRef(0);
+
+  const persistHeldCarts = (next: HeldCart[]) => {
+    setHeldCarts(next);
+    try {
+      window.localStorage.setItem(HELD_CARTS_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage failures on restricted browsers
+    }
+  };
+
+  const loadHeldCarts = () => {
+    try {
+      const raw = window.localStorage.getItem(HELD_CARTS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as HeldCart[];
+      if (Array.isArray(parsed)) {
+        setHeldCarts(
+          parsed.filter((c) => c && typeof c.id === "string" && Array.isArray(c.items))
+        );
+      }
+    } catch {
+      // ignore malformed data
+    }
+  };
+
+  const holdCurrentCart = () => {
+    if (!cart.items.length) {
+      showToast({ message: "No hay items para guardar en espera", severity: "warning" });
+      return;
+    }
+    const suggested = `Pedido ${new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}`;
+    const label = (window.prompt("Nombre para la venta en espera:", suggested) || "").trim() || suggested;
+    const nextHold: HeldCart = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      label,
+      created_at: new Date().toISOString(),
+      customer_id: customerId ? Number(customerId) : null,
+      promo_id: promoId ? Number(promoId) : null,
+      discount: Number(cart.discount || 0),
+      tax: Number(cart.tax || 0),
+      items: cart.items.map((item) => ({ ...item })),
+    };
+    persistHeldCarts([nextHold, ...heldCarts].slice(0, MAX_HELD_CARTS));
+    cart.clear();
+    setCustomerId("");
+    setPromoId("");
+    showToast({ message: `Venta guardada en espera: ${label}`, severity: "success" });
+  };
+
+  const restoreHeldCart = (held: HeldCart) => {
+    cart.replaceCart({ items: held.items, discount: held.discount, tax: held.tax });
+    setCustomerId(held.customer_id ?? "");
+    setPromoId(held.promo_id ?? "");
+    persistHeldCarts(heldCarts.filter((item) => item.id !== held.id));
+    setHeldOpen(false);
+    showToast({ message: `Venta recuperada: ${held.label}`, severity: "success" });
+  };
+
+  const deleteHeldCart = (heldId: string) => {
+    persistHeldCarts(heldCarts.filter((item) => item.id !== heldId));
+  };
 
   useEffect(() => {
     let active = true;
@@ -174,6 +276,10 @@ const POS: React.FC = () => {
     }
     prevItemCountRef.current = itemCount;
   }, [itemCount, isCompact]);
+
+  useEffect(() => {
+    loadHeldCarts();
+  }, []);
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -352,6 +458,24 @@ const POS: React.FC = () => {
               </Grid>
 
               <Box sx={{ display: "grid", gap: 1.5 }}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<PauseCircleIcon />}
+                  disabled={itemCount === 0}
+                  onClick={holdCurrentCart}
+                >
+                  Guardar en espera
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<PlaylistAddCheckIcon />}
+                  disabled={heldCarts.length === 0}
+                  onClick={() => setHeldOpen(true)}
+                >
+                  Recuperar en espera ({heldCarts.length})
+                </Button>
                 <Button fullWidth variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)}>
                   Cobrar
                 </Button>
@@ -493,6 +617,24 @@ const POS: React.FC = () => {
             </Alert>
           ) : null}
           <Box sx={{ display: "grid", gap: 1.5 }}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<PauseCircleIcon />}
+              disabled={itemCount === 0}
+              onClick={holdCurrentCart}
+            >
+              Guardar en espera
+            </Button>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<PlaylistAddCheckIcon />}
+              disabled={heldCarts.length === 0}
+              onClick={() => setHeldOpen(true)}
+            >
+              Recuperar en espera ({heldCarts.length})
+            </Button>
             <Button fullWidth variant="contained" size="large" disabled={!canCharge} onClick={() => setPayOpen(true)}>
               Cobrar
             </Button>
@@ -515,6 +657,40 @@ const POS: React.FC = () => {
           </Box>
         </Box>
       </Drawer>
+
+      <Dialog open={heldOpen} onClose={() => setHeldOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Ventas en espera</DialogTitle>
+        <DialogContent>
+          {heldCarts.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No hay ventas guardadas.
+            </Typography>
+          ) : (
+            <List>
+              {heldCarts.map((held) => (
+                <ListItemButton key={held.id} onClick={() => restoreHeldCart(held)}>
+                  <ListItemText
+                    primary={held.label}
+                    secondary={`${new Date(held.created_at).toLocaleString("es-PE")} - ${held.items.length} items - ${formatMoney(
+                      held.items.reduce((acc, item) => acc + item.price * item.qty, 0)
+                    )}`}
+                  />
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deleteHeldCart(held.id);
+                    }}
+                  >
+                    Eliminar
+                  </Button>
+                </ListItemButton>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

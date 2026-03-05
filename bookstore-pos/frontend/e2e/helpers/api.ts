@@ -22,12 +22,24 @@ type SaleResponse = {
 };
 
 export const apiLogin = async (api: APIRequestContext): Promise<string> => {
-  const loginResp = await api.post(`${API_URL}/auth/login`, {
-    data: { username: USERNAME, password: PASSWORD },
-  });
-  expect(loginResp.ok()).toBeTruthy();
-  const body = await loginResp.json();
-  return body.csrf_token as string;
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const loginResp = await api.post(`${API_URL}/auth/login`, {
+      data: { username: USERNAME, password: PASSWORD },
+    });
+    lastStatus = loginResp.status();
+    if (loginResp.ok()) {
+      const body = await loginResp.json();
+      return body.csrf_token as string;
+    }
+    if (lastStatus === 429 && attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      continue;
+    }
+    break;
+  }
+  expect(lastStatus, "API login should succeed").toBe(200);
+  return "";
 };
 
 type EnsureProductOptions = Partial<{
@@ -94,11 +106,20 @@ export const createPackRule = async (
 };
 
 export const ensureCashOpen = async (api: APIRequestContext, csrf: string): Promise<void> => {
-  const openResp = await api.post(`${API_URL}/cash/open`, {
-    headers: { "X-CSRF-Token": csrf },
-    data: { opening_amount: 100 },
-  });
-  expect([201, 409]).toContain(openResp.status());
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const openResp = await api.post(`${API_URL}/cash/open`, {
+      headers: { "X-CSRF-Token": csrf },
+      data: { opening_amount: 100 },
+    });
+    if ([201, 409].includes(openResp.status())) {
+      return;
+    }
+    if (openResp.status() === 429 && attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      continue;
+    }
+    expect([201, 409], "cash/open should return opened or already-open").toContain(openResp.status());
+  }
 };
 
 export const createSaleForProduct = async (

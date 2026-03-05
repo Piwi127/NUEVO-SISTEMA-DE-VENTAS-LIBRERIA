@@ -88,7 +88,8 @@ class ProductsService:
                 )
                 self.db.add(movement)
 
-            await log_event(self.db, self.user.id, "product_create", "product", str(product.id), product.sku)
+            details = f"{product.sku} p:{float(product.price or 0):.2f} c:{float(product.cost or 0):.2f}"
+            await log_event(self.db, self.user.id, "product_create", "product", str(product.id), details[:255])
             await self.db.refresh(product)
             return product
 
@@ -101,6 +102,11 @@ class ProductsService:
             exists = await self.db.execute(select(Product).where(Product.sku == data.sku))
             if exists.scalar_one_or_none():
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="SKU duplicado")
+
+        old_price = float(product.price or 0)
+        old_cost = float(product.cost or 0)
+        old_sale_price = float(product.sale_price or 0)
+        old_unit_cost = float(product.unit_cost or 0)
 
         update_payload = self._normalize_pricing_payload(data.model_dump())
         stock_delta = 0
@@ -125,7 +131,14 @@ class ProductsService:
                     )
                 )
 
-            await log_event(self.db, self.user.id, "product_update", "product", str(product.id), product.sku)
+            details = (
+                f"{product.sku} "
+                f"p:{old_price:.2f}->{float(product.price or 0):.2f} "
+                f"c:{old_cost:.2f}->{float(product.cost or 0):.2f} "
+                f"sp:{old_sale_price:.2f}->{float(product.sale_price or 0):.2f} "
+                f"uc:{old_unit_cost:.2f}->{float(product.unit_cost or 0):.2f}"
+            )
+            await log_event(self.db, self.user.id, "product_update", "product", str(product.id), details[:255])
             await self.db.refresh(product)
             return product
 

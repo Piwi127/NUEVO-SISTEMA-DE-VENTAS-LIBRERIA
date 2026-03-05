@@ -19,3 +19,8 @@ Sistema POS para librería con backend en FastAPI y frontend en React/Vite.
 - Backend checks: `ruff`, `pytest`
 - Frontend checks: `lint`, `test`, `build`
 - E2E: Playwright (`frontend/e2e`)
+
+## Backups
+- Backup manual: `scripts\backup_db.bat`
+- Verificar backup: `scripts\verify_backup.bat "<ruta_backup.db>"`
+- Programar backup diario (Windows): `scripts\setup_daily_backup_task.bat 22:00`

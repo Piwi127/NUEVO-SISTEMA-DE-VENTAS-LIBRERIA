@@ -75,6 +75,23 @@ const clear = () => {
   emit();
 };
 
+const replaceCart = (next: Partial<CartState>) => {
+  const rawItems = Array.isArray(next.items) ? next.items : [];
+  const normalizedItems = rawItems
+    .filter((item) => item && Number.isFinite(item.product_id) && Number.isFinite(item.price) && Number.isFinite(item.qty))
+    .map((item) => ({
+      product_id: item.product_id,
+      sku: item.sku || "",
+      name: item.name || "",
+      price: Math.max(0, Number(item.price || 0)),
+      qty: Math.max(1, Math.floor(Number(item.qty || 1))),
+    }));
+  state.items = normalizedItems;
+  state.discount = Number.isFinite(next.discount) ? Math.max(0, Number(next.discount)) : 0;
+  state.tax = Number.isFinite(next.tax) ? Math.max(0, Number(next.tax)) : 0;
+  emit();
+};
+
 const setDiscount = (discount: number) => {
   if (!Number.isFinite(discount)) {
     state.discount = 0;
@@ -108,6 +125,7 @@ export const useCartStore = () => {
     removeItems,
     setQty,
     clear,
+    replaceCart,
     setDiscount,
     setTax,
     totals,
