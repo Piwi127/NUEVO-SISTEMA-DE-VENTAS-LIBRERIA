@@ -9,6 +9,7 @@ from app.routers.catalog import customers as customers_router
 from app.routers.catalog import suppliers as suppliers_router
 from app.routers.catalog import price_lists as price_lists_router
 from app.routers.catalog import promotions as promotions_router
+from app.routers.catalog import pricing as pricing_router
 from app.routers.inventory import inventory as inventory_router
 from app.routers.inventory import purchases as purchases_router
 from app.routers.inventory import purchasing as purchasing_router
@@ -32,6 +33,7 @@ __all__ = [
     "suppliers_router",
     "price_lists_router",
     "promotions_router",
+    "pricing_router",
     "inventory_router",
     "purchases_router",
     "purchasing_router",

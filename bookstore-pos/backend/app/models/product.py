@@ -1,4 +1,4 @@
-from sqlalchemy import Float, Integer, String, Boolean
+from sqlalchemy import Boolean, Float, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -14,6 +14,13 @@ class Product(Base):
     tags: Mapped[str] = mapped_column(String(500), default="")
     price: Mapped[float] = mapped_column(Float)
     cost: Mapped[float] = mapped_column(Float)
+    sale_price: Mapped[float] = mapped_column(Numeric(14, 4), default=0)
+    cost_total: Mapped[float] = mapped_column(Numeric(14, 4), default=0)
+    cost_qty: Mapped[int] = mapped_column(Integer, default=1)
+    direct_costs_breakdown: Mapped[str] = mapped_column(Text, default="{}")
+    direct_costs_total: Mapped[float] = mapped_column(Numeric(14, 4), default=0)
+    desired_margin: Mapped[float] = mapped_column(Numeric(8, 6), default=0)
+    unit_cost: Mapped[float] = mapped_column(Numeric(14, 4), default=0)
     stock: Mapped[int] = mapped_column(Integer, default=0)
     stock_min: Mapped[int] = mapped_column(Integer, default=0)
     tax_rate: Mapped[float] = mapped_column(Float, default=0.0)

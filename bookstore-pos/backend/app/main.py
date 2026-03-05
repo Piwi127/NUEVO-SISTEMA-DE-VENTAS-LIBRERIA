@@ -30,6 +30,7 @@ from app.routers.catalog import customers as customers_router
 from app.routers.catalog import suppliers as suppliers_router
 from app.routers.catalog import price_lists as price_lists_router
 from app.routers.catalog import promotions as promotions_router
+from app.routers.catalog import pricing as pricing_router
 from app.routers.inventory import inventory as inventory_router
 from app.routers.inventory import purchases as purchases_router
 from app.routers.inventory import purchasing as purchasing_router
@@ -50,18 +51,39 @@ async def verify_schema_compatibility() -> None:
         if dialect == "sqlite":
             result = await session.execute(text("PRAGMA table_info(products)"))
             columns = {row[1] for row in result.fetchall()}
-            has_tags = "tags" in columns
+            required = {
+                "tags",
+                "sale_price",
+                "cost_total",
+                "cost_qty",
+                "direct_costs_breakdown",
+                "direct_costs_total",
+                "desired_margin",
+                "unit_cost",
+            }
+            missing = sorted(required - columns)
         else:
             result = await session.execute(
                 text(
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_name = 'products' AND column_name = 'tags'"
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'products'"
                 )
             )
-            has_tags = result.first() is not None
-        if not has_tags:
+            columns = {row[0] for row in result.fetchall()}
+            required = {
+                "tags",
+                "sale_price",
+                "cost_total",
+                "cost_qty",
+                "direct_costs_breakdown",
+                "direct_costs_total",
+                "desired_margin",
+                "unit_cost",
+            }
+            missing = sorted(required - columns)
+        if missing:
+            missing_str = ", ".join(missing)
             raise RuntimeError(
-                "Esquema desactualizado: falta la columna products.tags. "
+                f"Esquema desactualizado: faltan columnas en products: {missing_str}. "
                 "Ejecute 'alembic upgrade head' antes de iniciar la API."
             )
 
@@ -262,6 +284,7 @@ app.include_router(audit_router.router)
 app.include_router(warehouses_router.router)
 app.include_router(price_lists_router.router)
 app.include_router(promotions_router.router)
+app.include_router(pricing_router.router)
 app.include_router(returns_router.router)
 app.include_router(purchasing_router.router)
 app.include_router(printing_router.router)

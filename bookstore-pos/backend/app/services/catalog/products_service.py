@@ -35,13 +35,41 @@ class ProductsService:
             async with self.db.begin():
                 yield
 
+    @staticmethod
+    def _normalize_pricing_payload(payload: dict) -> dict:
+        sale_price = payload.get("sale_price")
+        if sale_price is None:
+            sale_price = payload.get("price", 0)
+        payload["sale_price"] = float(sale_price or 0)
+        payload["price"] = float(payload["sale_price"])
+
+        unit_cost = payload.get("unit_cost")
+        if unit_cost is None:
+            unit_cost = payload.get("cost", 0)
+        payload["unit_cost"] = float(unit_cost or 0)
+        payload["cost"] = float(payload["unit_cost"])
+
+        qty = int(payload.get("cost_qty") or 1)
+        if qty <= 0:
+            qty = 1
+        payload["cost_qty"] = qty
+
+        if not payload.get("cost_total"):
+            payload["cost_total"] = float(payload["unit_cost"] * qty)
+        payload["direct_costs_total"] = float(payload.get("direct_costs_total") or 0)
+        payload["desired_margin"] = float(payload.get("desired_margin") or 0)
+
+        breakdown = payload.get("direct_costs_breakdown")
+        payload["direct_costs_breakdown"] = breakdown if isinstance(breakdown, str) and breakdown.strip() else "{}"
+        return payload
+
     async def create_product(self, data):
         exists = await self.db.execute(select(Product).where(Product.sku == data.sku))
         if exists.scalar_one_or_none():
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="SKU duplicado")
 
         initial_stock = data.stock
-        payload = data.model_dump()
+        payload = self._normalize_pricing_payload(data.model_dump())
         payload["stock"] = 0
 
         async with self._transaction():
@@ -74,7 +102,7 @@ class ProductsService:
             if exists.scalar_one_or_none():
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="SKU duplicado")
 
-        update_payload = data.model_dump()
+        update_payload = self._normalize_pricing_payload(data.model_dump())
         stock_delta = 0
         if update_payload.get("stock") is not None:
             stock_delta = int(update_payload["stock"]) - int(product.stock or 0)

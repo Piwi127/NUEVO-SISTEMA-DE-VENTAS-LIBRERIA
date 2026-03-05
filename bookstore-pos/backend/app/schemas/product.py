@@ -8,6 +8,13 @@ class ProductBase(BaseModel):
     tags: str = ""
     price: float
     cost: float
+    sale_price: float | None = None
+    cost_total: float | None = None
+    cost_qty: int = 1
+    direct_costs_breakdown: str = "{}"
+    direct_costs_total: float = 0
+    desired_margin: float = 0
+    unit_cost: float | None = None
     stock: int = 0
     stock_min: int = 0
     tax_rate: float = 0.0

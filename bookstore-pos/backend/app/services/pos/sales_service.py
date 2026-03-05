@@ -115,7 +115,7 @@ class SalesService:
                 available = await get_stock_level(self.db, product.id, default_warehouse_id)
                 if available < item.qty:
                     raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Stock insuficiente")
-                price = product.price
+                price = float(product.sale_price or product.price or 0)
                 if price_list_id:
                     price_res = await self.db.execute(
                         select(PriceListItem).where(

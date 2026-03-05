@@ -127,7 +127,14 @@ class StockService:
                     product.name = name
                     product.category = category
                     product.price = price
+                    product.sale_price = price
                     product.cost = cost
+                    product.unit_cost = cost
+                    product.cost_qty = 1
+                    product.cost_total = cost
+                    product.direct_costs_breakdown = "{}"
+                    product.direct_costs_total = 0
+                    product.desired_margin = 0
                     product.stock_min = stock_min
                     if diff != 0:
                         await apply_stock_delta(self.db, product.id, diff, default_warehouse_id)
@@ -144,7 +151,14 @@ class StockService:
                         name=name,
                         category=category,
                         price=price,
+                        sale_price=price,
                         cost=cost,
+                        unit_cost=cost,
+                        cost_qty=1,
+                        cost_total=cost,
+                        direct_costs_breakdown="{}",
+                        direct_costs_total=0,
+                        desired_margin=0,
                         stock=0,
                         stock_min=stock_min,
                     )
