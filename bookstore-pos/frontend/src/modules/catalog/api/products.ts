@@ -1,6 +1,32 @@
 import { api } from "@/modules/shared/api";
 import { Product } from "@/modules/shared/types";
 
+export type PricingPreviewPayload = {
+  cost_total: string;
+  qty: number;
+  direct_costs_breakdown: Record<string, string>;
+  desired_margin: string;
+};
+
+export type PricingPreviewResponse = {
+  qty: number;
+  desired_margin: number;
+  direct_costs_total: number;
+  cost_total_all: number;
+  unit_cost: number;
+  sale_price_unit: number;
+  profit_unit: number;
+};
+
+export type PricingApplyResponse = {
+  product_id: number;
+  unit_cost: number;
+  sale_price: number;
+  profit_unit: number;
+  direct_costs_total: number;
+  cost_total_all: number;
+};
+
 export const listProducts = async (
   search?: string,
   limit?: number,
@@ -42,5 +68,15 @@ export const updateProduct = async (id: number, data: Omit<Product, "id">) => {
 
 export const deleteProduct = async (id: number) => {
   const res = await api.delete(`/products/${id}`);
+  return res.data;
+};
+
+export const previewProductPricing = async (payload: PricingPreviewPayload): Promise<PricingPreviewResponse> => {
+  const res = await api.post("/catalog/pricing/preview", payload);
+  return res.data;
+};
+
+export const applyProductPricing = async (productId: number, payload: PricingPreviewPayload): Promise<PricingApplyResponse> => {
+  const res = await api.post(`/catalog/products/${productId}/pricing/apply`, payload);
   return res.data;
 };

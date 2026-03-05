@@ -48,6 +48,7 @@ const Products: React.FC = () => {
   });
 
   const rows = productsQuery.data || [];
+  const displayRows = useMemo(() => rows.map((row) => ({ ...row, price: row.sale_price ?? row.price })), [rows]);
   const categories = categoriesQuery.data || [];
   const isLoading = productsQuery.isLoading;
   const isError = productsQuery.isError;
@@ -147,7 +148,7 @@ const Products: React.FC = () => {
     [deleteMutation.isPending]
   );
 
-  const cardRows = rows.map((row: Product) => ({
+  const cardRows = displayRows.map((row: Product) => ({
     key: row.id,
     title: row.name,
     subtitle: row.category || "Sin categoria",
@@ -260,7 +261,7 @@ const Products: React.FC = () => {
         ) : (
           <div style={{ height: 460, width: "100%" }}>
             <DataGrid
-              rows={rows}
+              rows={displayRows}
               columns={columns}
               pageSizeOptions={[10, 25, 50, 100]}
               checkboxSelection

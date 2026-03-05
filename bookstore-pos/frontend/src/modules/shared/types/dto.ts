@@ -16,6 +16,13 @@ export type Product = {
   tags: string;
   price: number;
   cost: number;
+  sale_price: number;
+  cost_total: number;
+  cost_qty: number;
+  direct_costs_breakdown: string;
+  direct_costs_total: number;
+  desired_margin: number;
+  unit_cost: number;
   stock: number;
   stock_min: number;
 };

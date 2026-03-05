@@ -99,7 +99,7 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap
     const list = await listProducts(code.trim());
     const exact = list.find((p) => p.sku === code.trim());
     if (exact) {
-      const price = priceMap[exact.id] ?? exact.price;
+      const price = priceMap[exact.id] ?? exact.sale_price ?? exact.price;
       cart.addItem({ product_id: exact.id, sku: exact.sku, name: exact.name, price });
     } else {
       showToast({ message: "Producto no encontrado", severity: "error" });

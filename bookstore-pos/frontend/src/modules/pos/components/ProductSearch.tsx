@@ -283,7 +283,8 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
   }, [canSearch, correctedSearch, normalizedSearch, products.length, fallbackQuery.data]);
 
   const addProduct = (product: Product) => {
-    const price = priceMap?.[product.id] ?? product.price;
+    const baseSalePrice = product.sale_price ?? product.price;
+    const price = priceMap?.[product.id] ?? baseSalePrice;
     cart.addItem({ product_id: product.id, sku: product.sku, name: product.name, price });
   };
 
@@ -373,7 +374,8 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
               {!productsQuery.isFetching && !fallbackQuery.isFetching && visibleResults.length > 0 ? (
                 <List dense disablePadding>
                   {visibleResults.map((product, index) => {
-                    const price = priceMap?.[product.id] ?? product.price;
+                    const baseSalePrice = product.sale_price ?? product.price;
+                    const price = priceMap?.[product.id] ?? baseSalePrice;
                     return (
                       <ListItem
                         key={product.id}
@@ -507,7 +509,8 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
             {canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching ? (
               <List disablePadding>
                 {panelResults.map((product) => {
-                  const price = priceMap?.[product.id] ?? product.price;
+                  const baseSalePrice = product.sale_price ?? product.price;
+                  const price = priceMap?.[product.id] ?? baseSalePrice;
                   return (
                     <ListItem
                       key={product.id}
