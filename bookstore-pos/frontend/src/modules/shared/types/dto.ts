@@ -107,6 +107,8 @@ export type SaleResponse = {
   subtotal: number;
   tax: number;
   discount: number;
+  pack_discount?: number;
+  promotion_discount?: number;
   total: number;
   invoice_number: string;
   status: string;

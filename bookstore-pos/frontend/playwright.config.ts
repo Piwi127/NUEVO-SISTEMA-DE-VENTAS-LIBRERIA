@@ -23,7 +23,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port ${backendPort}`,
+      command: `cmd /c ".venv\\Scripts\\python.exe -m alembic upgrade head && .venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port ${backendPort}"`,
       cwd: "../backend",
       url: `http://127.0.0.1:${backendPort}/healthz`,
       timeout: 120_000,

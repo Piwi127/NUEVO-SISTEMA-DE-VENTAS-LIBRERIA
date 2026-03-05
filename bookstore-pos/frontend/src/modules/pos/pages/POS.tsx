@@ -9,7 +9,7 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/app/components";
-import { calcTotals, formatMoney } from "@/app/utils";
+import { formatMoney } from "@/app/utils";
 import {
   selectCanCharge,
   selectCartItemCount,
@@ -18,9 +18,10 @@ import {
   useCartStore,
   useSettings,
 } from "@/app/store";
-import { listActivePromotions } from "@/modules/catalog/api";
+import { listActiveProductPromotionRules, listActivePromotions } from "@/modules/catalog/api";
 import { listCustomers } from "@/modules/catalog/api";
 import { getCurrentCash } from "@/modules/pos/api";
+import { calculatePackPricing, calculatePosTotalsSummary } from "@/modules/pos/utils/pricing";
 import { getWsBaseUrl } from "@/modules/shared/api/runtime";
 import { Cart, PaymentDialog, ProductSearch } from "@/modules/pos/components";
 import { usePosCheckout, usePosPricing } from "@/modules/pos/hooks";
@@ -37,7 +38,6 @@ const makeSessionId = () => {
 const POS: React.FC = () => {
   const cart = useCartStore();
   const { taxRate, taxIncluded, paymentMethods, compactMode } = useSettings();
-  const { subtotal, total, tax } = calcTotals(cart.items, cart.discount, taxRate, taxIncluded);
   const compact = useMediaQuery("(max-width:900px)");
   const isCompact = compactMode || compact;
 
@@ -48,17 +48,40 @@ const POS: React.FC = () => {
 
   const cashQuery = useQuery({ queryKey: ["cash-current"], queryFn: getCurrentCash, staleTime: 10_000 });
   const customersQuery = useQuery({ queryKey: ["customers"], queryFn: listCustomers, staleTime: 60_000 });
-  const promosQuery = useQuery({ queryKey: ["promotions"], queryFn: listActivePromotions, staleTime: 60_000 });
+  const promosQuery = useQuery({ queryKey: ["promotions-active"], queryFn: listActivePromotions, staleTime: 60_000 });
+  const packRulesQuery = useQuery({
+    queryKey: ["promotion-pack-rules-active"],
+    queryFn: () => listActiveProductPromotionRules(),
+    staleTime: 60_000,
+  });
 
   const cash = cashQuery.data;
   const customers = customersQuery.data;
   const promos = promosQuery.data;
-  const isLoading = cashQuery.isLoading || customersQuery.isLoading || promosQuery.isLoading;
+  const packRules = packRulesQuery.data || [];
+  const packPricing = React.useMemo(() => calculatePackPricing(cart.items, packRules), [cart.items, packRules]);
+  const totalsSummary = React.useMemo(
+    () =>
+      calculatePosTotalsSummary({
+        grossSubtotal: packPricing.grossSubtotal,
+        subtotalAfterPacks: packPricing.subtotalAfterPacks,
+        packDiscount: packPricing.packDiscountTotal,
+        promotionDiscount: cart.discount,
+        taxRate,
+        taxIncluded,
+      }),
+    [packPricing, cart.discount, taxRate, taxIncluded]
+  );
+  const subtotal = totalsSummary.subtotal;
+  const total = totalsSummary.total;
+  const tax = totalsSummary.tax;
+
+  const isLoading = cashQuery.isLoading || customersQuery.isLoading || promosQuery.isLoading || packRulesQuery.isLoading;
 
   const { customerId, setCustomerId, promoId, setPromoId, priceMap } = usePosPricing({
     customers,
     promos,
-    subtotal,
+    subtotal: packPricing.subtotalAfterPacks,
     setCartDiscount: cart.setDiscount,
   });
 
@@ -68,7 +91,7 @@ const POS: React.FC = () => {
     customerId,
     promoId,
     priceMap,
-    totals: { subtotal, tax, discount: cart.discount, total },
+    totals: { subtotal, tax, discount: totalsSummary.promotionDiscount, total },
     wsRef,
   });
 
@@ -117,14 +140,14 @@ const POS: React.FC = () => {
     const payload = JSON.stringify({
       type: "CART_UPDATE",
       items: cart.items,
-      totals: { subtotal, tax, discount: cart.discount, total },
+      totals: { subtotal, tax, discount: totalsSummary.totalDiscount, total },
     });
     latestDisplayPayloadRef.current = payload;
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(payload);
     }
-  }, [cart.discount, cart.items, subtotal, tax, total]);
+  }, [cart.items, subtotal, tax, total, totalsSummary.totalDiscount]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -205,9 +228,30 @@ const POS: React.FC = () => {
               }}
             >
               <Typography variant="caption" sx={{ color: "#8a6b0f", fontWeight: 700 }}>
-                Descuento
+                Desc. packs
               </Typography>
-              <Typography sx={{ color: "#6e5300", fontWeight: 900, lineHeight: 1.1 }}>{formatMoney(cart.discount)}</Typography>
+              <Typography sx={{ color: "#6e5300", fontWeight: 900, lineHeight: 1.1 }}>{formatMoney(totalsSummary.packDiscount)}</Typography>
+            </Box>
+            <Box
+              sx={{
+                width: 134,
+                minHeight: 58,
+                px: 1.4,
+                py: 0.9,
+                borderRadius: 2,
+                border: "1px solid #e1c478",
+                bgcolor: "rgba(255,250,240,0.85)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
+              <Typography variant="caption" sx={{ color: "#8a6b0f", fontWeight: 700 }}>
+                Desc. promo
+              </Typography>
+              <Typography sx={{ color: "#6e5300", fontWeight: 900, lineHeight: 1.1 }}>
+                {formatMoney(totalsSummary.promotionDiscount)}
+              </Typography>
             </Box>
             <Box
               sx={{
@@ -239,6 +283,8 @@ const POS: React.FC = () => {
           <Chip label={`Cliente: ${selectCustomerLabel(customers, customerId)}`} />
           <Chip label={`Items: ${itemCount}`} />
           <Chip label={`Total: ${formatMoney(total)}`} />
+          <Chip label={`Pack: ${formatMoney(totalsSummary.packDiscount)}`} />
+          <Chip label={`Promo: ${formatMoney(totalsSummary.promotionDiscount)}`} />
         </Box>
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
           <Chip icon={<QrCodeScannerIcon />} label="1) Escanear o buscar producto" />
@@ -266,7 +312,7 @@ const POS: React.FC = () => {
                 {lastSaleId ? <Chip size="small" color="success" label={`Ultima venta #${lastSaleId}`} sx={{ ml: "auto" }} /> : null}
               </Stack>
 
-              <Cart />
+              <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} />
               <Divider sx={{ my: 2 }} />
               {!cashQuery.isLoading && !cash?.is_open ? (
                 <Alert
@@ -431,7 +477,7 @@ const POS: React.FC = () => {
               Limpiar carrito
             </Button>
           </Box>
-          <Cart />
+          <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} />
           <Divider sx={{ my: 2 }} />
           {!cashQuery.isLoading && !cash?.is_open ? (
             <Alert

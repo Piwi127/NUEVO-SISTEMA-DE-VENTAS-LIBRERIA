@@ -27,6 +27,8 @@ type ReceiptItem = {
   name?: string;
   product_id: number;
   qty: number;
+  discount?: number;
+  final_total?: number;
   line_total: number;
 };
 
@@ -35,6 +37,8 @@ type ReceiptPayload = {
   subtotal: number;
   tax: number;
   discount: number;
+  pack_discount?: number;
+  promotion_discount?: number;
   total: number;
   created_at: string;
   items: ReceiptItem[];
@@ -136,9 +140,17 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap
         <div>Venta: ${receipt.invoice_number}</div>
         <div>Fecha: ${receipt.created_at}</div>
         <hr />
-        ${receipt.items.map((item) => `<div>${item.name || item.product_id} x${item.qty} - ${item.line_total.toFixed(2)}</div>`).join("")}
+        ${receipt.items
+          .map((item) => {
+            const lineTotal = item.final_total ?? item.line_total;
+            const packNote = item.discount && item.discount > 0 ? ` <small>(pack -${item.discount.toFixed(2)})</small>` : "";
+            return `<div>${item.name || item.product_id} x${item.qty} - ${lineTotal.toFixed(2)}${packNote}</div>`;
+          })
+          .join("")}
         <hr />
         <div>Subtotal: ${receipt.subtotal.toFixed(2)}</div>
+        <div>Desc. packs: ${(receipt.pack_discount || 0).toFixed(2)}</div>
+        <div>Desc. promo: ${(receipt.promotion_discount || 0).toFixed(2)}</div>
         <div>Impuesto: ${receipt.tax.toFixed(2)}</div>
         <div>Descuento: ${receipt.discount.toFixed(2)}</div>
         <h4>Total: ${receipt.total.toFixed(2)}</h4>

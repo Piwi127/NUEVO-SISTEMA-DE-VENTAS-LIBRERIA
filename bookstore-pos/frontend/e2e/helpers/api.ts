@@ -9,6 +9,7 @@ type Product = {
   sku: string;
   name: string;
   category: string;
+  tags?: string;
   price: number;
   cost: number;
   stock: number;
@@ -29,7 +30,22 @@ export const apiLogin = async (api: APIRequestContext): Promise<string> => {
   return body.csrf_token as string;
 };
 
-export const ensureProduct = async (api: APIRequestContext, csrf: string, sku: string): Promise<Product> => {
+type EnsureProductOptions = Partial<{
+  name: string;
+  category: string;
+  tags: string;
+  price: number;
+  cost: number;
+  stock: number;
+  stock_min: number;
+}>;
+
+export const ensureProduct = async (
+  api: APIRequestContext,
+  csrf: string,
+  sku: string,
+  options: EnsureProductOptions = {}
+): Promise<Product> => {
   const searchResp = await api.get(`${API_URL}/products?search=${encodeURIComponent(sku)}&limit=20`);
   expect(searchResp.ok()).toBeTruthy();
   const existing = (await searchResp.json()) as Product[];
@@ -42,17 +58,39 @@ export const ensureProduct = async (api: APIRequestContext, csrf: string, sku: s
     headers: { "X-CSRF-Token": csrf },
     data: {
       sku,
-      name: `Producto E2E ${sku}`,
-      category: "E2E",
-      tags: "e2e,test",
-      price: 25,
-      cost: 10,
-      stock: 30,
-      stock_min: 2,
+      name: options.name || `Producto E2E ${sku}`,
+      category: options.category || "E2E",
+      tags: options.tags || "e2e,test",
+      price: options.price ?? 25,
+      cost: options.cost ?? 10,
+      stock: options.stock ?? 30,
+      stock_min: options.stock_min ?? 2,
     },
   });
   expect(createResp.ok()).toBeTruthy();
   return (await createResp.json()) as Product;
+};
+
+export const createPackRule = async (
+  api: APIRequestContext,
+  csrf: string,
+  data: {
+    name: string;
+    product_id: number;
+    bundle_qty: number;
+    bundle_price: number;
+    is_active?: boolean;
+  }
+): Promise<void> => {
+  const resp = await api.post(`${API_URL}/promotions/pack-rules`, {
+    headers: { "X-CSRF-Token": csrf },
+    data: {
+      ...data,
+      rule_type: "BUNDLE_PRICE",
+      is_active: data.is_active ?? true,
+    },
+  });
+  expect(resp.ok()).toBeTruthy();
 };
 
 export const ensureCashOpen = async (api: APIRequestContext, csrf: string): Promise<void> => {

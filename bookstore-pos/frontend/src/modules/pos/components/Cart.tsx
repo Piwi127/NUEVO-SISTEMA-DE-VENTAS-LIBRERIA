@@ -23,16 +23,45 @@ import { useCartStore } from "@/app/store";
 import { formatMoney } from "@/app/utils";
 import { useSettings } from "@/app/store";
 import { calcTotals } from "@/app/utils";
+import type { PackPricingLine, PosTotalsSummary } from "@/modules/pos/utils/pricing";
 
-export const Cart: React.FC = () => {
+type CartProps = {
+  packPricingLines?: Record<number, PackPricingLine>;
+  totalsSummary?: PosTotalsSummary;
+};
+
+export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary }) => {
   const cart = useCartStore();
   const { currency, taxRate, taxIncluded, compactMode } = useSettings();
   const compact = useMediaQuery("(max-width:900px)");
   const isCompact = compactMode || compact;
   const discount = cart.discount;
-  const { subtotal, total, tax } = calcTotals(cart.items, discount, taxRate, taxIncluded);
+  const fallbackTotals = calcTotals(cart.items, discount, taxRate, taxIncluded);
   const normalizeQty = (value: number) => (value < 1 ? 1 : value);
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+
+  const summary: PosTotalsSummary = totalsSummary || {
+    grossSubtotal: fallbackTotals.base,
+    subtotalAfterPacks: fallbackTotals.base,
+    subtotal: fallbackTotals.subtotal,
+    tax: fallbackTotals.tax,
+    total: fallbackTotals.total,
+    packDiscount: 0,
+    promotionDiscount: discount,
+    totalDiscount: discount,
+  };
+
+  const getLinePricing = (productId: number, qty: number, unitPrice: number): PackPricingLine => {
+    const line = packPricingLines?.[productId];
+    if (line) return line;
+    const baseTotal = qty * unitPrice;
+    return {
+      product_id: productId,
+      base_total: baseTotal,
+      pack_discount: 0,
+      final_total: baseTotal,
+    };
+  };
 
   useEffect(() => {
     const existingIds = new Set(cart.items.map((item) => item.product_id));
@@ -78,68 +107,79 @@ export const Cart: React.FC = () => {
 
       {isCompact ? (
         <Box sx={{ display: "grid", gap: 1 }}>
-          {cart.items.map((item) => (
-            <Paper
-              key={item.product_id}
-              sx={{ p: 1.5, display: "grid", gap: 1, bgcolor: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)" }}
-            >
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Checkbox
-                    checked={selectedSet.has(item.product_id)}
-                    onChange={() => toggleProduct(item.product_id)}
-                    sx={{ p: 0.5, color: "rgba(255,255,255,0.9)" }}
-                  />
-                  <Typography sx={{ fontWeight: 600 }}>{item.name}</Typography>
+          {cart.items.map((item) => {
+            const linePricing = getLinePricing(item.product_id, item.qty, item.price);
+            return (
+              <Paper
+                key={item.product_id}
+                sx={{ p: 1.5, display: "grid", gap: 1, bgcolor: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)" }}
+              >
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Checkbox
+                      checked={selectedSet.has(item.product_id)}
+                      onChange={() => toggleProduct(item.product_id)}
+                      sx={{ p: 0.5, color: "rgba(255,255,255,0.9)" }}
+                    />
+                    <Box>
+                      <Typography sx={{ fontWeight: 600 }}>{item.name}</Typography>
+                      {linePricing.pack_discount > 0 ? (
+                        <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.85)" }}>
+                          Pack {linePricing.bundles_applied}x({linePricing.bundle_qty} por {formatMoney(linePricing.bundle_price || 0)}): -
+                          {formatMoney(linePricing.pack_discount)}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  </Box>
+                  <IconButton onClick={() => cart.removeItem(item.product_id)} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
+                    <DeleteIcon />
+                  </IconButton>
                 </Box>
-                <IconButton onClick={() => cart.removeItem(item.product_id)} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
-                  <DeleteIcon />
-                </IconButton>
-              </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.9)", fontWeight: 700 }}>
-                  Cantidad
-                </Typography>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <IconButton size="small" onClick={() => cart.setQty(item.product_id, normalizeQty(item.qty - 1))} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
-                    <RemoveIcon fontSize="small" />
-                  </IconButton>
-                  <TextField
-                    size="small"
-                    type="number"
-                    value={item.qty}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      cart.setQty(item.product_id, normalizeQty(v === "" ? 1 : Number(v)));
-                    }}
-                    inputProps={{ min: 1, style: { width: 70, textAlign: "center" } }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        bgcolor: "rgba(255,255,255,0.16)",
-                        borderRadius: 1.5,
-                        "& fieldset": { borderColor: "rgba(255,255,255,0.34)" },
-                      },
-                    }}
-                  />
-                  <IconButton size="small" onClick={() => cart.setQty(item.product_id, item.qty + 1)} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
-                    <AddIcon fontSize="small" />
-                  </IconButton>
-                </Stack>
-              </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.9)", fontWeight: 700 }}>
-                  Precio
-                </Typography>
-                <Typography>{formatMoney(item.price)}</Typography>
-              </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
-                <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.9)", fontWeight: 700 }}>
-                  Subtotal
-                </Typography>
-                <Typography>{formatMoney(item.price * item.qty)}</Typography>
-              </Box>
-            </Paper>
-          ))}
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.9)", fontWeight: 700 }}>
+                    Cantidad
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <IconButton size="small" onClick={() => cart.setQty(item.product_id, normalizeQty(item.qty - 1))} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
+                      <RemoveIcon fontSize="small" />
+                    </IconButton>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={item.qty}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        cart.setQty(item.product_id, normalizeQty(v === "" ? 1 : Number(v)));
+                      }}
+                      inputProps={{ min: 1, style: { width: 70, textAlign: "center" } }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          bgcolor: "rgba(255,255,255,0.16)",
+                          borderRadius: 1.5,
+                          "& fieldset": { borderColor: "rgba(255,255,255,0.34)" },
+                        },
+                      }}
+                    />
+                    <IconButton size="small" onClick={() => cart.setQty(item.product_id, item.qty + 1)} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.9)", fontWeight: 700 }}>
+                    Precio
+                  </Typography>
+                  <Typography>{formatMoney(item.price)}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+                  <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.9)", fontWeight: 700 }}>
+                    Subtotal
+                  </Typography>
+                  <Typography>{formatMoney(linePricing.final_total)}</Typography>
+                </Box>
+              </Paper>
+            );
+          })}
         </Box>
       ) : (
         <TableContainer sx={{ borderRadius: 2, border: "1px solid rgba(255,255,255,0.2)", bgcolor: "rgba(255,255,255,0.05)" }}>
@@ -162,59 +202,70 @@ export const Cart: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {cart.items.map((item) => (
-                <TableRow key={item.product_id} hover sx={{ "&:hover": { bgcolor: "rgba(255,255,255,0.08)" } }}>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={selectedSet.has(item.product_id)}
-                      onChange={() => toggleProduct(item.product_id)}
-                      sx={{ color: "#fff" }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 170, fontWeight: 700 }}>{item.name}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <IconButton size="small" onClick={() => cart.setQty(item.product_id, normalizeQty(item.qty - 1))} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
-                        <RemoveIcon fontSize="small" />
-                      </IconButton>
-                      <TextField
-                        size="small"
-                        type="number"
-                        value={item.qty}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          cart.setQty(item.product_id, normalizeQty(v === "" ? 1 : Number(v)));
-                        }}
-                        inputProps={{ min: 1, style: { width: 56, textAlign: "center" } }}
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            bgcolor: "rgba(255,255,255,0.16)",
-                            borderRadius: 1.5,
-                            "& fieldset": { borderColor: "rgba(255,255,255,0.34)" },
-                          },
-                        }}
+              {cart.items.map((item) => {
+                const linePricing = getLinePricing(item.product_id, item.qty, item.price);
+                return (
+                  <TableRow key={item.product_id} hover sx={{ "&:hover": { bgcolor: "rgba(255,255,255,0.08)" } }}>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selectedSet.has(item.product_id)}
+                        onChange={() => toggleProduct(item.product_id)}
+                        sx={{ color: "#fff" }}
                       />
-                      <IconButton size="small" onClick={() => cart.setQty(item.product_id, item.qty + 1)} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
-                        <AddIcon fontSize="small" />
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 170, fontWeight: 700 }}>
+                      <Typography sx={{ fontWeight: 700 }}>{item.name}</Typography>
+                      {linePricing.pack_discount > 0 ? (
+                        <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.85)" }}>
+                          Pack {linePricing.bundles_applied}x({linePricing.bundle_qty} por {formatMoney(linePricing.bundle_price || 0)}): -
+                          {formatMoney(linePricing.pack_discount)}
+                        </Typography>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <IconButton size="small" onClick={() => cart.setQty(item.product_id, normalizeQty(item.qty - 1))} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
+                          <RemoveIcon fontSize="small" />
+                        </IconButton>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={item.qty}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            cart.setQty(item.product_id, normalizeQty(v === "" ? 1 : Number(v)));
+                          }}
+                          inputProps={{ min: 1, style: { width: 56, textAlign: "center" } }}
+                          sx={{
+                            "& .MuiOutlinedInput-root": {
+                              bgcolor: "rgba(255,255,255,0.16)",
+                              borderRadius: 1.5,
+                              "& fieldset": { borderColor: "rgba(255,255,255,0.34)" },
+                            },
+                          }}
+                        />
+                        <IconButton size="small" onClick={() => cart.setQty(item.product_id, item.qty + 1)} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{formatMoney(item.price)}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{formatMoney(linePricing.final_total)}</TableCell>
+                    <TableCell>
+                      <IconButton onClick={() => cart.removeItem(item.product_id)} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
+                        <DeleteIcon />
                       </IconButton>
-                    </Stack>
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>{formatMoney(item.price)}</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>{formatMoney(item.price * item.qty)}</TableCell>
-                  <TableCell>
-                    <IconButton onClick={() => cart.removeItem(item.product_id)} sx={{ bgcolor: "rgba(255,255,255,0.12)" }}>
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
       )}
       <Box sx={{ mt: 2, display: "flex", gap: 2, flexWrap: "wrap" }}>
         <TextField
-          label="Descuento"
+          label="Descuento promo/global"
           size="small"
           type="number"
           value={Number.isFinite(discount) ? discount : 0}
@@ -241,20 +292,24 @@ export const Cart: React.FC = () => {
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Box>Subtotal</Box>
-          <Box>{formatMoney(subtotal)}</Box>
+          <Box>Subtotal items (con packs)</Box>
+          <Box>{formatMoney(summary.subtotalAfterPacks)}</Box>
+        </Box>
+        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Box>Descuento packs</Box>
+          <Box>-{formatMoney(summary.packDiscount)}</Box>
+        </Box>
+        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Box>Descuento promo global</Box>
+          <Box>-{formatMoney(summary.promotionDiscount)}</Box>
         </Box>
         <Box sx={{ display: "flex", justifyContent: "space-between" }}>
           <Box>Impuesto</Box>
-          <Box>{formatMoney(tax)}</Box>
-        </Box>
-        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Box>Descuento</Box>
-          <Box>-{formatMoney(discount)}</Box>
+          <Box>{formatMoney(summary.tax)}</Box>
         </Box>
         <Box sx={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 18 }}>
           <Box>Total</Box>
-          <Box>{formatMoney(total)}</Box>
+          <Box>{formatMoney(summary.total)}</Box>
         </Box>
       </Box>
       <Box sx={{ mt: 1, fontSize: 12, color: "rgba(255,255,255,0.82)", fontWeight: 700 }}>Moneda: {currency}</Box>
