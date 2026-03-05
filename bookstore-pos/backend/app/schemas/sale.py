@@ -28,6 +28,8 @@ class SaleOut(BaseModel):
     subtotal: float
     tax: float
     discount: float
+    pack_discount: float = 0
+    promotion_discount: float = 0
     total: float
     invoice_number: str
     status: str

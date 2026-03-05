@@ -28,7 +28,7 @@ class ReportsService:
                 SaleItem.product_id,
                 Product.name,
                 func.sum(SaleItem.qty).label("qty_sold"),
-                func.sum(SaleItem.line_total).label("total_sold"),
+                func.sum(SaleItem.final_total).label("total_sold"),
             )
             .join(Product, Product.id == SaleItem.product_id)
             .join(Sale, Sale.id == SaleItem.sale_id)

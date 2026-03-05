@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Boolean
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -17,6 +17,8 @@ class Sale(Base):
     subtotal: Mapped[float] = mapped_column(Float)
     tax: Mapped[float] = mapped_column(Float, default=0)
     discount: Mapped[float] = mapped_column(Float, default=0)
+    pack_discount: Mapped[float] = mapped_column(Float, default=0)
+    promotion_discount: Mapped[float] = mapped_column(Float, default=0)
     total: Mapped[float] = mapped_column(Float)
     tax_rate: Mapped[float] = mapped_column(Float, default=0.0)
     tax_included: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -36,6 +38,10 @@ class SaleItem(Base):
     qty: Mapped[int] = mapped_column(Integer)
     unit_price: Mapped[float] = mapped_column(Float)
     line_total: Mapped[float] = mapped_column(Float)
+    discount: Mapped[float] = mapped_column(Float, default=0)
+    final_total: Mapped[float] = mapped_column(Float, default=0)
+    applied_rule_id: Mapped[int | None] = mapped_column(ForeignKey("promotion_rules.id"), nullable=True)
+    applied_rule_meta: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     sale: Mapped[Sale] = relationship(back_populates="items")
 

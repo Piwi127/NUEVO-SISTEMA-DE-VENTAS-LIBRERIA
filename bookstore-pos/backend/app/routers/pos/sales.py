@@ -67,6 +67,8 @@ async def get_receipt(sale_id: int, db: AsyncSession = Depends(get_db)):
         "subtotal": sale.subtotal,
         "tax": sale.tax,
         "discount": sale.discount,
+        "pack_discount": sale.pack_discount,
+        "promotion_discount": sale.promotion_discount,
         "total": sale.total,
         "items": [
             {
@@ -74,7 +76,12 @@ async def get_receipt(sale_id: int, db: AsyncSession = Depends(get_db)):
                 "name": i.name,
                 "qty": i.SaleItem.qty,
                 "unit_price": i.SaleItem.unit_price,
-                "line_total": i.SaleItem.line_total,
+                "line_total": i.SaleItem.final_total,
+                "base_line_total": i.SaleItem.line_total,
+                "discount": i.SaleItem.discount,
+                "final_total": i.SaleItem.final_total,
+                "applied_rule_id": i.SaleItem.applied_rule_id,
+                "applied_rule_meta": i.SaleItem.applied_rule_meta,
             }
             for i in items
         ],
