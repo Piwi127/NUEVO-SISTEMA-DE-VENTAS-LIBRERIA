@@ -26,7 +26,15 @@ import { PageHeader } from "@/app/components";
 import { TableToolbar } from "@/app/components";
 import { useToast } from "@/app/components";
 import { listProducts, listSuppliers } from "@/modules/catalog/api";
-import { createPurchaseOrder, exportPurchases, listPurchaseOrderItems, listPurchaseOrders, listPurchases, receivePurchaseOrder, supplierPayment } from "@/modules/inventory/api";
+import {
+  createPurchaseOrder,
+  exportPurchases,
+  listPurchaseOrderItems,
+  listPurchaseOrders,
+  listPurchases,
+  receivePurchaseOrderWithCosts,
+  supplierPayment,
+} from "@/modules/inventory/api";
 import { useSettings } from "@/app/store";
 import { formatMoney } from "@/app/utils";
 
@@ -50,6 +58,11 @@ const Purchases: React.FC = () => {
   const [receiveOrderId, setReceiveOrderId] = useState<number | "">("");
   const [receiveProductId, setReceiveProductId] = useState<number | "">("");
   const [receiveQty, setReceiveQty] = useState(0);
+  const [receiveTransport, setReceiveTransport] = useState("0");
+  const [receivePack, setReceivePack] = useState("0");
+  const [receiveOther, setReceiveOther] = useState("0");
+  const [receiveDelivery, setReceiveDelivery] = useState("0");
+  const [lotPrefix, setLotPrefix] = useState("PO");
   const [orderItems, setOrderItems] = useState<{ product_id: number; qty: number; unit_cost: number; received_qty: number }[]>([]);
 
   const [paySupplierId, setPaySupplierId] = useState<number | "">("");
@@ -75,7 +88,10 @@ const Purchases: React.FC = () => {
     title: `Compra #${p.id}`,
     subtitle: `Proveedor: ${p.supplier_id}`,
     right: <Typography sx={{ fontWeight: 700 }}>{formatMoney(p.total)}</Typography>,
-    fields: [],
+    fields: [
+      { label: "Subtotal", value: formatMoney(p.subtotal || 0) },
+      { label: "Costos directos", value: formatMoney(p.direct_costs_total || 0) },
+    ],
   }));
 
   const extractErrorDetail = (error: unknown, fallback: string): string => {
@@ -105,8 +121,25 @@ const Purchases: React.FC = () => {
   const handleReceive = async () => {
     if (!receiveOrderId || !receiveProductId || receiveQty <= 0) return;
     try {
-      await receivePurchaseOrder(Number(receiveOrderId), [{ product_id: Number(receiveProductId), qty: receiveQty }]);
-      showToast({ message: "Recepcion registrada", severity: "success" });
+      const direct_costs_breakdown = {
+        transport: Number(receiveTransport || 0),
+        pack: Number(receivePack || 0),
+        other: Number(receiveOther || 0),
+        delivery: Number(receiveDelivery || 0),
+      };
+      const result = await receivePurchaseOrderWithCosts(Number(receiveOrderId), {
+        items: [{ product_id: Number(receiveProductId), qty: receiveQty }],
+        direct_costs_breakdown,
+        lot_prefix: lotPrefix,
+      });
+      showToast({
+        message: `Recepcion registrada. Subtotal: ${formatMoney(result?.subtotal || 0)} | Total: ${formatMoney(result?.total || 0)}`,
+        severity: "success",
+      });
+      setReceiveTransport("0");
+      setReceivePack("0");
+      setReceiveOther("0");
+      setReceiveDelivery("0");
     } catch (error: unknown) {
       showToast({ message: extractErrorDetail(error, "No se pudo registrar la recepcion"), severity: "error" });
     }
@@ -270,6 +303,31 @@ const Purchases: React.FC = () => {
               })}
             </TextField>
             <TextField label="Cantidad" type="number" value={receiveQty} onChange={(e) => setReceiveQty(Number(e.target.value))} />
+            <TextField
+              label="Transporte (costo directo)"
+              type="number"
+              value={receiveTransport}
+              onChange={(e) => setReceiveTransport(e.target.value)}
+            />
+            <TextField
+              label="Empaque (costo directo)"
+              type="number"
+              value={receivePack}
+              onChange={(e) => setReceivePack(e.target.value)}
+            />
+            <TextField
+              label="Otros (costo directo)"
+              type="number"
+              value={receiveOther}
+              onChange={(e) => setReceiveOther(e.target.value)}
+            />
+            <TextField
+              label="Delivery (costo directo)"
+              type="number"
+              value={receiveDelivery}
+              onChange={(e) => setReceiveDelivery(e.target.value)}
+            />
+            <TextField label="Prefijo lote" value={lotPrefix} onChange={(e) => setLotPrefix(e.target.value)} />
             <Button variant="contained" onClick={handleReceive} disabled={!receiveOrderId || !receiveProductId || receiveQty <= 0}>
               Registrar recepcion
             </Button>
@@ -319,6 +377,8 @@ const Purchases: React.FC = () => {
                   <TableRow>
                     <TableCell>ID</TableCell>
                     <TableCell>Proveedor</TableCell>
+                    <TableCell align="right">Subtotal</TableCell>
+                    <TableCell align="right">Costos directos</TableCell>
                     <TableCell align="right">Total</TableCell>
                   </TableRow>
                 </TableHead>
@@ -327,6 +387,8 @@ const Purchases: React.FC = () => {
                     <TableRow key={p.id}>
                       <TableCell>{p.id}</TableCell>
                       <TableCell>{p.supplier_id}</TableCell>
+                      <TableCell align="right">{formatMoney(p.subtotal || 0)}</TableCell>
+                      <TableCell align="right">{formatMoney(p.direct_costs_total || 0)}</TableCell>
                       <TableCell align="right">{formatMoney(p.total)}</TableCell>
                     </TableRow>
                   ))}

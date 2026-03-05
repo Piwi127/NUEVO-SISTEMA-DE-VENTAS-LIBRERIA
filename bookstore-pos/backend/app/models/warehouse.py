@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -31,6 +31,10 @@ class StockBatch(Base):
     lot: Mapped[str] = mapped_column(String(50))
     expiry_date: Mapped[str] = mapped_column(String(20), default="")
     qty: Mapped[int] = mapped_column(Integer, default=0)
+    unit_cost: Mapped[float] = mapped_column(Numeric(14, 4), default=0)
+    direct_cost_allocated: Mapped[float] = mapped_column(Numeric(14, 4), default=0)
+    source_type: Mapped[str] = mapped_column(String(30), default="")
+    source_ref: Mapped[str] = mapped_column(String(50), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 

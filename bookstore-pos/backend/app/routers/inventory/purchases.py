@@ -42,9 +42,9 @@ async def export_purchases(
     rows = await list_purchases(from_date, to, supplier_id, 500, db)
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(["id", "supplier_id", "total", "created_at"])
+    writer.writerow(["id", "supplier_id", "subtotal", "direct_costs_total", "total", "created_at"])
     for r in rows:
-        writer.writerow([r.id, r.supplier_id, r.total, r.created_at])
+        writer.writerow([r.id, r.supplier_id, r.subtotal, r.direct_costs_total, r.total, r.created_at])
     return PlainTextResponse(output.getvalue(), media_type="text/csv")
 
 

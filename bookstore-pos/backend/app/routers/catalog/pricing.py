@@ -5,8 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import log_event
 from app.core.deps import get_current_user, get_db, require_permission
 from app.models.product import Product
-from app.schemas.pricing import PricingApplyOut, PricingPreviewIn, PricingPreviewOut
-from app.services.catalog.pricing_service import apply_pricing_to_product, preview_pricing
+from app.schemas.pricing import (
+    PricingApplyOut,
+    PricingBulkApplyIn,
+    PricingBulkApplyOut,
+    PricingPreviewIn,
+    PricingPreviewOut,
+)
+from app.services.catalog.pricing_service import apply_bulk_pricing, apply_pricing_to_product, preview_pricing
 
 router = APIRouter(prefix="/catalog", tags=["catalog-pricing"])
 
@@ -52,7 +58,7 @@ async def pricing_apply(
     old_sale_price = float(before.sale_price or before.price or 0)
     old_unit_cost = float(before.unit_cost or before.cost or 0)
 
-    async with db.begin():
+    try:
         _, result = await apply_pricing_to_product(db, product_id, data)
         details = (
             f"pricing_apply p:{old_sale_price:.2f}->{float(result.sale_price_unit):.2f} "
@@ -60,6 +66,10 @@ async def pricing_apply(
             f"m:{float(result.desired_margin):.4f}"
         )
         await log_event(db, current_user.id, "product_pricing_apply", "product", str(product_id), details[:255])
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
 
     return PricingApplyOut(
         product_id=product_id,
@@ -69,3 +79,27 @@ async def pricing_apply(
         direct_costs_total=float(result.direct_costs_total),
         cost_total_all=float(result.cost_total_all),
     )
+
+
+@router.post(
+    "/pricing/bulk-apply",
+    response_model=PricingBulkApplyOut,
+    dependencies=[Depends(require_permission("products.write"))],
+)
+async def pricing_bulk_apply(
+    data: PricingBulkApplyIn,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = await apply_bulk_pricing(db, data)
+        details = (
+            f"scope={result['scope']} desired_margin={result['desired_margin']:.4f} "
+            f"updated={result['updated_count']}"
+        )
+        await log_event(db, current_user.id, "product_pricing_bulk_apply", "product", "*", details[:255])
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    return PricingBulkApplyOut(**result)

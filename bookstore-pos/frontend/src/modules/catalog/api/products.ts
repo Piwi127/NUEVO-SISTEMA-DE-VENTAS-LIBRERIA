@@ -27,6 +27,31 @@ export type PricingApplyResponse = {
   cost_total_all: number;
 };
 
+export type PricingBulkApplyPayload = {
+  desired_margin: string;
+  category?: string;
+  product_ids?: number[];
+};
+
+export type PricingBulkApplyItem = {
+  product_id: number;
+  sku: string;
+  name: string;
+  old_sale_price: number;
+  new_sale_price: number;
+  old_margin: number;
+  new_margin: number;
+  unit_cost: number;
+  profit_unit: number;
+};
+
+export type PricingBulkApplyResponse = {
+  updated_count: number;
+  desired_margin: number;
+  scope: string;
+  items: PricingBulkApplyItem[];
+};
+
 export const listProducts = async (
   search?: string,
   limit?: number,
@@ -78,5 +103,10 @@ export const previewProductPricing = async (payload: PricingPreviewPayload): Pro
 
 export const applyProductPricing = async (productId: number, payload: PricingPreviewPayload): Promise<PricingApplyResponse> => {
   const res = await api.post(`/catalog/products/${productId}/pricing/apply`, payload);
+  return res.data;
+};
+
+export const applyBulkProductPricing = async (payload: PricingBulkApplyPayload): Promise<PricingBulkApplyResponse> => {
+  const res = await api.post("/catalog/pricing/bulk-apply", payload);
   return res.data;
 };

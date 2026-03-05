@@ -42,6 +42,10 @@ class BatchCreate(BaseModel):
     lot: str
     expiry_date: str = ""
     qty: int
+    unit_cost: float = 0
+    direct_cost_allocated: float = 0
+    source_type: str = ""
+    source_ref: str = ""
 
 
 class InventoryCountCreate(BaseModel):

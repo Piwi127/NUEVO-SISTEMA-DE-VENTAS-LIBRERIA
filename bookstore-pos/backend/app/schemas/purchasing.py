@@ -38,6 +38,8 @@ class ReceiveItem(BaseModel):
 
 class ReceiveOrder(BaseModel):
     items: list[ReceiveItem] = Field(min_length=1)
+    direct_costs_breakdown: dict[str, float] = Field(default_factory=dict)
+    lot_prefix: str = "PO"
 
 
 class SupplierPaymentCreate(BaseModel):

@@ -76,6 +76,7 @@ async def get_receipt(sale_id: int, db: AsyncSession = Depends(get_db)):
                 "name": i.name,
                 "qty": i.SaleItem.qty,
                 "unit_price": i.SaleItem.unit_price,
+                "unit_cost_snapshot": i.SaleItem.unit_cost_snapshot,
                 "line_total": i.SaleItem.final_total,
                 "base_line_total": i.SaleItem.line_total,
                 "discount": i.SaleItem.discount,

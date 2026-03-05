@@ -116,6 +116,7 @@ class SalesService:
                 if available < item.qty:
                     raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Stock insuficiente")
                 price = float(product.sale_price or product.price or 0)
+                unit_cost_snapshot = float(product.unit_cost or product.cost or 0)
                 if price_list_id:
                     price_res = await self.db.execute(
                         select(PriceListItem).where(
@@ -153,6 +154,7 @@ class SalesService:
                         "product": product,
                         "qty": item.qty,
                         "unit_price": price,
+                        "unit_cost_snapshot": unit_cost_snapshot,
                         "line_total": line_total,
                         "pack_discount": item_pack_discount,
                         "final_line_total": final_line_total,
@@ -227,6 +229,7 @@ class SalesService:
                     product_id=product.id,
                     qty=qty,
                     unit_price=item_payload["unit_price"],
+                    unit_cost_snapshot=item_payload["unit_cost_snapshot"],
                     line_total=item_payload["line_total"],
                     discount=item_payload["pack_discount"],
                     final_total=item_payload["final_line_total"],

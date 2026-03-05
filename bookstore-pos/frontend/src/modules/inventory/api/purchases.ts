@@ -4,6 +4,7 @@ import { PurchaseListResponse, PurchaseResponse } from "@/modules/shared/types";
 export const createPurchase = async (data: {
   supplier_id: number;
   items: { product_id: number; qty: number; unit_cost: number }[];
+  direct_costs_breakdown?: Record<string, number>;
   total: number;
 }): Promise<PurchaseResponse> => {
   const res = await api.post("/purchases", data);

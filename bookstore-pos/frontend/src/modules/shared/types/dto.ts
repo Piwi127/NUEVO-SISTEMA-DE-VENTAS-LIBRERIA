@@ -147,12 +147,16 @@ export type SaleReturnListResponse = {
 
 export type PurchaseResponse = {
   id: number;
+  subtotal?: number;
+  direct_costs_total?: number;
   total: number;
 };
 
 export type PurchaseListResponse = {
   id: number;
   supplier_id: number;
+  subtotal?: number;
+  direct_costs_total?: number;
   total: number;
   created_at: string;
 };
@@ -176,4 +180,23 @@ export type LowStockItem = {
   name: string;
   stock: number;
   stock_min: number;
+};
+
+export type ProfitabilitySummaryReport = {
+  from_date: string;
+  to_date: string;
+  sales_total: number;
+  estimated_cost_total: number;
+  gross_profit: number;
+  margin_percent: number;
+};
+
+export type ProfitabilityProductReport = {
+  product_id: number;
+  name: string;
+  qty_sold: number;
+  sales_total: number;
+  estimated_cost_total: number;
+  gross_profit: number;
+  margin_percent: number;
 };

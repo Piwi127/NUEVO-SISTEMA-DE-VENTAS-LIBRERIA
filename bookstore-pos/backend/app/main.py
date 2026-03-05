@@ -48,28 +48,18 @@ from app.db.session import AsyncSessionLocal
 async def verify_schema_compatibility() -> None:
     async with AsyncSessionLocal() as session:
         dialect = session.bind.dialect.name if session.bind else ""
-        if dialect == "sqlite":
-            result = await session.execute(text("PRAGMA table_info(products)"))
-            columns = {row[1] for row in result.fetchall()}
-            required = {
-                "tags",
-                "sale_price",
-                "cost_total",
-                "cost_qty",
-                "direct_costs_breakdown",
-                "direct_costs_total",
-                "desired_margin",
-                "unit_cost",
-            }
-            missing = sorted(required - columns)
-        else:
+        async def table_columns(table_name: str) -> set[str]:
+            if dialect == "sqlite":
+                result = await session.execute(text(f"PRAGMA table_info({table_name})"))
+                return {row[1] for row in result.fetchall()}
             result = await session.execute(
-                text(
-                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'products'"
-                )
+                text("SELECT column_name FROM information_schema.columns WHERE table_name = :table_name"),
+                {"table_name": table_name},
             )
-            columns = {row[0] for row in result.fetchall()}
-            required = {
+            return {row[0] for row in result.fetchall()}
+
+        required_columns = {
+            "products": {
                 "tags",
                 "sale_price",
                 "cost_total",
@@ -78,14 +68,22 @@ async def verify_schema_compatibility() -> None:
                 "direct_costs_total",
                 "desired_margin",
                 "unit_cost",
-            }
+            },
+            "purchases": {"subtotal", "direct_costs_breakdown", "direct_costs_total"},
+            "purchase_items": {"base_unit_cost", "direct_cost_allocated"},
+            "stock_batches": {"unit_cost", "direct_cost_allocated", "source_type", "source_ref"},
+            "sale_items": {"unit_cost_snapshot"},
+        }
+
+        for table_name, required in required_columns.items():
+            columns = await table_columns(table_name)
             missing = sorted(required - columns)
-        if missing:
-            missing_str = ", ".join(missing)
-            raise RuntimeError(
-                f"Esquema desactualizado: faltan columnas en products: {missing_str}. "
-                "Ejecute 'alembic upgrade head' antes de iniciar la API."
-            )
+            if missing:
+                missing_str = ", ".join(missing)
+                raise RuntimeError(
+                    f"Esquema desactualizado: faltan columnas en {table_name}: {missing_str}. "
+                    "Ejecute 'alembic upgrade head' antes de iniciar la API."
+                )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

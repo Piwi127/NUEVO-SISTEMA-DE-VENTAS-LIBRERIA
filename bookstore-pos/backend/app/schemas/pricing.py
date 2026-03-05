@@ -49,3 +49,43 @@ class PricingApplyOut(BaseModel):
     profit_unit: float
     direct_costs_total: float
     cost_total_all: float
+
+
+class PricingBulkApplyIn(BaseModel):
+    desired_margin: Decimal
+    category: str | None = None
+    product_ids: list[int] = Field(default_factory=list)
+
+    @field_validator("desired_margin")
+    @classmethod
+    def validate_bulk_margin(cls, value: Decimal) -> Decimal:
+        if value < 0 or value >= 1:
+            raise ValueError("desired_margin debe estar entre 0 y menor que 1")
+        return value
+
+    @field_validator("product_ids")
+    @classmethod
+    def validate_product_ids(cls, value: list[int]) -> list[int]:
+        invalid = [item for item in value if item <= 0]
+        if invalid:
+            raise ValueError("product_ids contiene ids invalidos")
+        return value
+
+
+class PricingBulkItemOut(BaseModel):
+    product_id: int
+    sku: str
+    name: str
+    old_sale_price: float
+    new_sale_price: float
+    old_margin: float
+    new_margin: float
+    unit_cost: float
+    profit_unit: float
+
+
+class PricingBulkApplyOut(BaseModel):
+    updated_count: int
+    desired_margin: float
+    scope: str
+    items: list[PricingBulkItemOut]

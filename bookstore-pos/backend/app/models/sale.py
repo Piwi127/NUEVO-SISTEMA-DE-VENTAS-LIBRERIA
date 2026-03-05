@@ -37,6 +37,7 @@ class SaleItem(Base):
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
     qty: Mapped[int] = mapped_column(Integer)
     unit_price: Mapped[float] = mapped_column(Float)
+    unit_cost_snapshot: Mapped[float] = mapped_column(Float, default=0)
     line_total: Mapped[float] = mapped_column(Float)
     discount: Mapped[float] = mapped_column(Float, default=0)
     final_total: Mapped[float] = mapped_column(Float, default=0)

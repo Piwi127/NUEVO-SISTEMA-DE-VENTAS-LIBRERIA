@@ -1,14 +1,29 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Checkbox, IconButton, MenuItem, Paper, TextField, Typography, useMediaQuery } from "@mui/material";
+import {
+  Box,
+  Button,
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  MenuItem,
+  Paper,
+  TextField,
+  Typography,
+  useMediaQuery,
+} from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import PriceChangeIcon from "@mui/icons-material/PriceChange";
 import { useNavigate } from "react-router-dom";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CardTable, EmptyState, ErrorState, LoadingState, PageHeader, TableToolbar, useToast } from "@/app/components";
-import { deleteProduct, listProductCategories, listProducts } from "@/modules/catalog/api";
+import { applyBulkProductPricing, deleteProduct, listProductCategories, listProducts } from "@/modules/catalog/api";
 import { Product } from "@/modules/shared/types";
 import { useSettings } from "@/app/store";
 
@@ -24,6 +39,10 @@ const Products: React.FC = () => {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkTarget, setBulkTarget] = useState<"selected" | "category" | "all">("selected");
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkMarginPercent, setBulkMarginPercent] = useState("35");
   const normalizedQuery = query.trim();
 
   const productsQuery = useQuery({
@@ -77,6 +96,42 @@ const Products: React.FC = () => {
     },
   });
 
+  const bulkPricingMutation = useMutation({
+    mutationFn: async () => {
+      const parsedMargin = Number(bulkMarginPercent);
+      if (!Number.isFinite(parsedMargin) || parsedMargin < 0 || parsedMargin >= 100) {
+        throw new Error("Margen invalido. Debe estar entre 0 y 99.99");
+      }
+      const payload: { desired_margin: string; product_ids?: number[]; category?: string } = {
+        desired_margin: (parsedMargin / 100).toString(),
+      };
+      if (bulkTarget === "selected") {
+        if (!selectedIds.length) throw new Error("No hay productos seleccionados");
+        payload.product_ids = selectedIds;
+      } else if (bulkTarget === "category") {
+        if (!bulkCategory) throw new Error("Selecciona una categoria");
+        payload.category = bulkCategory;
+      }
+      return applyBulkProductPricing(payload);
+    },
+    onSuccess: async (result) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["products"] }),
+        qc.invalidateQueries({ queryKey: ["products-smart-search"] }),
+        qc.invalidateQueries({ queryKey: ["products-smart-search-corrected"] }),
+      ]);
+      showToast({
+        message: `Ajuste masivo aplicado: ${result.updated_count} productos actualizados`,
+        severity: "success",
+      });
+      setBulkOpen(false);
+    },
+    onError: (error: any) => {
+      const detail = error?.response?.data?.detail || error?.message || "No se pudo aplicar el ajuste masivo";
+      showToast({ message: detail, severity: "error" });
+    },
+  });
+
   useEffect(() => {
     const rowIds = new Set(rows.map((row) => row.id));
     setSelectedIds((prev) => prev.filter((id) => rowIds.has(id)));
@@ -94,6 +149,10 @@ const Products: React.FC = () => {
 
   const handleDeleteOne = (id: number) => handleDeleteIds([id]);
   const handleDeleteSelected = () => handleDeleteIds(selectedIds);
+  const handleBulkApply = () => {
+    if (bulkPricingMutation.isPending) return;
+    bulkPricingMutation.mutate();
+  };
 
   const goToEdit = (id: number) => {
     navigate(`/products/${id}/edit`);
@@ -205,6 +264,23 @@ const Products: React.FC = () => {
               {deleteMutation.isPending ? "Eliminando..." : `Eliminar seleccionados (${selectedIds.length})`}
             </Button>
             <Button
+              variant="outlined"
+              startIcon={<PriceChangeIcon />}
+              onClick={() => {
+                if (selectedIds.length > 0) {
+                  setBulkTarget("selected");
+                } else if (category) {
+                  setBulkTarget("category");
+                  setBulkCategory(category);
+                } else {
+                  setBulkTarget("all");
+                }
+                setBulkOpen(true);
+              }}
+            >
+              Ajuste masivo de precios
+            </Button>
+            <Button
               variant="contained"
               startIcon={<AddIcon />}
               component="a"
@@ -287,6 +363,55 @@ const Products: React.FC = () => {
           </Typography>
         </Paper>
       ) : null}
+
+      <Dialog open={bulkOpen} onClose={() => setBulkOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Ajuste masivo de precios por margen</DialogTitle>
+        <DialogContent sx={{ display: "grid", gap: 2, pt: "12px !important" }}>
+          <TextField
+            select
+            label="Alcance"
+            value={bulkTarget}
+            onChange={(event) => setBulkTarget(event.target.value as "selected" | "category" | "all")}
+            fullWidth
+          >
+            <MenuItem value="selected">Productos seleccionados ({selectedIds.length})</MenuItem>
+            <MenuItem value="category">Por categoria</MenuItem>
+            <MenuItem value="all">Todo el catalogo</MenuItem>
+          </TextField>
+          {bulkTarget === "category" ? (
+            <TextField
+              select
+              label="Categoria"
+              value={bulkCategory}
+              onChange={(event) => setBulkCategory(event.target.value)}
+              fullWidth
+            >
+              <MenuItem value="">Seleccione</MenuItem>
+              {categories.map((item) => (
+                <MenuItem key={item} value={item}>
+                  {item}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
+          <TextField
+            label="Margen deseado (%)"
+            type="number"
+            value={bulkMarginPercent}
+            onChange={(event) => setBulkMarginPercent(event.target.value)}
+            helperText="Ejemplo: 35 para 35%"
+            fullWidth
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkOpen(false)} disabled={bulkPricingMutation.isPending}>
+            Cancelar
+          </Button>
+          <Button variant="contained" onClick={handleBulkApply} disabled={bulkPricingMutation.isPending}>
+            {bulkPricingMutation.isPending ? "Aplicando..." : "Aplicar ajuste"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
