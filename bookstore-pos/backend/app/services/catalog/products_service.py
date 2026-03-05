@@ -1,13 +1,20 @@
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
 from app.core.stock import apply_stock_delta, require_default_warehouse_id
 from app.models.inventory import StockMovement
+from app.models.price_list import PriceListItem
 from app.models.product import Product
+from app.models.purchase import PurchaseItem
+from app.models.purchasing import PurchaseOrderItem
+from app.models.sale import SaleItem
+from app.models.sale_return import SaleReturnItem
+from app.models.warehouse import InventoryCount, StockBatch, StockLevel, StockTransferItem
 
 
 class ProductsService:
@@ -99,7 +106,34 @@ class ProductsService:
         product = result.scalar_one_or_none()
         if not product:
             raise HTTPException(status_code=404, detail="Producto no encontrado")
-        async with self._transaction():
-            await self.db.delete(product)
-            await log_event(self.db, self.user.id, "product_delete", "product", str(product.id), product.sku)
+
+        usage_checks = (
+            (SaleItem, "ventas"),
+            (SaleReturnItem, "devoluciones"),
+            (PurchaseItem, "compras"),
+            (PurchaseOrderItem, "ordenes de compra"),
+            (StockTransferItem, "transferencias"),
+            (InventoryCount, "conteos de inventario"),
+        )
+        for model, label in usage_checks:
+            usage = await self.db.execute(select(model.id).where(model.product_id == product_id).limit(1))
+            if usage.scalar_one_or_none() is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"No se puede eliminar el producto porque tiene {label} registradas",
+                )
+
+        try:
+            async with self._transaction():
+                await self.db.execute(delete(PriceListItem).where(PriceListItem.product_id == product_id))
+                await self.db.execute(delete(StockBatch).where(StockBatch.product_id == product_id))
+                await self.db.execute(delete(StockLevel).where(StockLevel.product_id == product_id))
+                await self.db.execute(delete(StockMovement).where(StockMovement.product_id == product_id))
+                await self.db.delete(product)
+                await log_event(self.db, self.user.id, "product_delete", "product", str(product.id), product.sku)
+        except IntegrityError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No se puede eliminar el producto porque tiene movimientos relacionados",
+            ) from None
         return {"ok": True}

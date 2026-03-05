@@ -129,6 +129,76 @@ async def test_product_sale_flow(client):
 
 
 @pytest.mark.asyncio
+async def test_delete_product_with_stock_only_succeeds(client):
+    headers = await _login_admin(client)
+    resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-DEL-OK-001",
+            "name": "Libro borrar stock",
+            "category": "Pruebas",
+            "price": 12.0,
+            "cost": 6.0,
+            "stock": 4,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    product_id = resp.json()["id"]
+
+    delete_resp = await client.delete(f"/products/{product_id}", headers=headers)
+    assert delete_resp.status_code == 200
+    assert delete_resp.json()["ok"] is True
+
+    get_resp = await client.get(f"/products/{product_id}", headers=headers)
+    assert get_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_product_used_in_sale_returns_409(client):
+    headers = await _login_admin(client)
+    resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-DEL-USED-001",
+            "name": "Libro borrar usado",
+            "category": "Pruebas",
+            "price": 25.0,
+            "cost": 10.0,
+            "stock": 3,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    product = resp.json()
+
+    open_resp = await client.post("/cash/open", json={"opening_amount": 100.0}, headers=headers)
+    assert open_resp.status_code in {201, 409}
+
+    sale_resp = await client.post(
+        "/sales",
+        json={
+            "customer_id": None,
+            "items": [{"product_id": product["id"], "qty": 1}],
+            "payments": [{"method": "CASH", "amount": 25.0}],
+            "subtotal": 25.0,
+            "tax": 0.0,
+            "discount": 0.0,
+            "total": 25.0,
+            "promotion_id": None,
+        },
+        headers=headers,
+    )
+    assert sale_resp.status_code == 201
+
+    delete_resp = await client.delete(f"/products/{product['id']}", headers=headers)
+    assert delete_resp.status_code == 409
+    assert "No se puede eliminar el producto" in delete_resp.text
+
+
+@pytest.mark.asyncio
 async def test_audit_log_contains_entries(client):
     headers = await _login_admin(client)
     resp = await client.get("/audit", headers=headers)
