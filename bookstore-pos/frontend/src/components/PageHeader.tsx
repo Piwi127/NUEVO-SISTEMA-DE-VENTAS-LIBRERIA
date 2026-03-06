@@ -23,91 +23,100 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   rightPlacement = "afterTitle",
   loading,
 }) => {
-  const meta = (
+  const metaChips = [
+    ...(loading ? [
+      <Chip
+        key="loading"
+        label="Cargando"
+        size="small"
+        sx={{
+          bgcolor: alpha("#12355a", 0.08),
+          color: "text.primary",
+          border: "1px solid rgba(18,53,90,0.08)",
+        }}
+      />,
+    ] : []),
+    ...((chips || []).map((chip) => (
+      <Chip
+        key={chip}
+        label={chip}
+        size="small"
+        sx={{
+          bgcolor: alpha("#12355a", 0.05),
+          color: "text.primary",
+          border: "1px solid rgba(18,53,90,0.06)",
+        }}
+      />
+    ))),
+  ];
+
+  const meta = metaChips.length > 0 ? (
+    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap alignItems="center">
+      {metaChips}
+    </Stack>
+  ) : null;
+
+  const aside = meta || right ? (
     <Stack
-      direction="row"
+      direction={{ xs: "column", md: "row" }}
       spacing={1}
-      flexWrap="wrap"
       useFlexGap
+      alignItems={{ xs: "flex-start", md: "center" }}
+      justifyContent={{ xs: "flex-start", md: rightAlign === "right" ? "flex-end" : "flex-start" }}
       sx={{
-        ml: { md: rightAlign === "right" ? "auto" : 0 },
-        width: { xs: "100%", md: rightPlacement === "afterTitle" ? "auto" : "100%" },
-        flex: { md: rightPlacement === "afterTitle" && rightAlign === "right" ? 1 : "initial" },
-        justifyContent: { xs: "flex-start", md: rightAlign === "right" ? "flex-end" : "flex-start" },
-        alignItems: "center",
+        width: { xs: "100%", lg: "auto" },
+        ml: { lg: rightAlign === "right" ? "auto" : 0 },
+        minWidth: 0,
       }}
     >
-      {loading ? (
-        <Chip
-          label="Cargando"
-          size="small"
+      {meta}
+      {right ? (
+        <Box
           sx={{
-            bgcolor: alpha("#12355a", 0.08),
-            color: "text.primary",
-            border: "1px solid rgba(18,53,90,0.08)",
+            width: { xs: "100%", md: "auto" },
+            display: "flex",
+            justifyContent: { xs: "stretch", md: rightAlign === "right" ? "flex-end" : "flex-start" },
+            "& > *": { width: { xs: "100%", md: "auto" } },
           }}
-        />
+        >
+          {right}
+        </Box>
       ) : null}
-      {(chips || []).map((c, i) => (
-        <Chip
-          key={i}
-          label={c}
-          size="small"
-          sx={{
-            bgcolor: alpha("#12355a", 0.07),
-            color: "text.primary",
-            border: "1px solid rgba(18,53,90,0.06)",
-          }}
-        />
-      ))}
-      {right}
     </Stack>
-  );
+  ) : null;
 
   return (
     <Paper
       sx={{
-        position: "relative",
-        overflow: "hidden",
-        p: { xs: 2, md: 2.75 },
-        background: "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.9) 100%)",
+        p: { xs: 1.5, md: 1.75 },
+        background: "rgba(255,255,255,0.82)",
         border: "1px solid rgba(18,53,90,0.08)",
-        boxShadow: "0 18px 34px rgba(12, 31, 51, 0.08)",
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(circle at top left, rgba(18,53,90,0.08) 0%, rgba(18,53,90,0) 28%), radial-gradient(circle at top right, rgba(154,123,47,0.1) 0%, rgba(154,123,47,0) 24%)",
-          pointerEvents: "none",
-        },
+        boxShadow: "0 10px 24px rgba(12,31,51,0.05)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
       }}
     >
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={2}
-        alignItems={{ xs: "flex-start", md: "center" }}
-        sx={{ position: "relative", zIndex: 1 }}
-      >
-        {rightPlacement === "beforeTitle" ? meta : null}
+      <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} alignItems={{ xs: "flex-start", lg: "center" }}>
+        {rightPlacement === "beforeTitle" ? aside : null}
 
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-          <Box
-            sx={{
-              width: 50,
-              height: 50,
-              borderRadius: 2.5,
-              display: "grid",
-              placeItems: "center",
-              flexShrink: 0,
-              bgcolor: alpha("#12355a", 0.08),
-              color: "primary.main",
-              border: "1px solid rgba(18,53,90,0.08)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45)",
-            }}
-          >
-            {icon}
-          </Box>
+        <Stack direction="row" spacing={1.25} alignItems="flex-start" sx={{ minWidth: 0, flex: 1 }}>
+          {icon ? (
+            <Box
+              sx={{
+                width: { xs: 42, md: 46 },
+                height: { xs: 42, md: 46 },
+                borderRadius: 2.5,
+                display: "grid",
+                placeItems: "center",
+                flexShrink: 0,
+                bgcolor: alpha("#12355a", 0.05),
+                color: "primary.main",
+                border: "1px solid rgba(18,53,90,0.08)",
+              }}
+            >
+              {icon}
+            </Box>
+          ) : null}
 
           <Box sx={{ minWidth: 0 }}>
             <Typography
@@ -115,32 +124,33 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               sx={{
                 display: "block",
                 color: "text.secondary",
-                letterSpacing: 1.1,
+                letterSpacing: 1.15,
                 textTransform: "uppercase",
-                mb: 0.6,
+                mb: 0.5,
               }}
             >
-              Espacio de trabajo
+              Vista actual
             </Typography>
             <Typography
               variant="h5"
               sx={{
                 fontWeight: 800,
-                fontSize: { xs: "1.45rem", md: "1.8rem" },
-                lineHeight: 1.05,
+                fontSize: { xs: "1.35rem", md: "1.65rem" },
+                lineHeight: 1.1,
+                letterSpacing: "-0.02em",
               }}
             >
               {title}
             </Typography>
             {subtitle ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.7, maxWidth: 720 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.65, maxWidth: 780 }}>
                 {subtitle}
               </Typography>
             ) : null}
           </Box>
         </Stack>
 
-        {rightPlacement === "afterTitle" ? meta : null}
+        {rightPlacement === "afterTitle" ? aside : null}
       </Stack>
     </Paper>
   );
