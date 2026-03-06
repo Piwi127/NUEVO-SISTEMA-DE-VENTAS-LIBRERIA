@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
   Alert,
   Box,
@@ -7,6 +7,7 @@ import {
   Divider,
   MenuItem,
   Paper,
+  Stack,
   Tab,
   Tabs,
   Table,
@@ -24,7 +25,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, ResizableTable, useToast } from "@/app/components";
+import { ConfirmDialog, EmptyState, ErrorState, KpiCard, LoadingState, PageHeader, ResizableTable, useToast } from "@/app/components";
 import { useAuth } from "@/auth/AuthProvider";
 import { listProducts } from "@/modules/catalog/api";
 import {
@@ -170,6 +171,14 @@ const Inventory: React.FC = () => {
   const warehouses = warehousesQuery.data || [];
   const baseLoading = productsQuery.isLoading || warehousesQuery.isLoading;
   const baseError = productsQuery.isError || warehousesQuery.isError;
+  const lowStockCount = products.filter((item) => Number(item.stock || 0) <= Number(item.stock_min || 0)).length;
+  const criticalStockCount = products.filter((item) => Number(item.stock || 0) <= 0).length;
+  const inventoryUnits = products.reduce((acc, item) => acc + Number(item.stock || 0), 0);
+  const categoryCount = new Set(products.map((item) => item.category).filter(Boolean)).size;
+  const coverageGap = products.reduce(
+    (acc, item) => acc + Math.max(Number(item.stock_min || 0) - Number(item.stock || 0), 0),
+    0
+  );
 
   const [tab, setTab] = useState(0);
   const [file, setFile] = useState<File | null>(null);
@@ -497,6 +506,109 @@ const Inventory: React.FC = () => {
         icon={<Inventory2Icon color="primary" />}
         chips={[`Rol: ${role}`, `Productos: ${products.length}`, `Almacenes: ${warehouses.length}`]}
       />
+
+      <Paper
+        sx={{
+          p: { xs: 1.2, md: 1.45 },
+          background: "linear-gradient(135deg, rgba(16,58,95,0.98) 0%, rgba(18,116,107,0.96) 50%, rgba(154,123,47,0.92) 100%)",
+          color: "common.white",
+          border: "1px solid rgba(16,58,95,0.14)",
+          boxShadow: "0 26px 42px rgba(13,32,56,0.14)",
+        }}
+      >
+        <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} alignItems={{ xs: "flex-start", lg: "center" }} justifyContent="space-between">
+          <Box sx={{ maxWidth: 760 }}>
+            <Typography variant="overline" sx={{ color: "rgba(255,255,255,0.78)", letterSpacing: 1.15 }}>
+              Radar de abastecimiento
+            </Typography>
+            <Typography variant="h5" sx={{ mt: 0.45, fontWeight: 800, letterSpacing: "-0.03em" }}>
+              Control de stock y operaciones en una sola vista
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 0.65, color: "rgba(255,255,255,0.82)", maxWidth: 700 }}>
+              Este panel resume riesgo de quiebre, volumen actual y accesos operativos para importar, ajustar o revisar kardex.
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+              gap: 0.85,
+              width: "100%",
+              maxWidth: { md: 440 },
+              "& .MuiButton-root": {
+                width: "100%",
+                minWidth: 0,
+                justifyContent: "center",
+              },
+            }}
+          >
+            <Button variant="contained" startIcon={<DownloadIcon />} onClick={async () => downloadBlob(await downloadInventoryTemplate(), "inventario_template.csv")} sx={{ bgcolor: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)" }}>
+              Plantilla CSV
+            </Button>
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={async () => downloadBlob(await downloadInventoryTemplateXlsx(), "inventario_template.xlsx")} sx={{ borderColor: "rgba(255,255,255,0.34)", color: "common.white" }}>
+              Plantilla XLSX
+            </Button>
+          </Box>
+        </Stack>
+
+        <Box
+          sx={{
+            mt: 2,
+            display: "grid",
+            gap: 1.2,
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(180px, 1fr))" },
+          }}
+        >
+          <KpiCard label="Productos" value={`${products.length}`} accent="#dbeafe" />
+          <KpiCard label="Categorias" value={`${categoryCount}`} accent="#c7d2fe" />
+          <KpiCard label="Stock en alerta" value={`${lowStockCount}`} accent="#f97316" />
+          <KpiCard label="Sin stock" value={`${criticalStockCount}`} accent="#fecaca" />
+          <KpiCard label="Unidades totales" value={`${inventoryUnits}`} accent="#7dd3c7" />
+          <KpiCard label="Faltante minimo" value={`${coverageGap}`} accent="#fbbf24" />
+        </Box>
+      </Paper>
+
+      <Box sx={{ display: "grid", gap: 1.2, gridTemplateColumns: { xs: "1fr", xl: "1.2fr 0.95fr" } }}>
+        <Paper sx={{ p: { xs: 1.1, md: 1.25 } }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
+            <Inventory2Icon color="primary" />
+            <Typography variant="h6">Pulso de inventario</Typography>
+          </Stack>
+          <Stack spacing={1}>
+            {criticalStockCount > 0 ? (
+              <Alert severity="error">Hay {criticalStockCount} productos sin stock. Conviene priorizar compra o reposicion inmediata.</Alert>
+            ) : null}
+            {lowStockCount > 0 ? (
+              <Alert severity="warning">{lowStockCount} productos estan bajo el minimo. El faltante acumulado estimado es de {coverageGap} unidades.</Alert>
+            ) : null}
+            {file && totalRows > 0 ? (
+              <Alert severity="info">Hay un archivo listo para importar: {file.name}. Vista previa cargada con {totalRows} filas.</Alert>
+            ) : null}
+            {criticalStockCount === 0 && lowStockCount === 0 && !file ? (
+              <Alert severity="success">El inventario no presenta alertas criticas y no hay cargas pendientes en esta sesion.</Alert>
+            ) : null}
+          </Stack>
+        </Paper>
+
+        <Paper sx={{ p: { xs: 1.1, md: 1.25 } }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
+            <DownloadIcon color="primary" />
+            <Typography variant="h6">Atajos operativos</Typography>
+          </Stack>
+          <Box sx={{ display: "grid", gap: 0.9, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
+            <Button variant={tab === 0 ? "contained" : "outlined"} onClick={() => setTab(0)}>Carga masiva</Button>
+            <Button variant={tab === 1 ? "contained" : "outlined"} onClick={() => setTab(1)}>Operaciones</Button>
+            <Button variant={tab === 2 ? "contained" : "outlined"} onClick={() => setTab(2)}>Kardex</Button>
+            <Button variant="outlined" onClick={() => setKardexProductId(products[0]?.id ?? 0)} disabled={!products.length}>Primer producto</Button>
+          </Box>
+          <Box sx={{ mt: 1.2, display: "grid", gap: 0.8 }}>
+            <Chip label={`Vista actual: ${tab === 0 ? "Carga masiva" : tab === 1 ? "Operaciones" : "Kardex"}`} />
+            <Chip label={file ? `Archivo: ${file.name}` : "Sin archivo seleccionado"} color={file ? "primary" : "default"} />
+            <Chip label={kardexProductId ? `Kardex activo: producto #${kardexProductId}` : "Kardex sin producto seleccionado"} color={kardexProductId ? "success" : "default"} />
+          </Box>
+        </Paper>
+      </Box>
 
       <Paper sx={{ p: { xs: 0.8, md: 0.95 } }}>
         <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" allowScrollButtonsMobile>
@@ -991,6 +1103,12 @@ const Inventory: React.FC = () => {
 };
 
 export default Inventory;
+
+
+
+
+
+
 
 
 

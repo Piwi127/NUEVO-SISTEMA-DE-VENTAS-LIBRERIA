@@ -1,4 +1,4 @@
-import { api } from "@/modules/shared/api";
+﻿import { api } from "@/modules/shared/api";
 import {
   DailyReport,
   LowStockItem,
@@ -6,6 +6,21 @@ import {
   ProfitabilitySummaryReport,
   TopProductReport,
 } from "@/modules/shared/types";
+
+let profitabilitySupportPromise: Promise<boolean> | null = null;
+
+export const hasProfitabilitySupport = async (): Promise<boolean> => {
+  if (!profitabilitySupportPromise) {
+    profitabilitySupportPromise = api
+      .get("/openapi.json", { timeout: 4000 })
+      .then((res) => {
+        const paths = res.data?.paths ?? {};
+        return Boolean(paths["/reports/profitability"] && paths["/reports/profitability/products"]);
+      })
+      .catch(() => true);
+  }
+  return profitabilitySupportPromise;
+};
 
 export const getDailyReport = async (date: string): Promise<DailyReport> => {
   const res = await api.get("/reports/daily", { params: { date } });

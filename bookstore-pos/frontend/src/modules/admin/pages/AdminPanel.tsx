@@ -1,5 +1,6 @@
 ﻿import React, { useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Checkbox,
@@ -25,7 +26,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import SecurityIcon from "@mui/icons-material/Security";
 import SettingsIcon from "@mui/icons-material/Settings";
 import HistoryIcon from "@mui/icons-material/History";
-import { PageHeader, ResizableTable } from "@/app/components";
+import { KpiCard, PageHeader, ResizableTable } from "@/app/components";
 import { LoadingState } from "@/app/components";
 import { ErrorState } from "@/app/components";
 import { EmptyState } from "@/app/components";
@@ -108,6 +109,14 @@ const AdminPanel: React.FC = () => {
   const { logout } = useAuth();
   const { timeZone } = detectTimeContext();
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses, staleTime: 60_000 });
+  const warehouseCount = warehouses?.length ?? 0;
+  const paymentMethodCount = (paymentDraft || paymentMethods || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean).length;
+  const projectLabel = (nameDraft.trim() || projectName || "Sistema").trim() || "Sistema";
+  const hasDefaultWarehouse = defaultWarehouseDraft !== "" || defaultWarehouseId !== null;
+  const auditCount = audit.length;
 
   React.useEffect(() => {
     const load = async () => {
@@ -325,6 +334,105 @@ const AdminPanel: React.FC = () => {
         </Paper>
       ) : null}
 
+      <Paper
+        sx={{
+          p: { xs: 1.2, md: 1.45 },
+          background: "linear-gradient(135deg, rgba(16,58,95,0.98) 0%, rgba(28,84,143,0.96) 48%, rgba(18,116,107,0.94) 100%)",
+          color: "common.white",
+          border: "1px solid rgba(16,58,95,0.14)",
+          boxShadow: "0 26px 42px rgba(13,32,56,0.16)",
+        }}
+      >
+        <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} alignItems={{ xs: "flex-start", lg: "center" }} justifyContent="space-between">
+          <Box sx={{ maxWidth: 760 }}>
+            <Typography variant="overline" sx={{ color: "rgba(255,255,255,0.78)", letterSpacing: 1.15 }}>
+              Centro de control administrativo
+            </Typography>
+            <Typography variant="h5" sx={{ mt: 0.45, fontWeight: 800, letterSpacing: "-0.03em" }}>
+              Gobierno operativo de {projectLabel}
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 0.65, color: "rgba(255,255,255,0.82)", maxWidth: 700 }}>
+              Desde aqui se concentran configuracion corporativa, salud de la API, seguridad, auditoria y respaldo del sistema.
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+              gap: 0.85,
+              width: "100%",
+              maxWidth: { md: 420 },
+              "& .MuiButton-root": {
+                width: "100%",
+                minWidth: 0,
+                justifyContent: "center",
+              },
+            }}
+          >
+            <Button variant="contained" startIcon={<SettingsIcon />} onClick={runHealthCheck} sx={{ bgcolor: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)" }}>
+              Verificar API
+            </Button>
+            <Button variant="outlined" startIcon={<HistoryIcon />} onClick={loadAudit} sx={{ borderColor: "rgba(255,255,255,0.34)", color: "common.white" }}>
+              Cargar auditoria
+            </Button>
+          </Box>
+        </Stack>
+
+        <Box
+          sx={{
+            mt: 2,
+            display: "grid",
+            gap: 1.2,
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(180px, 1fr))" },
+          }}
+        >
+          <KpiCard label="Almacenes activos" value={`${warehouseCount}`} accent="#dbeafe" />
+          <KpiCard label="Metodos de pago" value={`${paymentMethodCount}`} accent="#d8b86b" />
+          <KpiCard label="Auditoria cargada" value={`${auditCount}`} accent="#7dd3c7" />
+          <KpiCard label="Modo UI" value={compactMode ? "Compacto" : "Estandar"} accent="#c7d2fe" />
+        </Box>
+      </Paper>
+
+      <Box sx={{ display: "grid", gap: 1.2, gridTemplateColumns: { xs: "1fr", xl: "1.2fr 0.95fr" } }}>
+        <Paper sx={{ p: { xs: 1.1, md: 1.25 } }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
+            <SettingsIcon color="primary" />
+            <Typography variant="h6">Estado administrativo</Typography>
+          </Stack>
+          <Stack spacing={1}>
+            {health === "error" ? (
+              <Alert severity="error">La API no respondio en la ultima verificacion. Conviene revisar backend o red local.</Alert>
+            ) : null}
+            {warehouseCount === 0 ? (
+              <Alert severity="error">Todavia no hay almacenes configurados. El sistema necesita al menos uno para operar con inventario.</Alert>
+            ) : null}
+            {!hasDefaultWarehouse ? (
+              <Alert severity="warning">No hay almacen por defecto asignado. Algunas operaciones pueden requerir seleccion manual.</Alert>
+            ) : null}
+            {auditCount === 0 && !auditLoading ? (
+              <Alert severity="info">La auditoria sigue bajo demanda. Usa "Cargar auditoria" para traer los eventos recientes.</Alert>
+            ) : null}
+            {health === "ok" && warehouseCount > 0 && hasDefaultWarehouse ? (
+              <Alert severity="success">La base operativa del sistema esta lista: API verificada, almacenes disponibles y configuracion principal encaminada.</Alert>
+            ) : null}
+          </Stack>
+        </Paper>
+
+        <Paper sx={{ p: { xs: 1.1, md: 1.25 } }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
+            <SecurityIcon color="primary" />
+            <Typography variant="h6">Acciones rapidas</Typography>
+          </Stack>
+          <Box sx={{ display: "grid", gap: 0.9, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackup}>Generar backup</Button>
+            <Button variant="outlined" startIcon={<SecurityIcon />} onClick={handleSetup2fa}>Preparar 2FA</Button>
+            <Button variant="outlined" startIcon={<HistoryIcon />} onClick={loadAudit}>Actualizar auditoria</Button>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>Guardar configuracion</Button>
+          </Box>
+        </Paper>
+      </Box>
+
       <Paper sx={{ p: { xs: 1, md: 1.35 } }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
           <SettingsIcon color="primary" />
@@ -462,6 +570,7 @@ const AdminPanel: React.FC = () => {
 };
 
 export default AdminPanel;
+
 
 
 
