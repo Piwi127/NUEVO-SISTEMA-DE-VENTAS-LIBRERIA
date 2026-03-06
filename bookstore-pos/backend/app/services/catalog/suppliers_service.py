@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.supplier import Supplier
 
+from app.services._transaction import service_transaction
 
 class SuppliersService:
     def __init__(self, db: AsyncSession):
@@ -13,16 +14,8 @@ class SuppliersService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def create_supplier(self, data):
         async with self._transaction():

@@ -8,6 +8,7 @@ from app.core.audit import log_event
 from app.models.settings import SystemSettings
 from app.schemas.settings import SystemSettingsOut
 
+from app.services._transaction import service_transaction
 
 class SettingsService:
     def __init__(self, db: AsyncSession, current_user=None):
@@ -16,16 +17,8 @@ class SettingsService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def get_settings(self):
         result = await self.db.execute(select(SystemSettings).limit(1))

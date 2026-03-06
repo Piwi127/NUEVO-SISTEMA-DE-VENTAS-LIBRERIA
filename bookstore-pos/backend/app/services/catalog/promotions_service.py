@@ -8,6 +8,7 @@ from app.models.product import Product
 from app.models.promotion import Promotion
 from app.models.promotion_rule import PromotionRule
 
+from app.services._transaction import service_transaction
 
 class PromotionsService:
     def __init__(self, db: AsyncSession):
@@ -15,16 +16,8 @@ class PromotionsService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def list_promotions(self):
         result = await self.db.execute(select(Promotion).order_by(Promotion.id.desc()))

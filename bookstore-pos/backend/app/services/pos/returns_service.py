@@ -12,6 +12,7 @@ from app.models.sale import Sale, SaleItem
 from app.models.sale_return import SaleReturn, SaleReturnItem
 from app.schemas.sale_return import SaleReturnListOut
 
+from app.services._transaction import service_transaction
 
 class ReturnsService:
     def __init__(self, db: AsyncSession, current_user):
@@ -20,16 +21,8 @@ class ReturnsService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def return_sale(self, sale_id: int, data):
         res = await self.db.execute(select(Sale).where(Sale.id == sale_id))

@@ -9,6 +9,7 @@ from app.core.audit import log_event
 from app.core.security import get_password_hash, validate_password, encrypt_2fa_secret, decrypt_2fa_secret
 from app.models.user import User
 
+from app.services._transaction import service_transaction
 
 class UsersService:
     def __init__(self, db: AsyncSession, current_user):
@@ -17,16 +18,8 @@ class UsersService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def create_user(self, data):
         exists = await self.db.execute(select(User).where(User.username == data.username))

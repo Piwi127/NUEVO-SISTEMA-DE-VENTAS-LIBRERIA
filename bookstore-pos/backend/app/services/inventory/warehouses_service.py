@@ -8,6 +8,7 @@ from app.core.audit import log_event
 from app.core.stock import apply_stock_delta
 from app.models.warehouse import Warehouse, StockLevel, StockTransfer, StockTransferItem, InventoryCount, StockBatch
 
+from app.services._transaction import service_transaction
 
 class WarehousesService:
     def __init__(self, db: AsyncSession, current_user=None):
@@ -16,16 +17,8 @@ class WarehousesService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def list_warehouses(self):
         result = await self.db.execute(select(Warehouse).order_by(Warehouse.id))

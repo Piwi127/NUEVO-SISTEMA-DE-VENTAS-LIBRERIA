@@ -7,6 +7,7 @@ from app.core.audit import log_event
 from app.models.permission import RolePermission
 from app.schemas.permission import RolePermissionsOut
 
+from app.services._transaction import service_transaction
 
 class PermissionsService:
     def __init__(self, db: AsyncSession, current_user=None):
@@ -15,16 +16,8 @@ class PermissionsService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def get_role_permissions(self, role: str) -> RolePermissionsOut:
         result = await self.db.execute(select(RolePermission).where(RolePermission.role == role))

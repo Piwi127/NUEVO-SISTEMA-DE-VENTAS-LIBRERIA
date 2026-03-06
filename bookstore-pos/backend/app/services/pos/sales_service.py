@@ -19,6 +19,7 @@ from app.models.sale import Sale, SaleItem, Payment
 from app.models.settings import SystemSettings
 from app.services.pos.pricing import BundleRuleInput, select_best_bundle_rule
 
+from app.services._transaction import service_transaction
 
 class SalesService:
     def __init__(self, db: AsyncSession, current_user):
@@ -27,16 +28,8 @@ class SalesService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def create_sale(self, data):
         if not data.items:

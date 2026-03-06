@@ -17,6 +17,7 @@ from app.schemas.cash import (
     CashSummaryOut,
 )
 
+from app.services._transaction import service_transaction
 
 class CashService:
     def __init__(self, db: AsyncSession, current_user):
@@ -25,16 +26,8 @@ class CashService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def get_open_session(self) -> CashSession | None:
         result = await self.db.execute(

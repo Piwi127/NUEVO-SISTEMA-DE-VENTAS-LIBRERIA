@@ -22,6 +22,7 @@ from app.services.inventory.costing import (
     weighted_unit_cost,
 )
 
+from app.services._transaction import service_transaction
 
 class PurchasingService:
     def __init__(self, db: AsyncSession, current_user):
@@ -30,16 +31,8 @@ class PurchasingService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     async def _require_supplier(self, supplier_id: int) -> None:
         result = await self.db.execute(select(Supplier.id).where(Supplier.id == supplier_id))

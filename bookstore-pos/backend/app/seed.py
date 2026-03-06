@@ -89,16 +89,11 @@ async def seed_admin(db: AsyncSession) -> None:
             validate_password(password)
             user_res = await db.execute(select(User).where(User.username == username))
             user = user_res.scalar_one_or_none()
-            password_hash = get_password_hash(password)
-            if user:
-                user.password_hash = password_hash
-                user.role = "admin"
-                user.is_active = True
-            else:
+            if user is None:
                 db.add(
                     User(
                         username=username,
-                        password_hash=password_hash,
+                        password_hash=get_password_hash(password),
                         role="admin",
                         is_active=True,
                     )

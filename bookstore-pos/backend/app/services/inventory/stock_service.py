@@ -9,6 +9,7 @@ from app.core.stock import apply_stock_delta, require_default_warehouse_id
 from app.models.inventory import StockMovement
 from app.models.product import Product
 
+from app.services._transaction import service_transaction
 
 class StockService:
     def __init__(self, db: AsyncSession, current_user):
@@ -17,16 +18,8 @@ class StockService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     def _parse_float(self, row_number: int, row: dict, field: str, *, min_value: float = 0.0) -> float:
         raw = row.get(field)

@@ -16,6 +16,7 @@ from app.models.sale import SaleItem
 from app.models.sale_return import SaleReturnItem
 from app.models.warehouse import InventoryCount, StockBatch, StockLevel, StockTransferItem
 
+from app.services._transaction import service_transaction
 
 class ProductsService:
     def __init__(self, db: AsyncSession, current_user):
@@ -24,16 +25,8 @@ class ProductsService:
 
     @asynccontextmanager
     async def _transaction(self):
-        if self.db.in_transaction():
-            try:
-                yield
-                await self.db.commit()
-            except Exception:
-                await self.db.rollback()
-                raise
-        else:
-            async with self.db.begin():
-                yield
+        async with service_transaction(self.db):
+            yield
 
     @staticmethod
     def _normalize_pricing_payload(payload: dict) -> dict:

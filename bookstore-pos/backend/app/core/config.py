@@ -1,4 +1,4 @@
-﻿from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 
 
@@ -28,8 +28,8 @@ class Settings(BaseSettings):
     health_allow_local_only: bool = True
     metrics_allow_local_only: bool = True
     bootstrap_dev_admin: bool = False
-    bootstrap_admin_username: str = "e2e_admin"
-    bootstrap_admin_password: str = "E2EAdmin1234"
+    bootstrap_admin_username: str = ""
+    bootstrap_admin_password: str = ""
 
     model_config = ConfigDict(env_file=".env")
 

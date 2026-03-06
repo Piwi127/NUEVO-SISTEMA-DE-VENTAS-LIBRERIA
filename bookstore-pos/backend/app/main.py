@@ -240,7 +240,7 @@ class CsrfMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method == "OPTIONS":
             return await call_next(request)
-        if request.url.path in {"/auth/login", "/auth/logout"}:
+        if request.url.path == "/auth/login":
             return await call_next(request)
         if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             has_auth_header = bool(request.headers.get("authorization"))
@@ -345,5 +345,3 @@ async def health_ready():
 @app.get("/metrics")
 async def metrics():
     return Response(content=render_metrics(), media_type=CONTENT_TYPE_LATEST)
-
-
