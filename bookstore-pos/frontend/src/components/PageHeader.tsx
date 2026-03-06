@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -31,10 +31,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             label="Cargando"
             size="small"
             sx={{
-              height: 24,
-              bgcolor: alpha("#12355a", 0.08),
+              height: 26,
+              bgcolor: alpha("#103a5f", 0.08),
               color: "text.primary",
-              border: "1px solid rgba(18,53,90,0.08)",
+              border: "1px solid rgba(16,58,95,0.08)",
             }}
           />,
         ]
@@ -45,17 +45,17 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         label={chip}
         size="small"
         sx={{
-          height: 24,
-          bgcolor: alpha("#12355a", 0.05),
+          height: 26,
+          bgcolor: alpha("#12746b", 0.08),
           color: "text.primary",
-          border: "1px solid rgba(18,53,90,0.06)",
+          border: "1px solid rgba(18,116,107,0.12)",
         }}
       />
     ))),
   ];
 
   const meta = metaChips.length > 0 ? (
-    <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap alignItems="center" sx={{ minWidth: 0 }}>
+    <Stack direction="row" spacing={0.7} flexWrap="wrap" useFlexGap alignItems="center" sx={{ minWidth: 0 }}>
       {metaChips}
     </Stack>
   ) : null;
@@ -64,13 +64,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "1fr", xl: meta && right ? "minmax(0, 1fr) minmax(260px, auto)" : "1fr" },
-        gap: 0.85,
+        gridTemplateColumns: { xs: "1fr", xl: meta && right ? "minmax(0, 1fr) minmax(300px, auto)" : "1fr" },
+        gap: 0.9,
         alignItems: "center",
-        p: meta && right ? 0.75 : 0,
-        borderRadius: 2,
-        bgcolor: meta && right ? "rgba(18,53,90,0.035)" : "transparent",
-        border: meta && right ? "1px solid rgba(18,53,90,0.05)" : "none",
+        p: meta && right ? 0.9 : 0,
+        borderRadius: 3,
+        bgcolor: meta && right ? "rgba(240,246,253,0.82)" : "transparent",
+        border: meta && right ? "1px solid rgba(16,58,95,0.08)" : "none",
+        backdropFilter: meta && right ? "blur(10px)" : "none",
         minWidth: 0,
       }}
     >
@@ -96,20 +97,21 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   ) : null;
 
   const heading = (
-    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "flex-start", sm: "center" }} sx={{ minWidth: 0 }}>
+    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.15} alignItems={{ xs: "flex-start", sm: "center" }} sx={{ minWidth: 0 }}>
       {icon ? (
         <Box
           sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 2,
+            width: 50,
+            height: 50,
+            borderRadius: 3,
             color: "primary.main",
-            bgcolor: "rgba(18,53,90,0.06)",
-            border: "1px solid rgba(18,53,90,0.08)",
+            background: "linear-gradient(135deg, rgba(16,58,95,0.14) 0%, rgba(18,116,107,0.14) 100%)",
+            border: "1px solid rgba(16,58,95,0.1)",
             display: "grid",
             placeItems: "center",
             flexShrink: 0,
-            "& .MuiSvgIcon-root": { fontSize: 22 },
+            boxShadow: "0 12px 24px rgba(13,32,56,0.08)",
+            "& .MuiSvgIcon-root": { fontSize: 24 },
           }}
         >
           {icon}
@@ -117,20 +119,25 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       ) : null}
 
       <Box sx={{ minWidth: 0 }}>
+        <Typography variant="overline" sx={{ letterSpacing: 1.2, color: alpha("#103a5f", 0.74), lineHeight: 1 }}>
+          Panel de gestion
+        </Typography>
         <Typography
           variant="h5"
           sx={{
+            mt: 0.28,
             fontWeight: 800,
-            fontSize: "clamp(1.18rem, 1.02rem + 0.68vw, 1.7rem)",
-            lineHeight: 1.06,
-            letterSpacing: "-0.03em",
+            fontSize: "clamp(1.2rem, 1.02rem + 0.72vw, 1.82rem)",
+            lineHeight: 1.04,
+            letterSpacing: "-0.035em",
             wordBreak: "break-word",
+            color: "text.primary",
           }}
         >
           {title}
         </Typography>
         {subtitle ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35, maxWidth: "min(720px, 100%)" }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.42, maxWidth: "min(760px, 100%)" }}>
             {subtitle}
           </Typography>
         ) : null}
@@ -141,15 +148,36 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   return (
     <Paper
       sx={{
-        p: { xs: 1, sm: 1.1, md: 1.2 },
-        background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,253,0.9) 100%)",
-        border: "1px solid rgba(18,53,90,0.08)",
-        boxShadow: "0 12px 28px rgba(12,31,51,0.05)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
+        position: "relative",
+        overflow: "hidden",
+        p: { xs: 1.1, sm: 1.2, md: 1.35 },
+        background: "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(244,249,255,0.97) 58%, rgba(236,246,244,0.94) 100%)",
+        border: "1px solid rgba(16,58,95,0.08)",
+        boxShadow: "0 18px 36px rgba(13,32,56,0.07)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 4,
+          background: "linear-gradient(90deg, #103a5f 0%, #2b6cb0 55%, #12746b 100%)",
+        },
+        "&::after": {
+          content: '""',
+          position: "absolute",
+          right: -42,
+          top: -56,
+          width: 190,
+          height: 190,
+          borderRadius: "50%",
+          background: "rgba(16,58,95,0.06)",
+        },
       }}
     >
-      <Stack spacing={0.9} sx={{ minWidth: 0 }}>
+      <Stack spacing={1} sx={{ minWidth: 0, position: "relative", zIndex: 1 }}>
         {rightPlacement === "beforeTitle" ? actionBand : null}
         {heading}
         {rightPlacement === "afterTitle" ? actionBand : null}

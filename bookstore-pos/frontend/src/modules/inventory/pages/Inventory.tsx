@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
   Box,
@@ -991,6 +991,7 @@ const Inventory: React.FC = () => {
 };
 
 export default Inventory;
+
 
 
 

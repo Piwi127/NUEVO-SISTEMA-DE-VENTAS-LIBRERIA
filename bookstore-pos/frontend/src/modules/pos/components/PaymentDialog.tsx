@@ -86,8 +86,8 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
               background: "linear-gradient(155deg, rgba(18,53,90,0.06) 0%, rgba(18,53,90,0.02) 52%, rgba(154,123,47,0.08) 100%)",
             }}
           >
-            <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
-              <Box sx={{ minWidth: 120 }}>
+            <Box sx={{ display: "grid", gap: 1.2, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" } }}>
+              <Box sx={{ minWidth: 0 }}>
                 <Typography variant="caption" color="text.secondary">
                   Total
                 </Typography>
@@ -95,13 +95,13 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
                   {formatMoney(total)}
                 </Typography>
               </Box>
-              <Box sx={{ minWidth: 120 }}>
+              <Box sx={{ minWidth: 0 }}>
                 <Typography variant="caption" color="text.secondary">
                   Ingresado
                 </Typography>
                 <Typography sx={{ fontWeight: 800 }}>{formatMoney(sum)}</Typography>
               </Box>
-              <Box sx={{ minWidth: 120 }}>
+              <Box sx={{ minWidth: 0 }}>
                 <Typography variant="caption" color="text.secondary">
                   {change > 0 ? "Vuelto" : "Pendiente"}
                 </Typography>
@@ -109,7 +109,7 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
                   {formatMoney(change > 0 ? change : remaining)}
                 </Typography>
               </Box>
-            </Stack>
+            </Box>
           </Paper>
 
           <Typography variant="body2" color="text.secondary">
@@ -170,3 +170,4 @@ export const PaymentDialog: React.FC<Props> = ({ open, total, methods, onClose, 
     </Dialog>
   );
 };
+

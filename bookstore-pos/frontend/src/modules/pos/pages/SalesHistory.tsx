@@ -1,18 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { Box, Button, Link, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import { PageHeader } from "@/app/components";
-import { TableToolbar } from "@/app/components";
-import { EmptyState } from "@/app/components";
-import { CardTable } from "@/app/components";
+import { CardTable, EmptyState, PageHeader, ResizableTable, TableToolbar, useToast } from "@/app/components";
 import { useQuery } from "@tanstack/react-query";
 import { getReceipt, listSales } from "@/modules/pos/api";
-import { todayISO } from "@/app/utils";
-import { detectTimeContext, formatDateTimeRegional } from "@/app/utils";
-import { formatMoney } from "@/app/utils";
+import { todayISO, detectTimeContext, formatDateTimeRegional, formatMoney } from "@/app/utils";
 import { useSettings } from "@/app/store";
 import { openReceiptWindow } from "@/modules/pos/utils/receiptWindow";
-import { useToast } from "@/app/components";
 
 const daysAgoISO = (days: number) => {
   const d = new Date();
@@ -32,12 +26,15 @@ const SalesHistory: React.FC = () => {
   const { timeZone } = detectTimeContext();
   const invalidDateRange = !!from && !!to && from > to;
 
-  const params = useMemo(() => ({
-    status: status || undefined,
-    from_date: from || undefined,
-    to_date: to || undefined,
-    limit,
-  }), [status, from, to, limit]);
+  const params = useMemo(
+    () => ({
+      status: status || undefined,
+      from_date: from || undefined,
+      to_date: to || undefined,
+      limit,
+    }),
+    [status, from, to, limit]
+  );
 
   const { data, refetch, isFetching } = useQuery({
     queryKey: ["sales-history", params],
@@ -66,23 +63,23 @@ const SalesHistory: React.FC = () => {
     }
   };
 
-  const cardRows = rows.map((s) => ({
-    key: s.id,
-    title: `#${s.id}`,
-    subtitle: formatDateTimeRegional(s.created_at),
-    right: <Typography sx={{ fontWeight: 700 }}>{formatMoney(s.total)}</Typography>,
+  const cardRows = rows.map((sale) => ({
+    key: sale.id,
+    title: `#${sale.id}`,
+    subtitle: formatDateTimeRegional(sale.created_at),
+    right: <Typography sx={{ fontWeight: 700 }}>{formatMoney(sale.total)}</Typography>,
     fields: [
       {
         label: "Comprobante",
-        value: s.invoice_number ? (
-          <Link component="button" underline="hover" onClick={() => handleOpenReceipt(s.id)}>
-            {s.invoice_number}
+        value: sale.invoice_number ? (
+          <Link component="button" underline="hover" onClick={() => handleOpenReceipt(sale.id)}>
+            {sale.invoice_number}
           </Link>
         ) : "-",
       },
-      { label: "Usuario", value: s.user_id },
-      { label: "Cliente", value: s.customer_id ?? "-" },
-      { label: "Estado", value: s.status },
+      { label: "Usuario", value: sale.user_id },
+      { label: "Cliente", value: sale.customer_id ?? "-" },
+      { label: "Estado", value: sale.status },
     ],
   }));
 
@@ -96,20 +93,14 @@ const SalesHistory: React.FC = () => {
       />
 
       <TableToolbar title="Filtros" subtitle="Consulta por fechas y estado.">
-        <TextField select label="Estado" value={status} onChange={(e) => setStatus(e.target.value)} sx={{ minWidth: 160 }}>
+        <TextField select label="Estado" value={status} onChange={(e) => setStatus(e.target.value)} sx={{ width: "100%", maxWidth: { sm: 180 } }}>
           <MenuItem value="">Todos</MenuItem>
           <MenuItem value="PAID">PAID</MenuItem>
           <MenuItem value="VOID">VOID</MenuItem>
         </TextField>
         <TextField type="date" label="Desde" value={from} onChange={(e) => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
         <TextField type="date" label="Hasta" value={to} onChange={(e) => setTo(e.target.value)} InputLabelProps={{ shrink: true }} />
-        <TextField
-          type="number"
-          label="Limite"
-          value={limit}
-          onChange={(e) => setLimit(Number(e.target.value))}
-          helperText="Max 500"
-        />
+        <TextField type="number" label="Limite" value={limit} onChange={(e) => setLimit(Number(e.target.value))} helperText="Max 500" />
         <Button variant="outlined" onClick={() => { setFrom(""); setTo(""); }}>
           Limpiar fechas
         </Button>
@@ -137,17 +128,17 @@ const SalesHistory: React.FC = () => {
         </Button>
       </TableToolbar>
 
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
         {invalidDateRange ? (
           <Typography variant="body2" color="warning.main" sx={{ mb: 1 }}>
             Corrige el rango de fechas para consultar el historial.
           </Typography>
         ) : null}
-        {isFetching && (
+        {isFetching ? (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Cargando ventas...
           </Typography>
-        )}
+        ) : null}
         {!isFetching && !hasRows ? (
           <EmptyState
             title="Sin ventas"
@@ -159,38 +150,40 @@ const SalesHistory: React.FC = () => {
         ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Fecha</TableCell>
-                <TableCell>Comprobante</TableCell>
-                <TableCell>Usuario</TableCell>
-                <TableCell>Cliente</TableCell>
-                <TableCell>Estado</TableCell>
-                <TableCell align="right">Total</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>{s.id}</TableCell>
-                  <TableCell>{formatDateTimeRegional(s.created_at)}</TableCell>
-                  <TableCell>
-                    {s.invoice_number ? (
-                      <Link component="button" underline="hover" onClick={() => handleOpenReceipt(s.id)}>
-                        {s.invoice_number}
-                      </Link>
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell>{s.user_id}</TableCell>
-                  <TableCell>{s.customer_id ?? "-"}</TableCell>
-                  <TableCell>{s.status}</TableCell>
-                  <TableCell align="right">{formatMoney(s.total)}</TableCell>
+          <ResizableTable minHeight={240}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Fecha</TableCell>
+                  <TableCell>Comprobante</TableCell>
+                  <TableCell>Usuario</TableCell>
+                  <TableCell>Cliente</TableCell>
+                  <TableCell>Estado</TableCell>
+                  <TableCell align="right">Total</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {rows.map((sale) => (
+                  <TableRow key={sale.id}>
+                    <TableCell>{sale.id}</TableCell>
+                    <TableCell>{formatDateTimeRegional(sale.created_at)}</TableCell>
+                    <TableCell>
+                      {sale.invoice_number ? (
+                        <Link component="button" underline="hover" onClick={() => handleOpenReceipt(sale.id)}>
+                          {sale.invoice_number}
+                        </Link>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell>{sale.user_id}</TableCell>
+                    <TableCell>{sale.customer_id ?? "-"}</TableCell>
+                    <TableCell>{sale.status}</TableCell>
+                    <TableCell align="right">{formatMoney(sale.total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResizableTable>
         )}
       </Paper>
     </Box>

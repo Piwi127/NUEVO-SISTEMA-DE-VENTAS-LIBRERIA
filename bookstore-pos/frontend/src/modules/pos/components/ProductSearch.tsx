@@ -550,6 +550,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                             size="small"
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => addProduct(entry.product)}
+                            sx={{ display: { xs: "none", sm: "inline-flex" } }}
                           >
                             Agregar
                           </Button>
@@ -559,10 +560,10 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                           selected={index === highlightedIndex}
                           onMouseEnter={() => setHighlightedIndex(index)}
                           onClick={() => addProduct(entry.product)}
-                          sx={{ pr: 12, py: minimal ? 1 : 1.25 }}
+                          sx={{ pr: { xs: 1.5, sm: 12 }, py: minimal ? 1 : 1.25 }}
                         >
                           <Box sx={{ display: "grid", gap: 0.75, width: "100%" }}>
-                            <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "flex-start" }}>
                               <Box sx={{ minWidth: 0 }}>
                                 <Typography sx={{ fontWeight: 800 }} noWrap>
                                   {entry.product.name}
@@ -574,6 +575,15 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                               <Typography sx={{ fontWeight: 900, whiteSpace: "nowrap" }}>{formatMoney(entry.price)}</Typography>
                             </Stack>
                             {renderResultMeta(entry)}
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => addProduct(entry.product)}
+                              sx={{ display: { xs: "inline-flex", sm: "none" }, width: "100%" }}
+                            >
+                              Agregar
+                            </Button>
                           </Box>
                         </ListItemButton>
                       </ListItem>
@@ -591,7 +601,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
               size={minimal ? "small" : "medium"}
-              sx={{ minWidth: minimal ? 180 : 220, width: compactMode ? "100%" : "auto" }}
+              sx={{ width: { xs: "100%", md: compactMode ? "100%" : "auto" }, maxWidth: { md: minimal ? 200 : 240 }, minWidth: 0 }}
             >
               <MenuItem value="">Todas</MenuItem>
               {categories.map((category) => (
@@ -706,7 +716,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                   <Typography variant="h6" sx={{ fontWeight: 900 }}>
                     {formatMoney(topResult.price)}
                   </Typography>
-                  <Button variant="contained" startIcon={<AddIcon />} onClick={() => addProduct(topResult.product)}>
+                  <Button variant="contained" startIcon={<AddIcon />} onClick={() => addProduct(topResult.product)} sx={{ width: { xs: "100%", md: "auto" } }}>
                     Agregar
                   </Button>
                 </Stack>
@@ -757,13 +767,13 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     key={entry.product.id}
                     sx={{ borderBottom: "1px solid #e4e7eb", py: minimal ? 1 : 1.25, px: minimal ? 1.25 : 1.5 }}
                     secondaryAction={
-                      <Button variant="contained" startIcon={<AddIcon />} onClick={() => addProduct(entry.product)}>
+                      <Button variant="contained" startIcon={<AddIcon />} onClick={() => addProduct(entry.product)} sx={{ display: { xs: "none", sm: "inline-flex" } }}>
                         Agregar
                       </Button>
                     }
                   >
-                    <Box sx={{ display: "grid", gap: 0.8, width: "100%", pr: 14 }}>
-                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: "flex-start" }}>
+                    <Box sx={{ display: "grid", gap: 0.8, width: "100%", pr: { xs: 0, sm: 14 } }}>
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "flex-start" }}>
                         <Box sx={{ minWidth: 0 }}>
                           <Typography sx={{ fontWeight: 800, color: "#102a43" }}>{entry.product.name}</Typography>
                           <Typography variant="caption" sx={{ color: "#486581" }}>
@@ -773,6 +783,9 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                         <Typography sx={{ fontWeight: 900, color: "#243b53", whiteSpace: "nowrap" }}>{formatMoney(entry.price)}</Typography>
                       </Stack>
                       {renderResultMeta(entry)}
+                      <Button variant="contained" startIcon={<AddIcon />} onClick={() => addProduct(entry.product)} sx={{ display: { xs: "inline-flex", sm: "none" }, width: "100%" }}>
+                        Agregar
+                      </Button>
                     </Box>
                   </ListItem>
                 ))}
@@ -784,3 +797,4 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     </Box>
   );
 };
+

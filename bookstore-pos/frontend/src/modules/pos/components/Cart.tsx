@@ -297,7 +297,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
                       </IconButton>
                     </Stack>
 
-                    <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                    <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
                       <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
                         <Typography variant="caption" sx={{ color: palette.textMuted }}>
                           Precio unitario
@@ -475,3 +475,4 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
     </Box>
   );
 };
+

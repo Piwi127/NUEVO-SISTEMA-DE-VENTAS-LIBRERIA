@@ -108,19 +108,19 @@ const RolePermissions: React.FC = () => {
         loading={loading}
       />
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 1.15, md: 1.6 } }}>
         <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 2 }}>
-          <TextField select label="Rol" value={role} onChange={(e) => setRole(e.target.value)} sx={{ minWidth: 180 }}>
+          <TextField select label="Rol" value={role} onChange={(e) => setRole(e.target.value)} sx={{ width: "100%", maxWidth: { md: 220 } }}>
             <MenuItem value="cashier">cashier</MenuItem>
             <MenuItem value="stock">stock</MenuItem>
           </TextField>
-          <Button variant="contained" onClick={handleSavePerms}>Guardar permisos</Button>
+          <Button variant="contained" onClick={handleSavePerms} sx={{ width: { xs: "100%", md: "auto" } }}>Guardar permisos</Button>
         </Stack>
 
         <Grid container spacing={2}>
           {PERMISSION_GROUPS.map((group) => (
-            <Grid item xs={12} md={6} key={group.title}>
-              <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
+            <Grid item xs={12} lg={6} key={group.title}>
+              <Paper variant="outlined" sx={{ p: { xs: 1.25, md: 1.6 }, height: "100%" }}>
                 <Typography variant="subtitle2" sx={{ mb: 1, color: "text.secondary" }}>
                   {group.title}
                 </Typography>
@@ -147,3 +147,4 @@ const RolePermissions: React.FC = () => {
 };
 
 export default RolePermissions;
+

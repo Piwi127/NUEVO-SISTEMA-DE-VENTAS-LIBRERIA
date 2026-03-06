@@ -179,9 +179,9 @@ export const CashPanel: React.FC = () => {
                     type="number"
                     value={opening}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setOpening(parseDecimalInput(e.target.value))}
-                    sx={{ minWidth: { md: 220 } }}
+                    fullWidth
                   />
-                  <Button variant="contained" onClick={handleOpen} sx={{ minWidth: { md: 180 } }}>
+                  <Button variant="contained" onClick={handleOpen} sx={{ width: { xs: "100%", md: "auto" } }}>
                     Abrir caja
                   </Button>
                 </Stack>
@@ -256,7 +256,7 @@ export const CashPanel: React.FC = () => {
                   Movimiento
                 </Typography>
               </Box>
-              <Box sx={{ display: "grid", gap: 2, maxWidth: 460 }}>
+              <Box sx={{ display: "grid", gap: 2, width: "100%", maxWidth: 460 }}>
                 <TextField select label="Tipo" value={movementType} onChange={(e: ChangeEvent<HTMLInputElement>) => setMovementType(e.target.value)}>
                   <MenuItem value="IN">IN</MenuItem>
                   <MenuItem value="OUT">OUT</MenuItem>
@@ -291,7 +291,7 @@ export const CashPanel: React.FC = () => {
                     Arqueo X/Z
                   </Typography>
                 </Box>
-                <Box sx={{ display: "grid", gap: 2, maxWidth: 460 }}>
+                <Box sx={{ display: "grid", gap: 2, width: "100%", maxWidth: 460 }}>
                   <TextField select label="Tipo" value={auditType} onChange={(e: ChangeEvent<HTMLInputElement>) => setAuditType(e.target.value)}>
                     <MenuItem value="X">X (parcial)</MenuItem>
                     <MenuItem value="Z">Z (cierre)</MenuItem>
@@ -375,3 +375,4 @@ export const CashPanel: React.FC = () => {
     </Box>
   );
 };
+

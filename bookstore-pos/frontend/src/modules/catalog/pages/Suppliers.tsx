@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Box, Button, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -110,7 +110,7 @@ const Suppliers: React.FC = () => {
     title: supplier.name,
     subtitle: supplier.phone || "-",
     right: (
-      <Stack spacing={1} sx={{ alignItems: "flex-end", minWidth: 140 }}>
+      <Stack spacing={1} sx={{ alignItems: { xs: "stretch", sm: "flex-end" }, width: "100%", minWidth: 0 }}>
         <Typography variant="body2" sx={{ fontWeight: 700 }}>
           {supplier.phone || "Sin telefono"}
         </Typography>
@@ -132,7 +132,7 @@ const Suppliers: React.FC = () => {
       <PageHeader title="Proveedores" subtitle="Directorio y contacto comercial." icon={<LocalShippingIcon color="primary" />} chips={[`Total: ${filtered.length}`]} loading={isLoading} />
 
       <TableToolbar title="Busqueda" subtitle="Filtra por nombre o telefono.">
-        <TextField label="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} sx={{ minWidth: 280 }} />
+        <TextField label="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} sx={{ width: "100%", maxWidth: { sm: 320 } }} />
       </TableToolbar>
 
       <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
@@ -177,7 +177,7 @@ const Suppliers: React.FC = () => {
         <Typography variant="h6" sx={{ mb: 1.1 }}>
           {editingId ? "Editar proveedor" : "Nuevo proveedor"}
         </Typography>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 1.1, maxWidth: 460 }}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 1.1, width: "100%", maxWidth: 460 }}>
           {submitError ? (
             <Typography variant="body2" color="error">
               {submitError}
@@ -204,7 +204,7 @@ const Suppliers: React.FC = () => {
               onChange: () => setSubmitError(""),
             })}
           />
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flexWrap: "wrap" }}>
             <Button type="submit" variant="contained" disabled={!isValid || isSubmitting}>
               {isSubmitting ? "Guardando..." : editingId ? "Guardar cambios" : "Guardar"}
             </Button>
@@ -231,4 +231,5 @@ const Suppliers: React.FC = () => {
 };
 
 export default Suppliers;
+
 

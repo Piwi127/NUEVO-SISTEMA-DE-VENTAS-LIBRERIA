@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -455,7 +455,7 @@ const Purchases: React.FC = () => {
                   onChange: () => setOrderSubmitError(""),
                 })}
               />
-              <Button type="button" variant="outlined" onClick={addItem} disabled={!isOrderValid || loadingProducts}>
+              <Button type="button" variant="outlined" onClick={addItem} fullWidth={isCompact} disabled={!isOrderValid || loadingProducts}>
                 Agregar item
               </Button>
             </Box>
@@ -632,7 +632,7 @@ const Purchases: React.FC = () => {
                 helperText={receiveErrors.lot_prefix?.message || "Prefijo usado para generar lotes de recepcion."}
                 {...registerReceive("lot_prefix", { onChange: () => setReceiveSubmitError("") })}
               />
-              <Button type="submit" variant="contained" disabled={!isReceiveValid || isReceiveSubmitting || loadingOrderItems}>
+              <Button type="submit" variant="contained" fullWidth={isCompact} disabled={!isReceiveValid || isReceiveSubmitting || loadingOrderItems}>
                 {isReceiveSubmitting ? "Registrando..." : "Registrar recepcion"}
               </Button>
             </Box>
@@ -720,7 +720,7 @@ const Purchases: React.FC = () => {
                 helperText={paymentErrors.pay_ref?.message || "Opcional. Numero de operacion o comprobante."}
                 {...registerPayment("pay_ref", { onChange: () => setPaymentSubmitError("") })}
               />
-              <Button type="submit" variant="contained" disabled={!isPaymentValid || isPaymentSubmitting}>
+              <Button type="submit" variant="contained" fullWidth={isCompact} disabled={!isPaymentValid || isPaymentSubmitting}>
                 {isPaymentSubmitting ? "Registrando..." : "Registrar pago"}
               </Button>
             </Box>
@@ -738,7 +738,7 @@ const Purchases: React.FC = () => {
               label="Proveedor"
               value={histSupplier}
               onChange={(event) => setHistSupplier(event.target.value === "" ? "" : Number(event.target.value))}
-              sx={{ minWidth: 200 }}
+              sx={{ width: "100%", maxWidth: { sm: 240 } }}
             >
               <MenuItem value="">Todos</MenuItem>
               {(suppliers || []).map((supplier) => (
@@ -793,4 +793,5 @@ const Purchases: React.FC = () => {
 };
 
 export default Purchases;
+
 

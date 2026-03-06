@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -261,7 +261,7 @@ const Products: React.FC = () => {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(3, minmax(0, 1fr))" },
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", xl: "repeat(3, minmax(0, 1fr))" },
               gap: 0.85,
               width: "100%",
               maxWidth: { xl: 820 },
@@ -311,7 +311,7 @@ const Products: React.FC = () => {
           size="small"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          sx={{ maxWidth: 340 }}
+          sx={{ width: "100%", maxWidth: { sm: 340 } }}
           placeholder="SKU, nombre o categoria"
         />
         <TextField
@@ -320,7 +320,7 @@ const Products: React.FC = () => {
           size="small"
           value={category}
           onChange={(event) => setCategory(event.target.value)}
-          sx={{ minWidth: 210 }}
+          sx={{ width: "100%", maxWidth: { sm: 240 } }}
 
         >
           <MenuItem value="">Todas</MenuItem>
@@ -464,5 +464,6 @@ const Products: React.FC = () => {
 };
 
 export default Products;
+
 
 

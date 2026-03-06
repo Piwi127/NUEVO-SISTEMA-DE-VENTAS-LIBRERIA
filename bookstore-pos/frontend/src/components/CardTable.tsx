@@ -1,5 +1,6 @@
-﻿import React from "react";
+import React from "react";
 import { Box, Paper, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 
 type Field = {
   label: string;
@@ -41,10 +42,21 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
         <Paper
           key={row.key}
           sx={{
-            p: { xs: 1.15, md: 1.3 },
-            border: "1px solid rgba(18,53,90,0.08)",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(247,250,253,0.88) 100%)",
-            boxShadow: "0 10px 22px rgba(12,31,51,0.04)",
+            position: "relative",
+            overflow: "hidden",
+            p: { xs: 1.2, md: 1.35 },
+            border: "1px solid rgba(16,58,95,0.08)",
+            background: "linear-gradient(135deg, rgba(255,255,255,0.99) 0%, rgba(243,248,255,0.95) 100%)",
+            boxShadow: "0 14px 28px rgba(13,32,56,0.05)",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: 3,
+              background: "linear-gradient(180deg, rgba(16,58,95,0.92) 0%, rgba(18,116,107,0.88) 100%)",
+            },
           }}
         >
           <Box
@@ -53,40 +65,43 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
               gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) auto" },
               alignItems: { sm: "start" },
               gap: 1,
+              pl: 0.3,
             }}
           >
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 700, wordBreak: "break-word", lineHeight: 1.2 }}>{row.title}</Typography>
+              <Typography sx={{ fontWeight: 800, wordBreak: "break-word", lineHeight: 1.16 }}>{row.title}</Typography>
               {row.subtitle ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.3 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.32 }}>
                   {row.subtitle}
                 </Typography>
               ) : null}
             </Box>
-            {row.right ? <Box sx={{ justifySelf: { sm: "end" } }}>{row.right}</Box> : null}
+            {row.right ? <Box sx={{ justifySelf: { sm: "end" }, minWidth: 0 }}>{row.right}</Box> : null}
           </Box>
 
-          <Box sx={{ mt: 1.1, display: "grid", gap: 0.85, gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(150px, 1fr))" } }}>
-            {row.fields.map((field, idx) => (
-              <Box
-                key={idx}
-                sx={{
-                  p: 1,
-                  borderRadius: 2,
-                  border: "1px solid rgba(18,53,90,0.08)",
-                  bgcolor: "rgba(18,53,90,0.035)",
-                  minWidth: 0,
-                }}
-              >
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 700, letterSpacing: 0.35 }}>
-                  {field.label}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.35, fontWeight: 700, wordBreak: "break-word" }}>
-                  {field.value}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
+          {row.fields.length > 0 ? (
+            <Box sx={{ mt: 1.15, display: "grid", gap: 0.9, gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(150px, 1fr))" } }}>
+              {row.fields.map((field, idx) => (
+                <Box
+                  key={idx}
+                  sx={{
+                    p: 1,
+                    borderRadius: 2.5,
+                    border: "1px solid rgba(16,58,95,0.08)",
+                    bgcolor: alpha("#103a5f", 0.035),
+                    minWidth: 0,
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 800, letterSpacing: 0.42 }}>
+                    {field.label}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.36, fontWeight: 800, wordBreak: "break-word" }}>
+                    {field.value}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          ) : null}
         </Paper>
       ))}
 
@@ -98,11 +113,11 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
             bottom: 4,
             width: 14,
             height: 14,
-            borderRight: "2px solid rgba(18,53,90,0.32)",
-            borderBottom: "2px solid rgba(18,53,90,0.32)",
+            borderRight: "2px solid rgba(16,58,95,0.28)",
+            borderBottom: "2px solid rgba(16,58,95,0.28)",
             borderBottomRightRadius: 2,
             pointerEvents: "none",
-            opacity: 0.72,
+            opacity: 0.74,
           }}
         />
       ) : null}

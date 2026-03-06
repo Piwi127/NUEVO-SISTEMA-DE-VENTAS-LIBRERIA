@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Box, Button, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -241,7 +241,7 @@ const Users: React.FC = () => {
       title: user.username,
       subtitle: user.role,
       right: (
-        <Stack spacing={1} sx={{ alignItems: "flex-end", minWidth: 220 }}>
+        <Stack spacing={1} sx={{ alignItems: { xs: "stretch", sm: "flex-end" }, width: "100%", minWidth: 0 }}>
           <Typography sx={{ fontWeight: 700 }}>{user.is_active ? "Activo" : "Inactivo"}</Typography>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <Button size="small" onClick={() => startEdit(user)}>
@@ -280,8 +280,8 @@ const Users: React.FC = () => {
       />
 
       <TableToolbar title="Filtro de usuarios" subtitle="Busqueda rapida por usuario o rol.">
-        <TextField label="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} sx={{ minWidth: 220 }} />
-        <TextField select label="Rol" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} sx={{ minWidth: 160 }}>
+        <TextField label="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} sx={{ width: "100%", maxWidth: { sm: 280 } }} />
+        <TextField select label="Rol" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} sx={{ width: "100%", maxWidth: { sm: 180 } }}>
           <MenuItem value="">Todos</MenuItem>
           {roleOptions.map((role) => (
             <MenuItem key={role} value={role}>
@@ -361,7 +361,7 @@ const Users: React.FC = () => {
         <Typography variant="h6" sx={{ mb: 1.1 }}>
           {editingId ? "Editar usuario" : "Nuevo usuario"}
         </Typography>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 1.1, maxWidth: 460 }}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 1.1, width: "100%", maxWidth: 460 }}>
           {submitError ? (
             <Typography variant="body2" color="error">
               {submitError}
@@ -424,7 +424,7 @@ const Users: React.FC = () => {
           <Typography variant="caption" color="text.secondary">
             {editingId ? `Estado actual: ${editingIsActive ? "Activo" : "Inactivo"}.` : "Los usuarios nuevos se crean activos por defecto."} Los cambios de estado se gestionan desde las acciones rapidas.
           </Typography>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flexWrap: "wrap" }}>
             <Button type="button" variant="outlined" onClick={generateStrongPassword} disabled={isSubmitting}>
               Generar password segura
             </Button>
@@ -498,4 +498,5 @@ const Users: React.FC = () => {
 };
 
 export default Users;
+
 

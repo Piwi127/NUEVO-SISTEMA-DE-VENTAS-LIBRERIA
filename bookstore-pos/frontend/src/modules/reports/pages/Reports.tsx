@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -40,6 +40,19 @@ const Reports: React.FC = () => {
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
+  const filterGridSx = {
+    display: "grid",
+    gap: 1,
+    gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(180px, 1fr))" },
+    alignItems: "start",
+    "& > *": { minWidth: 0 },
+  } as const;
+  const kpiGridSx = {
+    mt: 2,
+    display: "grid",
+    gap: 1.2,
+    gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(180px, 1fr))" },
+  } as const;
   const [tab, setTab] = useState(0);
 
   const [date, setDate] = useState(todayISO());
@@ -164,7 +177,7 @@ const Reports: React.FC = () => {
       {tab === 0 ? (
         <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Reporte diario</Typography>
-          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <Box sx={filterGridSx}>
             <TextField type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             <Button variant="contained" onClick={loadDaily}>Consultar</Button>
             <Button variant="outlined" startIcon={<DownloadIcon />} onClick={async () => download(await exportDaily(date), "reporte_diario.csv")}>
@@ -177,7 +190,7 @@ const Reports: React.FC = () => {
           ) : errorDaily ? (
             <ErrorState title="No se pudo cargar el reporte diario" onRetry={loadDaily} />
           ) : daily ? (
-            <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(3, 1fr)" }}>
+            <Box sx={kpiGridSx}>
               <KpiCard label="Ventas" value={`${daily.sales_count}`} accent="#0b1e3b" />
               <KpiCard label="Total" value={formatMoney(daily.total)} accent="#9a7b2f" />
               <KpiCard label="Fecha" value={date} accent="#2f4858" />
@@ -189,7 +202,7 @@ const Reports: React.FC = () => {
       {tab === 1 ? (
         <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Top productos</Typography>
-          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <Box sx={filterGridSx}>
             <TextField type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
             <TextField type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             <Button variant="outlined" onClick={() => { const d = new Date(); const t = d.toISOString().slice(0, 10); d.setDate(d.getDate() - 7); setFrom(d.toISOString().slice(0, 10)); setTo(t); }}>
@@ -211,7 +224,7 @@ const Reports: React.FC = () => {
           ) : (
             <>
               {top.length > 0 ? (
-                <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(3, 1fr)" }}>
+                <Box sx={kpiGridSx}>
                   <KpiCard label="Unidades" value={`${topUnits}`} accent="#0b1e3b" />
                   <KpiCard label="Total vendido" value={formatMoney(topTotal)} accent="#9a7b2f" />
                   <KpiCard label="Rango" value={`${from} a ${to}`} accent="#2f4858" />
@@ -256,7 +269,7 @@ const Reports: React.FC = () => {
       {tab === 2 ? (
         <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Stock bajo</Typography>
-          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <Box sx={filterGridSx}>
             <Button variant="contained" onClick={loadLow}>Consultar</Button>
             <Button variant="outlined" startIcon={<DownloadIcon />} onClick={async () => download(await exportLow(), "stock_bajo.csv")}>
               Exportar CSV
@@ -305,7 +318,7 @@ const Reports: React.FC = () => {
       {tab === 3 ? (
         <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Rentabilidad</Typography>
-          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <Box sx={filterGridSx}>
             <TextField type="date" value={profitFrom} onChange={(e) => setProfitFrom(e.target.value)} />
             <TextField type="date" value={profitTo} onChange={(e) => setProfitTo(e.target.value)} />
             <Button variant="contained" onClick={loadProfitability}>Consultar</Button>
@@ -332,7 +345,7 @@ const Reports: React.FC = () => {
           ) : (
             <>
               {profitabilitySummary ? (
-                <Box sx={{ mt: 2, display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(4, 1fr)" }}>
+                <Box sx={kpiGridSx}>
                   <KpiCard label="Ventas" value={formatMoney(profitabilitySummary.sales_total)} accent="#0b1e3b" />
                   <KpiCard label="Costo estimado" value={formatMoney(profitabilitySummary.estimated_cost_total)} accent="#2f4858" />
                   <KpiCard label="Utilidad bruta" value={formatMoney(profitabilitySummary.gross_profit)} accent="#2a5d34" />
@@ -388,4 +401,7 @@ const Reports: React.FC = () => {
 };
 
 export default Reports;
+
+
+
 
