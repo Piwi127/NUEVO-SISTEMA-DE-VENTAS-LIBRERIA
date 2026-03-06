@@ -100,6 +100,9 @@ Mejorar la experiencia del frontend para que el sistema sea mas claro, mas rapid
 - [x] Mejorar ProductSearch con mejor coincidencia visible, stock y precio aplicado.
 - [x] Acelerar la seleccion con foco estable y agregado rapido por teclado.
 - [x] Crear version simplificada de cajero con solo buscador y carrito visibles.
+- [x] Separar buscador y lista de productos del cajero en pestanas minimalistas.
+- [x] Compactar el panel de cobro del cajero y forzar carrito minimal tambien en desktop.
+- [x] Reducir la interfaz general del POS a un layout mas limpio, plano y operativo.
 
 ## Fase 5: Catalogo y Mantenimiento
 - Objetivo: hacer el catalogo mas administrable.

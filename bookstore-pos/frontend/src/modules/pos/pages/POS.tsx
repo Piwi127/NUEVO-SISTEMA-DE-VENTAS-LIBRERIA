@@ -4,7 +4,6 @@ import {
   Badge,
   Box,
   Button,
-  Chip,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -23,10 +22,6 @@ import {
 } from "@mui/material";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import ShoppingCartCheckoutIcon from "@mui/icons-material/ShoppingCartCheckout";
-import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
-import LocalOfferIcon from "@mui/icons-material/LocalOffer";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import PauseCircleIcon from "@mui/icons-material/PauseCircle";
 import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
@@ -310,6 +305,7 @@ const POS: React.FC = () => {
 
   const selectedCustomerName = selectCustomerLabel(customers, customerId);
   const selectedPromo = promos?.find((promo) => promo.id === promoId);
+  const promoSummaryLabel = selectedPromo?.name || (totalsSummary.promotionDiscount > 0 ? "Manual" : "Sin promo");
   const primaryActionLabel = cash?.is_open ? "Cobrar" : "Abrir caja";
   const primaryActionDisabled = cash?.is_open ? !canCharge : cashQuery.isLoading || cashQuery.isError;
 
@@ -357,13 +353,6 @@ const POS: React.FC = () => {
     window.setTimeout(() => searchRef.current?.focus(), 0);
   };
 
-  const summaryCards = [
-    { label: "Items", value: String(itemCount), accent: false },
-    { label: "Cliente", value: selectedCustomerName, accent: false },
-    { label: "Promo", value: selectedPromo?.name || (totalsSummary.promotionDiscount > 0 ? "Manual" : "Sin promo"), accent: false },
-    { label: "Total", value: formatMoney(total), accent: true },
-  ];
-
   const renderCheckoutSelectors = (surface: "light" | "dark") => (
     <Grid container spacing={1.5}>
       <Grid item xs={12} md={6}>
@@ -410,94 +399,68 @@ const POS: React.FC = () => {
   );
 
   const renderCheckoutActions = () => (
-    <Box sx={{ display: "grid", gap: 1.25 }}>
-      <Button fullWidth variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart}>
-        Guardar en espera
-      </Button>
-      <Button
-        fullWidth
-        variant="outlined"
-        startIcon={<PlaylistAddCheckIcon />}
-        disabled={heldCarts.length === 0}
-        onClick={() => setHeldOpen(true)}
-      >
-        Recuperar en espera ({heldCarts.length})
-      </Button>
-      <Button fullWidth variant="contained" size="large" disabled={primaryActionDisabled} onClick={handlePrimaryAction}>
+    <Box sx={{ display: "grid", gap: 1 }}>
+      <Button fullWidth variant="contained" size="medium" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ py: 1.1, fontWeight: 800 }}>
         {primaryActionLabel}
       </Button>
-      <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handlePrint}>
-        Imprimir ticket
-      </Button>
-      <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handleEscpos}>
-        Descargar ESC/POS
-      </Button>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+        <Button fullWidth variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart}>
+          Guardar
+        </Button>
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<PlaylistAddCheckIcon />}
+          disabled={heldCarts.length === 0}
+          onClick={() => setHeldOpen(true)}
+        >
+          Recuperar ({heldCarts.length})
+        </Button>
+      </Stack>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+        <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handlePrint}>
+          Ticket
+        </Button>
+        <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handleEscpos}>
+          ESC/POS
+        </Button>
+      </Stack>
     </Box>
   );
 
   const renderCheckoutPanelContent = (surface: "light" | "dark") => {
     const isDark = surface === "dark";
     return (
-      <Stack spacing={2}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <ReceiptLongIcon sx={{ color: isDark ? "#ffffff" : "primary.main" }} />
+      <Stack spacing={1.5}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "center" }}>
           <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-            <Typography variant="overline" sx={{ color: isDark ? "rgba(255,255,255,0.78)" : "text.secondary", letterSpacing: 1 }}>
-              Cobro
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              Carrito
             </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>
-              Carrito y pago
+            <Typography variant="caption" color={isDark ? "rgba(255,255,255,0.82)" : "text.secondary"}>
+              {itemCount > 0 ? `${itemCount} items activos` : "Sin productos agregados"}
+              {customerId ? ` | ${selectedCustomerName}` : ""}
+              {(promoId || totalsSummary.promotionDiscount > 0) ? ` | ${promoSummaryLabel}` : ""}
             </Typography>
           </Box>
-          {lastSale ? <Chip size="small" color="success" label={lastSale.invoiceNumber} /> : null}
+          <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
+            <Typography variant="caption" color={isDark ? "rgba(255,255,255,0.82)" : "text.secondary"}>
+              {cash?.is_open ? "Total" : "Pendiente"}
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 900 }}>
+              {formatMoney(total)}
+            </Typography>
+          </Box>
         </Stack>
-
-        <Grid container spacing={1.25}>
-          <Grid item xs={4}>
-            <Paper sx={{ p: 1.25, bgcolor: isDark ? "rgba(255,255,255,0.08)" : "rgba(18,53,90,0.05)", boxShadow: "none" }}>
-              <Typography variant="caption" color={isDark ? "inherit" : "text.secondary"}>
-                Items
-              </Typography>
-              <Typography sx={{ fontWeight: 800 }}>{itemCount}</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={4}>
-            <Paper sx={{ p: 1.25, bgcolor: isDark ? "rgba(255,255,255,0.08)" : "rgba(18,53,90,0.05)", boxShadow: "none" }}>
-              <Typography variant="caption" color={isDark ? "inherit" : "text.secondary"}>
-                Descuento
-              </Typography>
-              <Typography sx={{ fontWeight: 800 }}>{formatMoney(totalsSummary.totalDiscount)}</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={4}>
-            <Paper
-              sx={{
-                p: 1.25,
-                bgcolor: isDark ? "rgba(255,255,255,0.14)" : "rgba(18,53,90,0.08)",
-                border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(18,53,90,0.08)",
-                boxShadow: "none",
-              }}
-            >
-              <Typography variant="caption" color={isDark ? "inherit" : "text.secondary"}>
-                Total
-              </Typography>
-              <Typography sx={{ fontWeight: 900 }}>{formatMoney(total)}</Typography>
-            </Paper>
-          </Grid>
-        </Grid>
 
         {renderCheckoutSelectors(surface)}
 
-        <Typography variant="caption" color={isDark ? "rgba(255,255,255,0.82)" : "text.secondary"}>
-          Cliente y promocion se aplican solo a la venta actual.
-        </Typography>
-
-        <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} tone={surface} />
+        <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} tone={surface} minimal />
 
         {!cashQuery.isLoading && !cash?.is_open ? (
           <Alert
             severity="warning"
-            sx={{ mb: 0.5 }}
+            sx={{ mb: 0.25, py: 0 }}
             action={
               <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
                 Ir a caja
@@ -536,57 +499,52 @@ const POS: React.FC = () => {
         <Box sx={{ display: "grid", gap: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} lg={7}>
-              <Paper sx={{ p: { xs: 1.5, md: 2 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff" }}>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} justifyContent="space-between" alignItems={{ sm: "center" }} sx={{ mb: 1.25 }}>
+              <Paper sx={{ p: { xs: 1.25, md: 1.5 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff" }}>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75} justifyContent="space-between" alignItems={{ sm: "center" }} sx={{ mb: 1 }}>
                   <Box>
-                    <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: 1 }}>
-                      Caja
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                       Buscar productos
                     </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {cash?.is_open ? "Caja abierta" : "Caja cerrada"} | F2 buscar | F4 cobrar
+                    </Typography>
                   </Box>
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                    <Chip size="small" color={cash?.is_open ? "success" : "warning"} label={cash?.is_open ? "Caja abierta" : "Caja cerrada"} />
-                    <Chip size="small" icon={<QrCodeScannerIcon />} label="F2 buscar" />
-                    <Chip size="small" icon={<ShoppingCartCheckoutIcon />} label="F4 cobrar" />
-                  </Stack>
+                  <Typography variant="caption" color="text.secondary">
+                    {itemCount > 0 ? `${itemCount} items cargados` : "Venta nueva"}
+                  </Typography>
                 </Stack>
-                <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal />
+                <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal splitTabs />
               </Paper>
             </Grid>
 
             <Grid item xs={12} lg={5}>
-              <Paper sx={{ p: { xs: 1.5, md: 2 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff", position: { lg: "sticky" }, top: { lg: 12 } }}>
-                <Stack spacing={1.5}>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} justifyContent="space-between" alignItems={{ sm: "center" }}>
+              <Paper sx={{ p: { xs: 1.25, md: 1.5 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff", position: { lg: "sticky" }, top: { lg: 12 } }}>
+                <Stack spacing={1.25}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75} justifyContent="space-between" alignItems={{ sm: "center" }}>
                     <Box>
-                      <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: 1 }}>
-                        Cobro
-                      </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                         Carrito
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {itemCount > 0 ? `${itemCount} items activos` : "Sin productos agregados"}
+                        {totalsSummary.packDiscount > 0 ? ` | Pack -${formatMoney(totalsSummary.packDiscount)}` : ""}
+                        {lastSale && itemCount === 0 ? ` | Ultima ${lastSale.invoiceNumber}` : ""}
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
                       <Typography variant="caption" color="text.secondary">
-                        {cash?.is_open ? "Total actual" : "Pendiente de caja"}
+                        {cash?.is_open ? "Total" : "Pendiente"}
                       </Typography>
-                      <Typography variant="h4" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
+                      <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
                         {formatMoney(total)}
                       </Typography>
                     </Box>
                   </Stack>
 
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                    <Chip size="small" label={`${itemCount} items`} />
-                    {lastSale ? <Chip size="small" color="success" label={lastSale.invoiceNumber} /> : null}
-                    {totalsSummary.packDiscount > 0 ? <Chip size="small" icon={<LocalOfferIcon />} label={`Pack ${formatMoney(totalsSummary.packDiscount)}`} /> : null}
-                  </Stack>
-
                   {!cashQuery.isLoading && !cash?.is_open ? (
                     <Alert
                       severity="warning"
+                      sx={{ py: 0 }}
                       action={
                         <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
                           Abrir caja
@@ -600,7 +558,7 @@ const POS: React.FC = () => {
                   <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} tone="light" minimal />
 
                   <Stack spacing={1}>
-                    <Button fullWidth variant="contained" size="large" disabled={primaryActionDisabled} onClick={handlePrimaryAction}>
+                    <Button fullWidth variant="contained" size="medium" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ py: 1.1, fontWeight: 800 }}>
                       {primaryActionLabel}
                     </Button>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
@@ -618,7 +576,7 @@ const POS: React.FC = () => {
                       </Button>
                     </Stack>
                     <Button variant="text" size="small" startIcon={<TuneIcon />} onClick={() => setCashierOptionsOpen((prev) => !prev)}>
-                      {cashierOptionsOpen ? "Ocultar opciones" : "Cliente, promo y ticket"}
+                      {cashierOptionsOpen ? "Ocultar opciones" : "Mas opciones"}
                     </Button>
                   </Stack>
 
@@ -728,7 +686,7 @@ const POS: React.FC = () => {
     <Box sx={{ display: "grid", gap: 2 }}>
       <PageHeader
         title="Punto de venta"
-        subtitle="Busca, arma el carrito y cobra desde una sola pantalla."
+        subtitle="Venta rapida y cobro desde una sola vista."
         icon={<PointOfSaleIcon color="primary" />}
         chips={[]}
         loading={isLoading}
@@ -736,109 +694,72 @@ const POS: React.FC = () => {
 
       <Paper
         sx={{
-          p: { xs: 2, md: 2.5 },
-          background: "linear-gradient(135deg, rgba(18,53,90,0.06) 0%, rgba(18,53,90,0.025) 52%, rgba(154,123,47,0.1) 100%)",
+          p: { xs: 1.25, md: 1.5 },
+          border: "1px solid #d9e2ec",
+          bgcolor: "#ffffff",
         }}
       >
-        <Grid container spacing={2} alignItems="stretch">
-          <Grid item xs={12} lg={7}>
-            <Stack spacing={1.5} sx={{ height: "100%", justifyContent: "space-between" }}>
-              <Box>
-                <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: 1 }}>
-                  Operacion actual
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>
-                  {statusTitle}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {statusDescription}
-                </Typography>
-              </Box>
+        <Stack direction={{ xs: "column", xl: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ xl: "center" }}>
+          <Box sx={{ minWidth: 0, maxWidth: 760 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              {statusTitle}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {statusDescription}
+            </Typography>
+          </Box>
 
-              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
-                <Chip color={cash?.is_open ? "success" : "warning"} label={cash?.is_open ? "Caja abierta" : "Caja cerrada"} />
-                <Chip icon={<QrCodeScannerIcon />} label="F2 buscar" />
-                <Chip icon={<ShoppingCartCheckoutIcon />} label="F4 cobrar" />
-                <Chip icon={<LocalOfferIcon />} label={`Pack ${formatMoney(totalsSummary.packDiscount)}`} />
-                <Chip icon={<PersonOutlineIcon />} label={selectedCustomerName} />
-              </Stack>
-            </Stack>
-          </Grid>
+          <Stack spacing={0.25} sx={{ minWidth: { xl: 240 } }}>
+            <Typography variant="caption" color="text.secondary">
+              {cash?.is_open ? "Caja abierta" : "Caja cerrada"} | F2 buscar | F4 cobrar
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Cliente: {selectedCustomerName}
+              {(promoId || totalsSummary.promotionDiscount > 0) ? ` | Promo: ${promoSummaryLabel}` : ""}
+            </Typography>
+          </Stack>
 
-          <Grid item xs={12} lg={5}>
-            <Grid container spacing={1.25}>
-              {summaryCards.map((card) => (
-                <Grid key={card.label} item xs={6} sm={3} lg={6}>
-                  <Paper
-                    sx={{
-                      p: 1.5,
-                      minHeight: 88,
-                      display: "grid",
-                      alignContent: "center",
-                      bgcolor: card.accent ? "rgba(18,53,90,0.08)" : "rgba(255,255,255,0.72)",
-                      border: card.accent ? "1px solid rgba(18,53,90,0.12)" : "1px solid rgba(18,53,90,0.08)",
-                      boxShadow: "none",
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ color: card.accent ? "#334e68" : "text.secondary", fontWeight: 700 }}>
-                      {card.label}
-                    </Typography>
-                    <Typography sx={{ fontWeight: card.accent ? 900 : 800, color: "text.primary" }} noWrap>
-                      {card.value}
-                    </Typography>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={1.25}>
-              {isCompact ? (
-                <Button variant="outlined" startIcon={<ReceiptLongIcon />} onClick={() => setCartOpen(true)}>
-                  Ver carrito
-                </Button>
-              ) : null}
-              <Button variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart}>
-                Guardar en espera
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ minWidth: { xl: 420 }, ml: { xl: "auto" } }}>
+            {isCompact ? (
+              <Button variant="outlined" startIcon={<ReceiptLongIcon />} onClick={() => setCartOpen(true)}>
+                Ver carrito
               </Button>
-              <Button
-                variant="outlined"
-                startIcon={<PlaylistAddCheckIcon />}
-                disabled={heldCarts.length === 0}
-                onClick={() => setHeldOpen(true)}
-              >
-                Recuperar en espera ({heldCarts.length})
-              </Button>
-              <Button variant="contained" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ ml: { md: "auto" } }}>
-                {primaryActionLabel}
-              </Button>
-            </Stack>
-          </Grid>
-        </Grid>
+            ) : null}
+            <Button variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart}>
+              Guardar
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<PlaylistAddCheckIcon />}
+              disabled={heldCarts.length === 0}
+              onClick={() => setHeldOpen(true)}
+            >
+              Recuperar ({heldCarts.length})
+            </Button>
+            <Button variant="contained" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ ml: { xl: "auto" }, fontWeight: 800 }}>
+              {primaryActionLabel}
+            </Button>
+          </Stack>
+        </Stack>
       </Paper>
       {lastSale && itemCount === 0 ? (
         <Paper
           sx={{
-            p: { xs: 2, md: 2.25 },
-            border: "1px solid rgba(82, 183, 136, 0.35)",
-            bgcolor: "rgba(240, 253, 244, 0.94)",
+            p: { xs: 1.25, md: 1.5 },
+            border: "1px solid rgba(82, 183, 136, 0.25)",
+            bgcolor: "rgba(247, 252, 249, 0.98)",
           }}
         >
-          <Stack spacing={1.5}>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ md: "center" }}>
+          <Stack spacing={1}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ md: "center" }}>
               <Box>
-                <Typography variant="overline" sx={{ color: "success.dark", letterSpacing: 1 }}>
-                  Postventa rapida
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                   Venta {lastSale.invoiceNumber} registrada correctamente
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Total {formatMoney(lastSale.total)}. Registrada a las {lastSaleTimeLabel}. Puedes imprimir el ticket o arrancar la siguiente venta.
+                <Typography variant="caption" color="text.secondary">
+                  Total {formatMoney(lastSale.total)} | {lastSaleTimeLabel}
                 </Typography>
               </Box>
-              <Chip color="success" label="Venta completada" />
             </Stack>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
@@ -861,25 +782,27 @@ const POS: React.FC = () => {
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={7}>
-          <Paper sx={{ p: { xs: 1.5, md: 2 }, border: "1px solid #cbd2d9", bgcolor: "#f8fbff" }}>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "flex-start", sm: "center" }} sx={{ mb: 1.5 }}>
+          <Paper sx={{ p: { xs: 1.25, md: 1.5 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff" }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75} alignItems={{ xs: "flex-start", sm: "center" }} sx={{ mb: 1 }}>
               <Box sx={{ flexGrow: 1 }}>
-                <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                  Busqueda de productos
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                  Buscar productos
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Escanea o escribe codigo, SKU o nombre para agregar items al carrito.
+                <Typography variant="caption" color="text.secondary">
+                  Escanea o escribe codigo, SKU o nombre.
                 </Typography>
               </Box>
-              <Chip icon={<QrCodeScannerIcon />} label="F2 enfoca la busqueda" />
+              <Typography variant="caption" color="text.secondary">
+                F2 enfoca la busqueda
+              </Typography>
             </Stack>
-            <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" />
+            <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal />
           </Paper>
         </Grid>
 
         {!isCompact ? (
           <Grid item xs={12} lg={5}>
-            <Paper sx={{ p: 2, border: "1px solid #cbd2d9", bgcolor: "#f8fbff", position: "sticky", top: 12 }}>
+            <Paper sx={{ p: 1.5, border: "1px solid #d9e2ec", bgcolor: "#ffffff", position: "sticky", top: 12 }}>
               {renderCheckoutPanelContent("light")}
             </Paper>
           </Grid>

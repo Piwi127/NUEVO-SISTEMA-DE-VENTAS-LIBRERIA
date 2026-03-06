@@ -37,7 +37,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
   const cart = useCartStore();
   const { currency, taxRate, taxIncluded, compactMode } = useSettings();
   const compact = useMediaQuery("(max-width:900px)");
-  const isCompact = compactMode || compact;
+  const isCompact = minimal || compactMode || compact;
   const isDark = tone === "dark";
   const discount = cart.discount;
   const fallbackTotals = calcTotals(cart.items, discount, taxRate, taxIncluded);
@@ -89,6 +89,16 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
   const allSelected = cartProductIds.length > 0 && cartProductIds.every((id) => selectedSet.has(id));
   const someSelected = cartProductIds.some((id) => selectedSet.has(id));
   const totalUnits = useMemo(() => cart.items.reduce((acc, item) => acc + item.qty, 0), [cart.items]);
+  const summaryRows = [
+    { label: minimal ? "Items" : "Subtotal items", value: formatMoney(summary.subtotalAfterPacks), visible: true },
+    { label: minimal ? "Packs" : "Descuento packs", value: `-${formatMoney(summary.packDiscount)}`, visible: !minimal || summary.packDiscount > 0 },
+    {
+      label: minimal ? "Promo/desc." : "Descuento manual o promo",
+      value: `-${formatMoney(summary.promotionDiscount)}`,
+      visible: !minimal || summary.promotionDiscount > 0,
+    },
+    { label: "Impuesto", value: formatMoney(summary.tax), visible: !minimal || summary.tax > 0 },
+  ].filter((row) => row.visible);
 
   const fieldSx = {
     "& .MuiOutlinedInput-root": {
@@ -127,7 +137,8 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
       <Stack spacing={minimal ? 1 : 1.25} sx={{ mb: 1.5 }}>
         {minimal ? (
           <Typography variant="caption" sx={{ color: palette.textMuted, fontWeight: 700 }}>
-            {cart.items.length} productos · {totalUnits} unidades
+            {cart.items.length} productos | {totalUnits} uds.
+            {selectedProductIds.length > 0 ? ` | ${selectedProductIds.length} seleccionados` : ""}
           </Typography>
         ) : (
           <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
@@ -140,7 +151,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
         )}
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
           <Button variant="outlined" size="small" onClick={toggleAllProducts} disabled={!cart.items.length}>
-            {allSelected ? "Quitar seleccion" : "Seleccionar todo"}
+            {minimal ? (allSelected ? "Quitar" : "Seleccionar") : allSelected ? "Quitar seleccion" : "Seleccionar todo"}
           </Button>
           <Button
             variant="outlined"
@@ -183,89 +194,155 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
               <Paper
                 key={item.product_id}
                 sx={{
-                  p: minimal ? 1.25 : 1.5,
+                  p: minimal ? 1 : 1.5,
                   display: "grid",
-                  gap: minimal ? 1 : 1.25,
+                  gap: minimal ? 0.75 : 1.25,
                   bgcolor: palette.cardBg,
                   border: `1px solid ${palette.cardBorder}`,
                   boxShadow: "none",
                 }}
               >
-                <Stack direction="row" spacing={1} alignItems="flex-start">
-                  <Checkbox
-                    checked={selectedSet.has(item.product_id)}
-                    onChange={() => toggleProduct(item.product_id)}
-                    sx={{ p: 0.5, color: isDark ? "rgba(255,255,255,0.9)" : undefined }}
-                  />
-                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="flex-start">
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 800 }} noWrap>
-                          {item.name}
-                        </Typography>
+                {minimal ? (
+                  <Stack direction="row" spacing={0.75} alignItems="flex-start">
+                    <Checkbox
+                      size="small"
+                      checked={selectedSet.has(item.product_id)}
+                      onChange={() => toggleProduct(item.product_id)}
+                      sx={{ p: 0.25, color: isDark ? "rgba(255,255,255,0.9)" : undefined }}
+                    />
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Stack direction="row" spacing={0.75} justifyContent="space-between" alignItems="flex-start">
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 800 }} noWrap>
+                            {item.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: palette.textMuted }}>
+                            {item.sku ? `SKU ${item.sku}` : `Codigo ${item.product_id}`}
+                          </Typography>
+                        </Box>
+                        <IconButton size="small" onClick={() => cart.removeItem(item.product_id)} sx={{ bgcolor: palette.subtleBg }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems="center"
+                        sx={{ mt: 0.5, flexWrap: "wrap", rowGap: 0.5 }}
+                      >
                         <Typography variant="caption" sx={{ color: palette.textMuted }}>
-                          {item.sku ? `SKU ${item.sku}` : `Codigo ${item.product_id}`}
+                          {formatMoney(item.price)} c/u
                         </Typography>
-                      </Box>
-                      <Chip size="small" label={formatMoney(linePricing.final_total)} sx={{ bgcolor: palette.chipBg, fontWeight: 800 }} />
-                    </Stack>
-                    {linePricing.pack_discount > 0 ? (
-                      <Chip
-                        size="small"
-                        label={`Pack -${formatMoney(linePricing.pack_discount)}`}
-                        sx={{ mt: 1, bgcolor: palette.subtleBg, color: isDark ? "#ffffff" : "text.primary" }}
-                      />
-                    ) : null}
-                  </Box>
-                  <IconButton onClick={() => cart.removeItem(item.product_id)} sx={{ bgcolor: palette.subtleBg }}>
-                    <DeleteIcon />
-                  </IconButton>
-                </Stack>
+                        <Typography sx={{ fontWeight: 900 }}>{formatMoney(linePricing.final_total)}</Typography>
+                      </Stack>
 
-                <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-                  <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
-                    <Typography variant="caption" sx={{ color: palette.textMuted }}>
-                      Precio unitario
-                    </Typography>
-                    <Typography sx={{ fontWeight: 800 }}>{formatMoney(item.price)}</Typography>
-                  </Paper>
-                  <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
-                    <Typography variant="caption" sx={{ color: palette.textMuted }}>
-                      Total de linea
-                    </Typography>
-                    <Typography sx={{ fontWeight: 900 }}>{formatMoney(linePricing.final_total)}</Typography>
-                  </Paper>
-                </Box>
-
-                <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
-                  <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
-                    <Box>
-                      <Typography variant="caption" sx={{ color: palette.textMuted }}>
-                        Cantidad
-                      </Typography>
-                      <Typography sx={{ fontWeight: 800 }}>{item.qty} uds.</Typography>
+                      <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ mt: 0.75 }}>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <IconButton size="small" onClick={() => cart.setQty(item.product_id, normalizeQty(item.qty - 1))} sx={{ bgcolor: palette.chipBg }}>
+                            <RemoveIcon fontSize="small" />
+                          </IconButton>
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={item.qty}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              cart.setQty(item.product_id, normalizeQty(value === "" ? 1 : Number(value)));
+                            }}
+                            inputProps={{ min: 1, inputMode: "numeric", style: { width: 52, textAlign: "center" } }}
+                            sx={fieldSx}
+                          />
+                          <IconButton size="small" onClick={() => cart.setQty(item.product_id, item.qty + 1)} sx={{ bgcolor: palette.chipBg }}>
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                        <Typography variant="caption" sx={{ color: palette.textMuted, fontWeight: 700 }}>
+                          {linePricing.pack_discount > 0 ? `Pack -${formatMoney(linePricing.pack_discount)}` : `${item.qty} uds.`}
+                        </Typography>
+                      </Stack>
                     </Box>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <IconButton size="small" onClick={() => cart.setQty(item.product_id, normalizeQty(item.qty - 1))} sx={{ bgcolor: palette.chipBg }}>
-                        <RemoveIcon fontSize="small" />
-                      </IconButton>
-                      <TextField
-                        size="small"
-                        type="number"
-                        value={item.qty}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          cart.setQty(item.product_id, normalizeQty(value === "" ? 1 : Number(value)));
-                        }}
-                        inputProps={{ min: 1, inputMode: "numeric", style: { width: 68, textAlign: "center" } }}
-                        sx={fieldSx}
+                  </Stack>
+                ) : (
+                  <>
+                    <Stack direction="row" spacing={1} alignItems="flex-start">
+                      <Checkbox
+                        checked={selectedSet.has(item.product_id)}
+                        onChange={() => toggleProduct(item.product_id)}
+                        sx={{ p: 0.5, color: isDark ? "rgba(255,255,255,0.9)" : undefined }}
                       />
-                      <IconButton size="small" onClick={() => cart.setQty(item.product_id, item.qty + 1)} sx={{ bgcolor: palette.chipBg }}>
-                        <AddIcon fontSize="small" />
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="flex-start">
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontWeight: 800 }} noWrap>
+                              {item.name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: palette.textMuted }}>
+                              {item.sku ? `SKU ${item.sku}` : `Codigo ${item.product_id}`}
+                            </Typography>
+                          </Box>
+                          <Chip size="small" label={formatMoney(linePricing.final_total)} sx={{ bgcolor: palette.chipBg, fontWeight: 800 }} />
+                        </Stack>
+                        {linePricing.pack_discount > 0 ? (
+                          <Chip
+                            size="small"
+                            label={`Pack -${formatMoney(linePricing.pack_discount)}`}
+                            sx={{ mt: 1, bgcolor: palette.subtleBg, color: isDark ? "#ffffff" : "text.primary" }}
+                          />
+                        ) : null}
+                      </Box>
+                      <IconButton onClick={() => cart.removeItem(item.product_id)} sx={{ bgcolor: palette.subtleBg }}>
+                        <DeleteIcon />
                       </IconButton>
                     </Stack>
-                  </Stack>
-                </Paper>
+
+                    <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                      <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
+                        <Typography variant="caption" sx={{ color: palette.textMuted }}>
+                          Precio unitario
+                        </Typography>
+                        <Typography sx={{ fontWeight: 800 }}>{formatMoney(item.price)}</Typography>
+                      </Paper>
+                      <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
+                        <Typography variant="caption" sx={{ color: palette.textMuted }}>
+                          Total de linea
+                        </Typography>
+                        <Typography sx={{ fontWeight: 900 }}>{formatMoney(linePricing.final_total)}</Typography>
+                      </Paper>
+                    </Box>
+
+                    <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
+                      <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
+                        <Box>
+                          <Typography variant="caption" sx={{ color: palette.textMuted }}>
+                            Cantidad
+                          </Typography>
+                          <Typography sx={{ fontWeight: 800 }}>{item.qty} uds.</Typography>
+                        </Box>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <IconButton size="small" onClick={() => cart.setQty(item.product_id, normalizeQty(item.qty - 1))} sx={{ bgcolor: palette.chipBg }}>
+                            <RemoveIcon fontSize="small" />
+                          </IconButton>
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={item.qty}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              cart.setQty(item.product_id, normalizeQty(value === "" ? 1 : Number(value)));
+                            }}
+                            inputProps={{ min: 1, inputMode: "numeric", style: { width: 68, textAlign: "center" } }}
+                            sx={fieldSx}
+                          />
+                          <IconButton size="small" onClick={() => cart.setQty(item.product_id, item.qty + 1)} sx={{ bgcolor: palette.chipBg }}>
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  </>
+                )}
               </Paper>
             );
           })}
@@ -351,7 +428,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
 
       <Box sx={{ mt: 2, display: "grid", gap: 1 }}>
         <TextField
-          label="Descuento manual"
+          label={minimal ? "Descuento" : "Descuento manual"}
           helperText={minimal ? undefined : "Aplica un descuento adicional para esta venta."}
           size="small"
           type="number"
@@ -378,22 +455,12 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
             Resumen de cobro
           </Typography>
         ) : null}
-        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-          <Box>Subtotal items</Box>
-          <Box>{formatMoney(summary.subtotalAfterPacks)}</Box>
-        </Box>
-        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-          <Box>Descuento packs</Box>
-          <Box>-{formatMoney(summary.packDiscount)}</Box>
-        </Box>
-        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-          <Box>Descuento manual o promo</Box>
-          <Box>-{formatMoney(summary.promotionDiscount)}</Box>
-        </Box>
-        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-          <Box>Impuesto</Box>
-          <Box>{formatMoney(summary.tax)}</Box>
-        </Box>
+        {summaryRows.map((row) => (
+          <Box key={row.label} sx={{ display: "flex", justifyContent: "space-between", gap: 2, fontSize: minimal ? 13 : undefined }}>
+            <Box>{row.label}</Box>
+            <Box>{row.value}</Box>
+          </Box>
+        ))}
         <Box sx={{ borderTop: `1px solid ${palette.summaryBorder}`, pt: 1, display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: 18 }}>
           <Box>Total</Box>
           <Box>{formatMoney(summary.total)}</Box>

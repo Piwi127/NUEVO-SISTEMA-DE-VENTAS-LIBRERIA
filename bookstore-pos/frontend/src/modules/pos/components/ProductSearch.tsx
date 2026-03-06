@@ -245,6 +245,7 @@ type ProductSearchProps = {
   inputRef?: React.Ref<HTMLInputElement>;
   view?: ProductSearchView;
   minimal?: boolean;
+  splitTabs?: boolean;
 };
 
 export const ProductSearch: React.FC<ProductSearchProps> = ({
@@ -252,6 +253,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   inputRef,
   view = "dropdown",
   minimal = false,
+  splitTabs = false,
 }) => {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -260,10 +262,12 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [resultTab, setResultTab] = useState<"all" | "stock" | "suggested">("all");
+  const [panelTab, setPanelTab] = useState<"search" | "results">("search");
 
   const cart = useCartStore();
   const { currency, compactMode } = useSettings();
   const internalInputRef = useRef<HTMLInputElement | null>(null);
+  const usesSplitTabs = minimal && splitTabs && view === "panel";
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(search), 260);
@@ -425,6 +429,13 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     setHighlightedIndex(0);
   }, [normalizedSearch, categoryFilter, onlyStock]);
 
+  useEffect(() => {
+    if (!usesSplitTabs) return;
+    if (!canSearch && panelTab !== "search") {
+      setPanelTab("search");
+    }
+  }, [usesSplitTabs, canSearch, panelTab]);
+
   const renderResultMeta = (entry: RankedResult) => (
     <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", rowGap: 0.75 }}>
       <Chip size="small" label={entry.stockLabel} color={entry.stockColor} />
@@ -434,180 +445,201 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     </Stack>
   );
 
+  const showSearchPanel = !usesSplitTabs || panelTab === "search";
+  const showResultsPanel = view === "panel" && (!usesSplitTabs || panelTab === "results");
+
   return (
     <Box>
-      <Box sx={{ display: "grid", gap: minimal ? 1.25 : 1.5, mb: 2 }}>
-        <Box sx={{ position: "relative" }}>
-          <TextField
-            fullWidth
-            label={minimal ? "Buscar producto" : "Busqueda inteligente"}
-            placeholder={minimal ? "SKU, nombre o uso" : "Escribe nombre, SKU o uso del producto (ej: tinta, hojas, imprimir)"}
-            helperText={searchHelperText}
-            autoComplete="off"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setIsDropdownOpen(true);
-            }}
-            onFocus={() => setIsDropdownOpen(true)}
-            onBlur={() => window.setTimeout(() => setIsDropdownOpen(false), 120)}
-            inputRef={handleInputRef}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown" && visibleResults.length > 0) {
-                event.preventDefault();
+      {usesSplitTabs ? (
+        <Paper sx={{ mb: 1.25, border: "1px solid #d9e2ec", bgcolor: "#f8fbff" }}>
+          <Tabs value={panelTab} onChange={(_, value) => setPanelTab(value)} variant="fullWidth">
+            <Tab value="search" label="Buscar" />
+            <Tab value="results" label={canSearch ? `Resultados (${panelResults.length})` : "Resultados"} />
+          </Tabs>
+        </Paper>
+      ) : null}
+
+      {showSearchPanel ? (
+        <Box sx={{ display: "grid", gap: minimal ? 1.25 : 1.5, mb: usesSplitTabs ? 0 : 2 }}>
+          <Box sx={{ position: "relative" }}>
+            <TextField
+              fullWidth
+              label={minimal ? "Buscar producto" : "Busqueda inteligente"}
+              placeholder={minimal ? "SKU, nombre o uso" : "Escribe nombre, SKU o uso del producto (ej: tinta, hojas, imprimir)"}
+              helperText={searchHelperText}
+              autoComplete="off"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
                 setIsDropdownOpen(true);
-                setHighlightedIndex((prev) => Math.min(prev + 1, visibleResults.length - 1));
-                return;
-              }
-              if (event.key === "ArrowUp" && visibleResults.length > 0) {
-                event.preventDefault();
-                setHighlightedIndex((prev) => Math.max(prev - 1, 0));
-                return;
-              }
-              if (event.key === "Escape") {
-                setIsDropdownOpen(false);
-                return;
-              }
-              if (event.key === "Enter" && visibleResults.length > 0) {
-                event.preventDefault();
-                const entry = visibleResults[Math.min(highlightedIndex, visibleResults.length - 1)] || visibleResults[0];
-                addProduct(entry.product);
-              }
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          {view === "dropdown" && canSearch && isDropdownOpen ? (
-            <Paper
-              elevation={8}
-              sx={{
-                position: "absolute",
-                top: "calc(100% + 6px)",
-                left: 0,
-                right: 0,
-                zIndex: 15,
-                maxHeight: 460,
-                overflowY: "auto",
-                borderRadius: 2,
               }}
-            >
-              {productsQuery.isFetching || fallbackQuery.isFetching ? (
-                <Box sx={{ p: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16} />
-                  <Typography variant="body2" color="text.secondary">
-                    Buscando productos...
-                  </Typography>
-                </Box>
-              ) : null}
+              onFocus={() => setIsDropdownOpen(true)}
+              onBlur={() => window.setTimeout(() => setIsDropdownOpen(false), 120)}
+              inputRef={handleInputRef}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown" && visibleResults.length > 0) {
+                  event.preventDefault();
+                  setIsDropdownOpen(true);
+                  setHighlightedIndex((prev) => Math.min(prev + 1, visibleResults.length - 1));
+                  return;
+                }
+                if (event.key === "ArrowUp" && visibleResults.length > 0) {
+                  event.preventDefault();
+                  setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                  return;
+                }
+                if (event.key === "Escape") {
+                  setIsDropdownOpen(false);
+                  return;
+                }
+                if (event.key === "Enter" && visibleResults.length > 0) {
+                  event.preventDefault();
+                  const entry = visibleResults[Math.min(highlightedIndex, visibleResults.length - 1)] || visibleResults[0];
+                  addProduct(entry.product);
+                }
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
 
-              {!productsQuery.isFetching && !fallbackQuery.isFetching && visibleResults.length === 0 ? (
-                <Box sx={{ p: 1.5 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Sin coincidencias. Prueba por nombre, SKU o utilidad.
-                  </Typography>
-                </Box>
-              ) : null}
+            {view === "dropdown" && canSearch && isDropdownOpen ? (
+              <Paper
+                elevation={8}
+                sx={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  left: 0,
+                  right: 0,
+                  zIndex: 15,
+                  maxHeight: 460,
+                  overflowY: "auto",
+                  borderRadius: 2,
+                }}
+              >
+                {productsQuery.isFetching || fallbackQuery.isFetching ? (
+                  <Box sx={{ p: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
+                    <CircularProgress size={16} />
+                    <Typography variant="body2" color="text.secondary">
+                      Buscando productos...
+                    </Typography>
+                  </Box>
+                ) : null}
 
-              {!productsQuery.isFetching && !fallbackQuery.isFetching && visibleResults.length > 0 ? (
-                <List dense disablePadding>
-                  {visibleResults.map((entry, index) => (
-                    <ListItem
-                      key={entry.product.id}
-                      disablePadding
-                      secondaryAction={
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => addProduct(entry.product)}
-                        >
-                          Agregar
-                        </Button>
-                      }
-                    >
-                      <ListItemButton
-                        selected={index === highlightedIndex}
-                        onMouseEnter={() => setHighlightedIndex(index)}
-                        onClick={() => addProduct(entry.product)}
-                        sx={{ pr: 12, py: minimal ? 1 : 1.25 }}
+                {!productsQuery.isFetching && !fallbackQuery.isFetching && visibleResults.length === 0 ? (
+                  <Box sx={{ p: 1.5 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Sin coincidencias. Prueba por nombre, SKU o utilidad.
+                    </Typography>
+                  </Box>
+                ) : null}
+
+                {!productsQuery.isFetching && !fallbackQuery.isFetching && visibleResults.length > 0 ? (
+                  <List dense disablePadding>
+                    {visibleResults.map((entry, index) => (
+                      <ListItem
+                        key={entry.product.id}
+                        disablePadding
+                        secondaryAction={
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => addProduct(entry.product)}
+                          >
+                            Agregar
+                          </Button>
+                        }
                       >
-                        <Box sx={{ display: "grid", gap: 0.75, width: "100%" }}>
-                          <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography sx={{ fontWeight: 800 }} noWrap>
-                                {entry.product.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {entry.product.sku || "Sin SKU"} · {entry.product.category || "Sin categoria"}
-                              </Typography>
-                            </Box>
-                            <Typography sx={{ fontWeight: 900, whiteSpace: "nowrap" }}>{formatMoney(entry.price)}</Typography>
-                          </Stack>
-                          {renderResultMeta(entry)}
-                        </Box>
-                      </ListItemButton>
-                    </ListItem>
-                  ))}
-                </List>
-              ) : null}
-            </Paper>
-          ) : null}
-        </Box>
-
-        <Stack direction={{ xs: "column", md: compactMode ? "column" : "row" }} spacing={1.5} alignItems={{ md: "center" }}>
-          <TextField
-            select
-            label="Categoria"
-            value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
-            size={minimal ? "small" : "medium"}
-            sx={{ minWidth: minimal ? 180 : 220, width: compactMode ? "100%" : "auto" }}
-          >
-            <MenuItem value="">Todas</MenuItem>
-            {categories.map((category) => (
-              <MenuItem key={category} value={category}>
-                {category}
-              </MenuItem>
-            ))}
-          </TextField>
-          <FormControlLabel control={<Switch checked={onlyStock} onChange={(event) => setOnlyStock(event.target.checked)} />} label="Solo con stock" />
-          {!minimal ? (
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-              <Chip label={`Resultados ${canSearch ? rankedResults.length : 0}`} color="primary" size="small" />
-              <Chip label={`Disponibles ${canSearch ? stockCount : 0}`} size="small" />
-              <Chip label={`Relacionados ${canSearch ? relatedCount : 0}`} size="small" />
-              {productsQuery.isFetching || fallbackQuery.isFetching ? (
-                <Chip icon={<CircularProgress size={12} />} label="Buscando..." size="small" />
-              ) : null}
-            </Stack>
-          ) : canSearch ? (
-            <Chip label={`${rankedResults.length} resultados`} color="primary" size="small" />
-          ) : null}
-        </Stack>
-
-        {!minimal ? (
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
-              Sugerencias:
-            </Typography>
-            {suggestionTerms.map((term) => (
-              <Chip key={term} label={term} size="small" onClick={() => appendSuggestion(term)} />
-            ))}
+                        <ListItemButton
+                          selected={index === highlightedIndex}
+                          onMouseEnter={() => setHighlightedIndex(index)}
+                          onClick={() => addProduct(entry.product)}
+                          sx={{ pr: 12, py: minimal ? 1 : 1.25 }}
+                        >
+                          <Box sx={{ display: "grid", gap: 0.75, width: "100%" }}>
+                            <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontWeight: 800 }} noWrap>
+                                  {entry.product.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {entry.product.sku || "Sin SKU"} | {entry.product.category || "Sin categoria"}
+                                </Typography>
+                              </Box>
+                              <Typography sx={{ fontWeight: 900, whiteSpace: "nowrap" }}>{formatMoney(entry.price)}</Typography>
+                            </Stack>
+                            {renderResultMeta(entry)}
+                          </Box>
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                ) : null}
+              </Paper>
+            ) : null}
           </Box>
-        ) : null}
-      </Box>
 
-      {!canSearch ? (
-        <Box sx={{ mt: 1, p: 2, border: "1px dashed", borderColor: "divider", borderRadius: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Escribe al menos 2 caracteres para buscar productos. No se mostrara el catalogo completo para evitar listas enormes.
-          </Typography>
+          <Stack direction={{ xs: "column", md: compactMode ? "column" : "row" }} spacing={1.5} alignItems={{ md: "center" }}>
+            <TextField
+              select
+              label="Categoria"
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              size={minimal ? "small" : "medium"}
+              sx={{ minWidth: minimal ? 180 : 220, width: compactMode ? "100%" : "auto" }}
+            >
+              <MenuItem value="">Todas</MenuItem>
+              {categories.map((category) => (
+                <MenuItem key={category} value={category}>
+                  {category}
+                </MenuItem>
+              ))}
+            </TextField>
+            <FormControlLabel control={<Switch checked={onlyStock} onChange={(event) => setOnlyStock(event.target.checked)} />} label="Solo con stock" />
+            {!minimal ? (
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                <Chip label={`Resultados ${canSearch ? rankedResults.length : 0}`} color="primary" size="small" />
+                <Chip label={`Disponibles ${canSearch ? stockCount : 0}`} size="small" />
+                <Chip label={`Relacionados ${canSearch ? relatedCount : 0}`} size="small" />
+                {productsQuery.isFetching || fallbackQuery.isFetching ? (
+                  <Chip icon={<CircularProgress size={12} />} label="Buscando..." size="small" />
+                ) : null}
+              </Stack>
+            ) : canSearch ? (
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                <Chip label={`${rankedResults.length} resultados`} color="primary" size="small" />
+                {usesSplitTabs ? (
+                  <Button size="small" variant="text" onClick={() => setPanelTab("results")}>
+                    Ver lista
+                  </Button>
+                ) : null}
+              </Stack>
+            ) : null}
+          </Stack>
+
+          {!minimal ? (
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
+                Sugerencias:
+              </Typography>
+              {suggestionTerms.map((term) => (
+                <Chip key={term} label={term} size="small" onClick={() => appendSuggestion(term)} />
+              ))}
+            </Box>
+          ) : null}
+
+          {!canSearch ? (
+            <Box sx={{ p: 2, border: "1px dashed", borderColor: "divider", borderRadius: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Escribe al menos 2 caracteres para buscar productos. No se mostrara el catalogo completo para evitar listas enormes.
+              </Typography>
+            </Box>
+          ) : null}
         </Box>
       ) : null}
 
@@ -630,8 +662,21 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
         </Box>
       ) : null}
 
-      {view === "panel" ? (
+      {showResultsPanel ? (
         <Box sx={{ mt: 1 }}>
+          {usesSplitTabs ? (
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "center" }} sx={{ mb: 1 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                {canSearch ? `Busqueda actual: ${search.trim() || normalizedSearch}` : "Ve a la pestana Buscar para iniciar una busqueda."}
+              </Typography>
+              {canSearch ? (
+                <Button size="small" variant="text" onClick={() => setPanelTab("search")}>
+                  Editar busqueda
+                </Button>
+              ) : null}
+            </Stack>
+          ) : null}
+
           {topResult && !minimal ? (
             <Paper
               sx={{
@@ -650,7 +695,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     {topResult.product.name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    {topResult.product.sku || "Sin SKU"} · {topResult.product.category || "Sin categoria"}
+                    {topResult.product.sku || "Sin SKU"} | {topResult.product.category || "Sin categoria"}
                   </Typography>
                   {renderResultMeta(topResult)}
                   <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
@@ -683,7 +728,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             {!canSearch ? (
               <Box sx={{ p: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Escribe para buscar y mostrar resultados.
+                  {usesSplitTabs ? "Ve a la pestana Buscar para escribir la consulta." : "Escribe para buscar y mostrar resultados."}
                 </Typography>
               </Box>
             ) : null}
@@ -722,7 +767,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                         <Box sx={{ minWidth: 0 }}>
                           <Typography sx={{ fontWeight: 800, color: "#102a43" }}>{entry.product.name}</Typography>
                           <Typography variant="caption" sx={{ color: "#486581" }}>
-                            {entry.product.sku || "Sin SKU"} · {entry.product.category || "Sin categoria"}
+                            {entry.product.sku || "Sin SKU"} | {entry.product.category || "Sin categoria"}
                           </Typography>
                         </Box>
                         <Typography sx={{ fontWeight: 900, color: "#243b53", whiteSpace: "nowrap" }}>{formatMoney(entry.price)}</Typography>
