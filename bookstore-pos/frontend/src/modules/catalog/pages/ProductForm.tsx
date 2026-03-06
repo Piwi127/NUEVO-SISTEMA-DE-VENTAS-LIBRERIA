@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Box, Button, MenuItem, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -23,7 +23,6 @@ import {
 } from "@/modules/catalog/api";
 import type { Product } from "@/modules/shared/types";
 
-type MainTab = "details" | "margin";
 type CategoryTab = "existing" | "new";
 
 const nonNegativeNumberSchema = z.number().min(0, "Debe ser mayor o igual a 0.");
@@ -78,6 +77,10 @@ const pricingFormSchema = z.object({
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
 type MarginInputs = z.infer<typeof pricingFormSchema>;
+type PricingBackedProductFields = Pick<
+  ProductFormValues,
+  "price" | "sale_price" | "cost" | "unit_cost" | "cost_total" | "cost_qty" | "direct_costs_breakdown" | "direct_costs_total" | "desired_margin"
+>;
 
 const emptyForm: ProductFormValues = {
   sku: "",
@@ -147,7 +150,6 @@ const ProductForm: React.FC = () => {
   const isEditing = Number.isFinite(parsedId) && parsedId > 0;
 
   const [saving, setSaving] = useState(false);
-  const [mainTab, setMainTab] = useState<MainTab>("details");
   const [categoryTab, setCategoryTab] = useState<CategoryTab>("existing");
   const [newCategory, setNewCategory] = useState("");
   const [preview, setPreview] = useState<PricingPreviewResponse | null>(null);
@@ -230,6 +232,14 @@ const ProductForm: React.FC = () => {
   }, [productQuery.data, resetPricing, resetProduct]);
 
   const selectedCategory = watchProduct("category");
+  const [syncedPrice, syncedCost, syncedCostTotal, syncedCostQty, syncedDirectCostsTotal, syncedDesiredMargin] = watchProduct([
+    "price",
+    "cost",
+    "cost_total",
+    "cost_qty",
+    "direct_costs_total",
+    "desired_margin",
+  ]);
 
   const categoryOptions = useMemo(() => {
     const values = new Set((categoriesQuery.data || []).map((item) => item.trim()).filter(Boolean));
@@ -274,18 +284,55 @@ const ProductForm: React.FC = () => {
     };
   };
 
+  const buildProductPricingFields = (
+    payload: PricingPreviewPayload,
+    calculated: { unit_cost: number; sale_price: number; direct_costs_total: number }
+  ): PricingBackedProductFields => ({
+    price: calculated.sale_price,
+    sale_price: calculated.sale_price,
+    cost: calculated.unit_cost,
+    unit_cost: calculated.unit_cost,
+    cost_total: Number(payload.cost_total),
+    cost_qty: payload.qty,
+    direct_costs_breakdown: JSON.stringify(payload.direct_costs_breakdown),
+    direct_costs_total: calculated.direct_costs_total,
+    desired_margin: Number(payload.desired_margin),
+  });
+
+  const syncProductPricingFields = (fields: PricingBackedProductFields, shouldDirty = true) => {
+    setProductValue("price", fields.price, { shouldDirty, shouldValidate: true });
+    setProductValue("sale_price", fields.sale_price, { shouldDirty, shouldValidate: true });
+    setProductValue("cost", fields.cost, { shouldDirty, shouldValidate: true });
+    setProductValue("unit_cost", fields.unit_cost, { shouldDirty, shouldValidate: true });
+    setProductValue("cost_total", fields.cost_total, { shouldDirty, shouldValidate: true });
+    setProductValue("cost_qty", fields.cost_qty, { shouldDirty, shouldValidate: true });
+    setProductValue("direct_costs_breakdown", fields.direct_costs_breakdown, { shouldDirty, shouldValidate: true });
+    setProductValue("direct_costs_total", fields.direct_costs_total, { shouldDirty, shouldValidate: true });
+    setProductValue("desired_margin", fields.desired_margin, { shouldDirty, shouldValidate: true });
+  };
+
   const handlePreviewPricing = async () => {
     setPricingError("");
     const valid = await triggerPricing();
     if (!valid) {
-      setMainTab("margin");
       showToast({ message: "Revisa los campos del pricing antes de calcular.", severity: "warning" });
       return;
     }
     try {
       setPreviewLoading(true);
-      const response = await previewProductPricing(pricingPayload(getPricingValues()));
+      const pricingValues = getPricingValues();
+      const payload = pricingPayload(pricingValues);
+      const response = await previewProductPricing(payload);
+      syncProductPricingFields(
+        buildProductPricingFields(payload, {
+          unit_cost: response.unit_cost,
+          sale_price: response.sale_price_unit,
+          direct_costs_total: response.direct_costs_total,
+        })
+      );
       setPreview(response);
+      resetPricing(pricingValues);
+      showToast({ message: "Costo y precio actualizados en el formulario.", severity: "success" });
     } catch (err: any) {
       const message = errorMessage(err, "No se pudo calcular.");
       setPricingError(message);
@@ -303,7 +350,6 @@ const ProductForm: React.FC = () => {
     setPricingError("");
     const valid = await triggerPricing();
     if (!valid) {
-      setMainTab("margin");
       showToast({ message: "Revisa los campos del pricing antes de aplicar.", severity: "warning" });
       return;
     }
@@ -312,34 +358,22 @@ const ProductForm: React.FC = () => {
       const pricingValues = getPricingValues();
       const payload = pricingPayload(pricingValues);
       const result = await applyProductPricing(parsedId, payload);
-      const breakdown = JSON.stringify(payload.direct_costs_breakdown);
+      const nextPricingFields = buildProductPricingFields(payload, {
+        unit_cost: result.unit_cost,
+        sale_price: result.sale_price,
+        direct_costs_total: result.direct_costs_total,
+      });
       const currentProduct = getProductValues();
       const nextProduct: ProductFormValues = {
         ...currentProduct,
-        price: result.sale_price,
-        sale_price: result.sale_price,
-        cost: result.unit_cost,
-        unit_cost: result.unit_cost,
-        cost_total: Number(payload.cost_total),
-        cost_qty: payload.qty,
-        direct_costs_breakdown: breakdown,
-        direct_costs_total: result.direct_costs_total,
-        desired_margin: Number(payload.desired_margin),
+        ...nextPricingFields,
       };
       const hasNonPricingDirtyFields = Object.keys(productDirtyFields).some(
         (field) => !pricingBackedFields.has(field as keyof ProductFormValues)
       );
 
       if (hasNonPricingDirtyFields) {
-        setProductValue("price", nextProduct.price, { shouldDirty: true, shouldValidate: true });
-        setProductValue("sale_price", nextProduct.sale_price, { shouldDirty: true, shouldValidate: true });
-        setProductValue("cost", nextProduct.cost, { shouldDirty: true, shouldValidate: true });
-        setProductValue("unit_cost", nextProduct.unit_cost, { shouldDirty: true, shouldValidate: true });
-        setProductValue("cost_total", nextProduct.cost_total, { shouldDirty: true, shouldValidate: true });
-        setProductValue("cost_qty", nextProduct.cost_qty, { shouldDirty: true, shouldValidate: true });
-        setProductValue("direct_costs_breakdown", nextProduct.direct_costs_breakdown, { shouldDirty: true, shouldValidate: true });
-        setProductValue("direct_costs_total", nextProduct.direct_costs_total, { shouldDirty: true, shouldValidate: true });
-        setProductValue("desired_margin", nextProduct.desired_margin, { shouldDirty: true, shouldValidate: true });
+        syncProductPricingFields(nextPricingFields);
       } else {
         resetProduct(nextProduct);
       }
@@ -361,7 +395,7 @@ const ProductForm: React.FC = () => {
         qc.invalidateQueries({ queryKey: ["products-smart-search-corrected"] }),
       ]);
       showToast({
-        message: hasNonPricingDirtyFields ? "Pricing aplicado. Aun hay cambios pendientes en datos del producto." : "Pricing aplicado al producto",
+        message: hasNonPricingDirtyFields ? "Pricing aplicado. Aun hay cambios pendientes en datos del producto." : "Pricing aplicado y sincronizado en el producto.",
         severity: "success",
       });
     } catch (err: any) {
@@ -377,7 +411,6 @@ const ProductForm: React.FC = () => {
     setSubmitError("");
     const valid = await triggerProduct();
     if (!valid) {
-      setMainTab("details");
       showToast({ message: "Revisa los campos del producto antes de guardar.", severity: "warning" });
       return;
     }
@@ -421,7 +454,6 @@ const ProductForm: React.FC = () => {
         resetPricing(emptyMarginInputs);
         setCategoryTab("existing");
         setNewCategory("");
-        setMainTab("details");
         setPreview(null);
       }
     } catch (err: any) {
@@ -433,9 +465,199 @@ const ProductForm: React.FC = () => {
     }
   };
 
+  const pricingCards = preview
+    ? [
+        { label: "Precio venta", value: Number(syncedPrice || 0).toFixed(2) },
+        { label: "Costo unitario", value: Number(syncedCost || 0).toFixed(2) },
+        { label: "Costo total compra", value: Number(syncedCostTotal || 0).toFixed(2) },
+        { label: "Cantidad", value: `${Number(syncedCostQty || 0)}` },
+        { label: "Costos directos", value: Number(syncedDirectCostsTotal || 0).toFixed(2) },
+        { label: "Margen guardado", value: `${(Number(syncedDesiredMargin || 0) * 100).toFixed(2)}%` },
+        { label: "Costo total calculado", value: preview.cost_total_all.toFixed(2) },
+        { label: "Utilidad unitaria", value: preview.profit_unit.toFixed(2) },
+      ]
+    : [];
+
+  const pricingPanel = (
+    <Box
+      sx={{
+        display: "grid",
+        gap: 1.2,
+        p: { xs: 1, md: 1.2 },
+        borderRadius: 3,
+        border: "1px solid rgba(18,53,90,0.08)",
+        bgcolor: "rgba(18,53,90,0.035)",
+      }}
+    >
+      <Box sx={{ display: "grid", gap: 0.45 }}>
+        <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: 1 }}>
+          Asistente de margen
+        </Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+          Calcula costo y precio sin salir del formulario
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Formula: ((costo total + costos directos) / (1 - margen)) / cantidad
+        </Typography>
+      </Box>
+
+      {pricingError ? <Alert severity="error">{pricingError}</Alert> : null}
+      {isPricingDirty ? (
+        <Typography variant="caption" color="text.secondary">
+          El calculo puede estar desactualizado. Vuelve a calcular despues de cambiar cualquier valor.
+        </Typography>
+      ) : null}
+
+      <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+        <TextField
+          label="Cantidad"
+          type="number"
+          error={!!pricingErrors.qty}
+          helperText={pricingErrors.qty?.message}
+          inputProps={{ min: 1, step: 1 }}
+          {...registerPricing("qty", {
+            setValueAs: (value) => (value === "" ? 0 : Number(value)),
+            onChange: () => {
+              setPricingError("");
+              setPreview(null);
+            },
+          })}
+        />
+        <TextField
+          label="Costo total compra"
+          type="number"
+          error={!!pricingErrors.cost_total}
+          helperText={pricingErrors.cost_total?.message}
+          inputProps={{ min: 0, step: "0.01" }}
+          {...registerPricing("cost_total", {
+            onChange: () => {
+              setPricingError("");
+              setPreview(null);
+            },
+          })}
+        />
+        <TextField
+          label="Transporte"
+          type="number"
+          error={!!pricingErrors.transport}
+          helperText={pricingErrors.transport?.message}
+          inputProps={{ min: 0, step: "0.01" }}
+          {...registerPricing("transport", {
+            onChange: () => {
+              setPricingError("");
+              setPreview(null);
+            },
+          })}
+        />
+        <TextField
+          label="Empaque"
+          type="number"
+          error={!!pricingErrors.pack}
+          helperText={pricingErrors.pack?.message}
+          inputProps={{ min: 0, step: "0.01" }}
+          {...registerPricing("pack", {
+            onChange: () => {
+              setPricingError("");
+              setPreview(null);
+            },
+          })}
+        />
+        <TextField
+          label="Otros"
+          type="number"
+          error={!!pricingErrors.other}
+          helperText={pricingErrors.other?.message}
+          inputProps={{ min: 0, step: "0.01" }}
+          {...registerPricing("other", {
+            onChange: () => {
+              setPricingError("");
+              setPreview(null);
+            },
+          })}
+        />
+        <TextField
+          label="Delivery"
+          type="number"
+          error={!!pricingErrors.delivery}
+          helperText={pricingErrors.delivery?.message}
+          inputProps={{ min: 0, step: "0.01" }}
+          {...registerPricing("delivery", {
+            onChange: () => {
+              setPricingError("");
+              setPreview(null);
+            },
+          })}
+        />
+        <TextField
+          label="Margen deseado (%)"
+          type="number"
+          error={!!pricingErrors.desired_margin_percent}
+          helperText={pricingErrors.desired_margin_percent?.message}
+          inputProps={{ min: 0, max: 99.99, step: "0.01" }}
+          {...registerPricing("desired_margin_percent", {
+            onChange: () => {
+              setPricingError("");
+              setPreview(null);
+            },
+          })}
+        />
+      </Box>
+
+      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+        <Button
+          type="button"
+          variant="contained"
+          startIcon={<CalculateIcon />}
+          onClick={handlePreviewPricing}
+          disabled={previewLoading || applyLoading || !isPricingValid}
+        >
+          {previewLoading ? "Calculando..." : "Calcular y llenar"}
+        </Button>
+        <Button
+          type="button"
+          variant="outlined"
+          startIcon={<PriceCheckIcon />}
+          onClick={handleApplyPricing}
+          disabled={applyLoading || previewLoading || !isEditing || !isPricingValid}
+        >
+          {applyLoading ? "Aplicando..." : "Aplicar directo"}
+        </Button>
+      </Box>
+
+      <Typography variant="caption" color={!isEditing ? "warning.main" : "text.secondary"}>
+        {!isEditing
+          ? "Puedes calcular antes de guardar. La aplicacion directa se habilita cuando el producto ya existe."
+          : "Si el producto ya existe, tambien puedes aplicar el pricing directo sin esperar al guardado general."}
+      </Typography>
+
+      {preview ? (
+        <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(160px, 1fr))" } }}>
+          {pricingCards.map((item) => (
+            <Box
+              key={item.label}
+              sx={{
+                p: 0.85,
+                borderRadius: 2,
+                border: "1px solid rgba(18,53,90,0.08)",
+                bgcolor: "rgba(255,255,255,0.74)",
+              }}
+            >
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 700 }}>
+                {item.label}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.35, fontWeight: 800 }}>
+                {item.value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      ) : null}
+    </Box>
+  );
+
   if (isEditing && productQuery.isLoading) {
     return (
-      <Box sx={{ display: "grid", gap: 2 }}>
+      <Box sx={{ display: "grid", gap: 1.5 }}>
         <PageHeader title="Editar producto" subtitle="Cargando datos..." icon={<CategoryIcon color="primary" />} loading />
         <Paper sx={{ p: 2 }}>
           <LoadingState title="Cargando producto..." />
@@ -446,7 +668,7 @@ const ProductForm: React.FC = () => {
 
   if (isEditing && productQuery.isError) {
     return (
-      <Box sx={{ display: "grid", gap: 2 }}>
+      <Box sx={{ display: "grid", gap: 1.5 }}>
         <PageHeader title="Editar producto" subtitle="No se pudo cargar el producto." icon={<CategoryIcon color="primary" />} />
         <Paper sx={{ p: 2 }}>
           <ErrorState title="No se pudo cargar el producto" onRetry={() => productQuery.refetch()} />
@@ -456,313 +678,195 @@ const ProductForm: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 1.5 }}>
       <PageHeader
         title={isEditing ? `Editar producto #${parsedId}` : "Agregar nuevo producto"}
-        subtitle="Completa los datos clave, valida pricing y guarda el producto en el catalogo."
+        subtitle={isEditing ? "Edita datos y pricing del producto." : "Crea el producto y define su pricing."}
         icon={<CategoryIcon color="primary" />}
       />
 
-      <Paper sx={{ p: 2.5 }}>
-        <Tabs value={mainTab} onChange={(_event, value) => setMainTab(value)} sx={{ mb: 2 }}>
-          <Tab value="details" label="Datos del producto" />
-          <Tab value="margin" label="Precio por margen" />
-        </Tabs>
+      <Paper sx={{ p: { xs: 0.9, md: 1.1 }, display: "grid", gap: 1.75 }}>
+        {submitError ? <Alert severity="error">{submitError}</Alert> : null}
+        {isProductDirty ? (
+          <Typography variant="caption" color="text.secondary">
+            Hay cambios pendientes por guardar en el producto.
+          </Typography>
+        ) : null}
 
-        {mainTab === "details" ? (
-          <Box sx={{ display: "grid", gap: 2 }}>
-            <Typography variant="h6">Datos del producto</Typography>
-            {submitError ? <Alert severity="error">{submitError}</Alert> : null}
-            {isProductDirty ? (
-              <Typography variant="caption" color="text.secondary">
-                Hay cambios pendientes por guardar en el producto.
-              </Typography>
-            ) : null}
-
-            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-              <Box sx={{ display: "grid", gap: 1.25 }}>
-                <Tabs value={categoryTab} onChange={(_event, value) => setCategoryTab(value)} variant="fullWidth">
-                  <Tab value="existing" label="Categorias" />
-                  <Tab value="new" label="Nueva categoria" />
-                </Tabs>
-                {categoryTab === "existing" ? (
-                  <TextField
-                    select
-                    label="Categoria"
-                    error={!!productErrors.category}
-                    helperText={
-                      productErrors.category?.message ||
-                      (categoriesQuery.isLoading
-                        ? "Cargando categorias..."
-                        : categoryOptions.length > 0
-                          ? "Selecciona una categoria existente."
-                          : "Aun no hay categorias. Puedes crear una nueva.")
-                    }
-                    fullWidth
-                    {...registerProduct("category", {
-                      onChange: () => setSubmitError(""),
-                    })}
-                  >
-                    <MenuItem value="">Sin categoria</MenuItem>
-                    {categoryOptions.map((item) => (
-                      <MenuItem key={item} value={item}>
-                        {item}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                ) : (
-                  <Box sx={{ display: "grid", gap: 1 }}>
-                    <TextField
-                      label="Nueva categoria"
-                      value={newCategory}
-                      onChange={(event) => setNewCategory(event.target.value)}
-                      helperText="Crea y asigna la categoria a este producto."
-                      fullWidth
-                    />
-                    <Button type="button" variant="outlined" onClick={handleCreateCategory} disabled={!newCategory.trim()}>
-                      Crear categoria
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-
-              <TextField
-                label="SKU"
-                error={!!productErrors.sku}
-                helperText={productErrors.sku?.message || "Codigo unico para ventas e inventario."}
-                fullWidth
-                {...registerProduct("sku", {
-                  onChange: () => setSubmitError(""),
-                })}
-              />
-              <TextField
-                label="Nombre"
-                error={!!productErrors.name}
-                helperText={productErrors.name?.message || "Nombre visible en POS, catalogo y reportes."}
-                fullWidth
-                {...registerProduct("name", {
-                  onChange: () => setSubmitError(""),
-                })}
-              />
-              <TextField
-                label="Tags"
-                error={!!productErrors.tags}
-                helperText={productErrors.tags?.message || "Separa etiquetas con coma. Ej: hojas, cuaderno, rayado."}
-                fullWidth
-                {...registerProduct("tags", {
-                  onChange: () => setSubmitError(""),
-                })}
-              />
-              <TextField
-                label="Precio venta"
-                type="number"
-                error={!!productErrors.price}
-                helperText={productErrors.price?.message || "Precio unitario usado por el POS."}
-                inputProps={{ min: 0, step: "0.01" }}
-                fullWidth
-                {...registerProduct("price", {
-                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                  onChange: (event) => {
-                    setSubmitError("");
-                    const next = event.target.value === "" ? 0 : Number(event.target.value);
-                    setProductValue("sale_price", next, { shouldDirty: true, shouldValidate: true });
-                  },
-                })}
-              />
-              <TextField
-                label="Costo unitario"
-                type="number"
-                error={!!productErrors.cost}
-                helperText={productErrors.cost?.message || "Costo base unitario antes de margen."}
-                inputProps={{ min: 0, step: "0.01" }}
-                fullWidth
-                {...registerProduct("cost", {
-                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                  onChange: (event) => {
-                    setSubmitError("");
-                    const next = event.target.value === "" ? 0 : Number(event.target.value);
-                    setProductValue("unit_cost", next, { shouldDirty: true, shouldValidate: true });
-                  },
-                })}
-              />
-              <TextField
-                label="Stock"
-                type="number"
-                error={!!productErrors.stock}
-                helperText={productErrors.stock?.message || "Existencia actual disponible."}
-                inputProps={{ min: 0, step: 1 }}
-                fullWidth
-                {...registerProduct("stock", {
-                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                  onChange: () => setSubmitError(""),
-                })}
-              />
-              <TextField
-                label="Stock minimo"
-                type="number"
-                error={!!productErrors.stock_min}
-                helperText={productErrors.stock_min?.message || "Nivel minimo antes de reposicion."}
-                inputProps={{ min: 0, step: 1 }}
-                fullWidth
-                {...registerProduct("stock_min", {
-                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                  onChange: () => setSubmitError(""),
-                })}
-              />
-            </Box>
+        <Box sx={{ display: "grid", gap: 1 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+            Operacion principal
+          </Typography>
+          <Box
+            sx={{
+              display: "grid",
+              gap: 1,
+              gridTemplateColumns: {
+                xs: "1fr",
+                sm: "repeat(2, minmax(0, 1fr))",
+                xl: "1.05fr 1.6fr repeat(4, minmax(140px, 1fr))",
+              },
+            }}
+          >
+            <TextField
+              label="SKU"
+              error={!!productErrors.sku}
+              helperText={productErrors.sku?.message}
+              fullWidth
+              {...registerProduct("sku", {
+                onChange: () => setSubmitError(""),
+              })}
+            />
+            <TextField
+              label="Nombre"
+              error={!!productErrors.name}
+              helperText={productErrors.name?.message}
+              fullWidth
+              {...registerProduct("name", {
+                onChange: () => setSubmitError(""),
+              })}
+            />
+            <TextField
+              label="Precio venta"
+              type="number"
+              error={!!productErrors.price}
+              helperText={productErrors.price?.message}
+              inputProps={{ min: 0, step: "0.01" }}
+              fullWidth
+              {...registerProduct("price", {
+                setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                onChange: (event) => {
+                  setSubmitError("");
+                  const next = event.target.value === "" ? 0 : Number(event.target.value);
+                  setProductValue("sale_price", next, { shouldDirty: true, shouldValidate: true });
+                },
+              })}
+            />
+            <TextField
+              label="Costo unitario"
+              type="number"
+              error={!!productErrors.cost}
+              helperText={productErrors.cost?.message}
+              inputProps={{ min: 0, step: "0.01" }}
+              fullWidth
+              {...registerProduct("cost", {
+                setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                onChange: (event) => {
+                  setSubmitError("");
+                  const next = event.target.value === "" ? 0 : Number(event.target.value);
+                  setProductValue("unit_cost", next, { shouldDirty: true, shouldValidate: true });
+                },
+              })}
+            />
+            <TextField
+              label="Stock"
+              type="number"
+              error={!!productErrors.stock}
+              helperText={productErrors.stock?.message}
+              inputProps={{ min: 0, step: 1 }}
+              fullWidth
+              {...registerProduct("stock", {
+                setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                onChange: () => setSubmitError(""),
+              })}
+            />
+            <TextField
+              label="Stock min"
+              type="number"
+              error={!!productErrors.stock_min}
+              helperText={productErrors.stock_min?.message}
+              inputProps={{ min: 0, step: 1 }}
+              fullWidth
+              {...registerProduct("stock_min", {
+                setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                onChange: () => setSubmitError(""),
+              })}
+            />
           </Box>
-        ) : (
-          <Box sx={{ display: "grid", gap: 2 }}>
-            <Typography variant="h6">Precio por margen</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Formula: ((costo total + costos directos) / (1 - margen)) / cantidad
-            </Typography>
-            {pricingError ? <Alert severity="error">{pricingError}</Alert> : null}
-            {isPricingDirty ? (
-              <Typography variant="caption" color="text.secondary">
-                El calculo puede estar desactualizado. Vuelve a calcular o aplicar despues de cambiar cualquier valor.
-              </Typography>
-            ) : null}
-            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-              <TextField
-                label="Cantidad"
-                type="number"
-                error={!!pricingErrors.qty}
-                helperText={pricingErrors.qty?.message || "Cantidad de unidades en la compra."}
-                inputProps={{ min: 1, step: 1 }}
-                {...registerPricing("qty", {
-                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                  onChange: () => {
-                    setPricingError("");
-                    setPreview(null);
-                  },
-                })}
-              />
-              <TextField
-                label="Costo total compra"
-                type="number"
-                error={!!pricingErrors.cost_total}
-                helperText={pricingErrors.cost_total?.message || "Monto total pagado por la compra."}
-                inputProps={{ min: 0, step: "0.01" }}
-                {...registerPricing("cost_total", {
-                  onChange: () => {
-                    setPricingError("");
-                    setPreview(null);
-                  },
-                })}
-              />
-              <TextField
-                label="Transporte"
-                type="number"
-                error={!!pricingErrors.transport}
-                helperText={pricingErrors.transport?.message || "Costo logistica asociado."}
-                inputProps={{ min: 0, step: "0.01" }}
-                {...registerPricing("transport", {
-                  onChange: () => {
-                    setPricingError("");
-                    setPreview(null);
-                  },
-                })}
-              />
-              <TextField
-                label="Empaque"
-                type="number"
-                error={!!pricingErrors.pack}
-                helperText={pricingErrors.pack?.message || "Costo de empaque por compra."}
-                inputProps={{ min: 0, step: "0.01" }}
-                {...registerPricing("pack", {
-                  onChange: () => {
-                    setPricingError("");
-                    setPreview(null);
-                  },
-                })}
-              />
-              <TextField
-                label="Otros"
-                type="number"
-                error={!!pricingErrors.other}
-                helperText={pricingErrors.other?.message || "Costos directos adicionales."}
-                inputProps={{ min: 0, step: "0.01" }}
-                {...registerPricing("other", {
-                  onChange: () => {
-                    setPricingError("");
-                    setPreview(null);
-                  },
-                })}
-              />
-              <TextField
-                label="Delivery"
-                type="number"
-                error={!!pricingErrors.delivery}
-                helperText={pricingErrors.delivery?.message || "Costo de entrega final."}
-                inputProps={{ min: 0, step: "0.01" }}
-                {...registerPricing("delivery", {
-                  onChange: () => {
-                    setPricingError("");
-                    setPreview(null);
-                  },
-                })}
-              />
-              <TextField
-                label="Margen deseado (%)"
-                type="number"
-                error={!!pricingErrors.desired_margin_percent}
-                helperText={pricingErrors.desired_margin_percent?.message || "Usa un porcentaje menor a 100."}
-                inputProps={{ min: 0, max: 99.99, step: "0.01" }}
-                {...registerPricing("desired_margin_percent", {
-                  onChange: () => {
-                    setPricingError("");
-                    setPreview(null);
-                  },
-                })}
-              />
-            </Box>
 
-            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-              <Button
-                type="button"
-                variant="outlined"
-                startIcon={<CalculateIcon />}
-                onClick={handlePreviewPricing}
-                disabled={previewLoading || applyLoading || !isPricingValid}
-              >
-                {previewLoading ? "Calculando..." : "Calcular"}
-              </Button>
-              <Button
-                type="button"
-                variant="contained"
-                startIcon={<PriceCheckIcon />}
-                onClick={handleApplyPricing}
-                disabled={applyLoading || previewLoading || !isEditing || !isPricingValid}
-              >
-                {applyLoading ? "Aplicando..." : "Aplicar"}
-              </Button>
-            </Box>
-
-            {!isEditing ? (
-              <Typography variant="caption" color="warning.main">
-                Para aplicar el pricing primero guarda el producto.
-              </Typography>
-            ) : null}
-
-            {preview ? (
-              <Paper sx={{ p: 2, bgcolor: "rgba(18,53,90,0.05)" }}>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  Resultado del calculo
-                </Typography>
-                <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-                  <Typography>Costos directos: {preview.direct_costs_total.toFixed(2)}</Typography>
-                  <Typography>Costo total: {preview.cost_total_all.toFixed(2)}</Typography>
-                  <Typography>Costo unitario: {preview.unit_cost.toFixed(2)}</Typography>
-                  <Typography>PVP unitario: {preview.sale_price_unit.toFixed(2)}</Typography>
-                  <Typography>Utilidad unitaria: {preview.profit_unit.toFixed(2)}</Typography>
+          <Box
+            sx={{
+              display: "grid",
+              gap: 1,
+              gridTemplateColumns: { xs: "1fr", lg: "minmax(260px, 0.9fr) minmax(0, 1fr)" },
+            }}
+          >
+            <Box sx={{ display: "grid", gap: 0.8, p: 0.95, borderRadius: 2.25, border: "1px solid rgba(18,53,90,0.08)", bgcolor: "rgba(18,53,90,0.03)" }}>
+              <Tabs value={categoryTab} onChange={(_event, value) => setCategoryTab(value)} variant="fullWidth">
+                <Tab value="existing" label="Categoria" />
+                <Tab value="new" label="Nueva" />
+              </Tabs>
+              {categoryTab === "existing" ? (
+                <TextField
+                  select
+                  label="Categoria"
+                  error={!!productErrors.category}
+                  helperText={productErrors.category?.message || (categoriesQuery.isLoading ? "Cargando..." : undefined)}
+                  fullWidth
+                  {...registerProduct("category", {
+                    onChange: () => setSubmitError(""),
+                  })}
+                >
+                  <MenuItem value="">Sin categoria</MenuItem>
+                  {categoryOptions.map((item) => (
+                    <MenuItem key={item} value={item}>
+                      {item}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              ) : (
+                <Box sx={{ display: "grid", gap: 0.8 }}>
+                  <TextField label="Nueva categoria" value={newCategory} onChange={(event) => setNewCategory(event.target.value)} fullWidth />
+                  <Button type="button" variant="outlined" onClick={handleCreateCategory} disabled={!newCategory.trim()}>
+                    Crear categoria
+                  </Button>
                 </Box>
-              </Paper>
-            ) : null}
-          </Box>
-        )}
+              )}
+            </Box>
 
-        <Box sx={{ mt: 3, display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+            <TextField
+              label="Tags"
+              error={!!productErrors.tags}
+              helperText={productErrors.tags?.message}
+              fullWidth
+              {...registerProduct("tags", {
+                onChange: () => setSubmitError(""),
+              })}
+            />
+          </Box>
+
+          <Box sx={{ display: "grid", gap: 0.8, gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" } }}>
+            {[
+              { label: "Compra", value: Number(syncedCostTotal || 0).toFixed(2) },
+              { label: "Cantidad", value: String(Number(syncedCostQty || 0)) },
+              { label: "Directos", value: Number(syncedDirectCostsTotal || 0).toFixed(2) },
+              { label: "Margen", value: `${(Number(syncedDesiredMargin || 0) * 100).toFixed(2)}%` },
+            ].map((item) => (
+              <Box
+                key={item.label}
+                sx={{
+                  p: 0.8,
+                  borderRadius: 2,
+                  border: "1px solid rgba(18,53,90,0.08)",
+                  bgcolor: "rgba(18,53,90,0.035)",
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 700, lineHeight: 1.1 }}>
+                  {item.label}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 0.25, fontWeight: 800, lineHeight: 1.15 }}>
+                  {item.value}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+
+        <Box sx={{ display: "grid", gap: 1, pt: 1.1, borderTop: "1px solid rgba(18,53,90,0.08)" }}>
+          {pricingPanel}
+        </Box>
+
+        <Box sx={{ display: "flex", gap: 0.85, flexWrap: "wrap", pt: 1.1, borderTop: "1px solid rgba(18,53,90,0.08)" }}>
           <Button
             type="button"
             variant="contained"
@@ -785,3 +889,15 @@ const ProductForm: React.FC = () => {
 };
 
 export default ProductForm;
+
+
+
+
+
+
+
+
+
+
+
+

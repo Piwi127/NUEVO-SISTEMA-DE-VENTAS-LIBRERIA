@@ -1,11 +1,11 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { Box, Button, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, TableToolbar, useToast } from "@/app/components";
+import { CardTable, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, ResizableTable, TableToolbar, useToast } from "@/app/components";
 import { createCustomer, deleteCustomer, listCustomers, listPriceLists, updateCustomer } from "@/modules/catalog/api";
 import { Customer } from "@/modules/shared/types";
 import { normalizeOptionalText, optionalPhoneSchema } from "@/app/utils";
@@ -143,14 +143,14 @@ const Customers: React.FC = () => {
   }));
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 1.5 }}>
       <PageHeader title="Clientes" subtitle="Gestion de contactos y listas de precio." icon={<PeopleAltIcon color="primary" />} chips={[`Total: ${filtered.length}`]} loading={isLoading} />
 
       <TableToolbar title="Busqueda" subtitle="Filtra por nombre o telefono.">
         <TextField label="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} sx={{ minWidth: 280 }} />
       </TableToolbar>
 
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
         {isLoading ? (
           <LoadingState title="Cargando clientes..." />
         ) : isError ? (
@@ -160,7 +160,7 @@ const Customers: React.FC = () => {
         ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
-          <Table size="small">
+          <ResizableTable minHeight={250}><Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell>Nombre</TableCell>
@@ -188,15 +188,15 @@ const Customers: React.FC = () => {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </Table></ResizableTable>
         )}
       </Paper>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
+      <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
+        <Typography variant="h6" sx={{ mb: 1.1 }}>
           {editingId ? "Editar cliente" : "Nuevo cliente"}
         </Typography>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 1.1, maxWidth: 460 }}>
           {submitError ? (
             <Typography variant="body2" color="error">
               {submitError}
@@ -246,7 +246,7 @@ const Customers: React.FC = () => {
               </TextField>
             )}
           />
-          <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
             <Button type="submit" variant="contained" disabled={!isValid || isSubmitting}>
               {isSubmitting ? "Guardando..." : editingId ? "Guardar cambios" : "Guardar"}
             </Button>
@@ -273,3 +273,4 @@ const Customers: React.FC = () => {
 };
 
 export default Customers;
+

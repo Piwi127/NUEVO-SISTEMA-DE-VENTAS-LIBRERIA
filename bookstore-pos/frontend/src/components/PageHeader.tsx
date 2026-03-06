@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -31,6 +31,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             label="Cargando"
             size="small"
             sx={{
+              height: 24,
               bgcolor: alpha("#12355a", 0.08),
               color: "text.primary",
               border: "1px solid rgba(18,53,90,0.08)",
@@ -44,6 +45,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         label={chip}
         size="small"
         sx={{
+          height: 24,
           bgcolor: alpha("#12355a", 0.05),
           color: "text.primary",
           border: "1px solid rgba(18,53,90,0.06)",
@@ -53,7 +55,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   ];
 
   const meta = metaChips.length > 0 ? (
-    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap alignItems="center" sx={{ minWidth: 0 }}>
+    <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap alignItems="center" sx={{ minWidth: 0 }}>
       {metaChips}
     </Stack>
   ) : null;
@@ -62,10 +64,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "1fr", lg: meta && right ? "minmax(0, 1fr) minmax(320px, auto)" : "1fr" },
-        gap: 1,
-        alignItems: { lg: "center" },
-        pt: 0.25,
+        gridTemplateColumns: { xs: "1fr", xl: meta && right ? "minmax(0, 1fr) minmax(260px, auto)" : "1fr" },
+        gap: 0.85,
+        alignItems: "center",
+        p: meta && right ? 0.75 : 0,
+        borderRadius: 2,
+        bgcolor: meta && right ? "rgba(18,53,90,0.035)" : "transparent",
+        border: meta && right ? "1px solid rgba(18,53,90,0.05)" : "none",
         minWidth: 0,
       }}
     >
@@ -76,7 +81,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             minWidth: 0,
             width: "100%",
             display: "flex",
-            justifyContent: { xs: "stretch", lg: rightAlign === "right" ? "flex-end" : "flex-start" },
+            justifyContent: { xs: "stretch", xl: rightAlign === "right" ? "flex-end" : "flex-start" },
             "& > *": {
               width: "100%",
               maxWidth: "100%",
@@ -95,11 +100,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       {icon ? (
         <Box
           sx={{
+            width: 40,
+            height: 40,
+            borderRadius: 2,
             color: "primary.main",
+            bgcolor: "rgba(18,53,90,0.06)",
+            border: "1px solid rgba(18,53,90,0.08)",
             display: "grid",
             placeItems: "center",
             flexShrink: 0,
-            "& .MuiSvgIcon-root": { fontSize: { xs: 22, sm: 24 } },
+            "& .MuiSvgIcon-root": { fontSize: 22 },
           }}
         >
           {icon}
@@ -111,16 +121,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           variant="h5"
           sx={{
             fontWeight: 800,
-            fontSize: "clamp(1.25rem, 1.05rem + 0.8vw, 1.8rem)",
-            lineHeight: 1.08,
-            letterSpacing: "-0.02em",
+            fontSize: "clamp(1.18rem, 1.02rem + 0.68vw, 1.7rem)",
+            lineHeight: 1.06,
+            letterSpacing: "-0.03em",
             wordBreak: "break-word",
           }}
         >
           {title}
         </Typography>
         {subtitle ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.45, maxWidth: "min(780px, 100%)" }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35, maxWidth: "min(720px, 100%)" }}>
             {subtitle}
           </Typography>
         ) : null}
@@ -131,15 +141,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   return (
     <Paper
       sx={{
-        p: { xs: 1.25, sm: 1.35, md: 1.6 },
-        background: "rgba(255,255,255,0.82)",
+        p: { xs: 1, sm: 1.1, md: 1.2 },
+        background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,253,0.9) 100%)",
         border: "1px solid rgba(18,53,90,0.08)",
-        boxShadow: "0 10px 24px rgba(12,31,51,0.05)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
+        boxShadow: "0 12px 28px rgba(12,31,51,0.05)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
       }}
     >
-      <Stack spacing={1.15} sx={{ minWidth: 0 }}>
+      <Stack spacing={0.9} sx={{ minWidth: 0 }}>
         {rightPlacement === "beforeTitle" ? actionBand : null}
         {heading}
         {rightPlacement === "afterTitle" ? actionBand : null}

@@ -1,4 +1,4 @@
-import csv
+﻿import csv
 from io import StringIO, BytesIO
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import PlainTextResponse, StreamingResponse
@@ -43,6 +43,8 @@ async def download_template_xlsx():
         raise HTTPException(status_code=400, detail="Instale openpyxl para XLSX")
     wb = Workbook()
     ws = wb.active
+    if ws is None:
+        raise HTTPException(status_code=500, detail="No se pudo crear la hoja de trabajo")
     ws.append(["sku", "name", "category", "price", "cost", "stock", "stock_min"])
     ws.append(["BK-001", "Libro ejemplo", "Ficcion", "25.90", "12.50", "10", "2"])
     bio = BytesIO()
@@ -85,6 +87,8 @@ async def upload_inventory(
         data = await file.read()
         wb = load_workbook(filename=BytesIO(data))
         ws = wb.active
+        if ws is None:
+            raise HTTPException(status_code=400, detail="XLSX sin hoja activa")
         header_rows = list(ws.iter_rows(min_row=1, max_row=1))
         if not header_rows:
             raise HTTPException(status_code=400, detail="XLSX sin encabezados")

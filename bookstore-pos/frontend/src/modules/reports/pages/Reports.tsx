@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -16,7 +16,7 @@ import {
 } from "@mui/material";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import DownloadIcon from "@mui/icons-material/Download";
-import { KpiCard } from "@/app/components";
+import { KpiCard, ResizableTable } from "@/app/components";
 import { LoadingState } from "@/app/components";
 import { ErrorState } from "@/app/components";
 import { PageHeader } from "@/app/components";
@@ -143,7 +143,7 @@ const Reports: React.FC = () => {
   }, [tab, loadedTabs]);
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 1.5 }}>
       <PageHeader
         title="Reportes ejecutivos"
         subtitle="Indicadores operativos y exportaciones para gestion."
@@ -152,7 +152,7 @@ const Reports: React.FC = () => {
         loading={loadingDaily || loadingTop || loadingLow || loadingProfitability}
       />
 
-      <Paper sx={{ p: 1.5 }}>
+      <Paper sx={{ p: { xs: 0.9, md: 1.05 } }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" allowScrollButtonsMobile>
           <Tab label="Diario" />
           <Tab label="Top productos" />
@@ -162,7 +162,7 @@ const Reports: React.FC = () => {
       </Paper>
 
       {tab === 0 ? (
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Reporte diario</Typography>
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
             <TextField type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -187,7 +187,7 @@ const Reports: React.FC = () => {
       ) : null}
 
       {tab === 1 ? (
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Top productos</Typography>
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
             <TextField type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -229,7 +229,7 @@ const Reports: React.FC = () => {
                   ))}
                 </Box>
               ) : (
-                <Table size="small" sx={{ mt: 2 }}>
+                <ResizableTable minHeight={240} sx={{ mt: 2 }}><Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
                       <TableCell>Producto</TableCell>
@@ -246,7 +246,7 @@ const Reports: React.FC = () => {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                </Table></ResizableTable>
               )}
             </>
           )}
@@ -254,7 +254,7 @@ const Reports: React.FC = () => {
       ) : null}
 
       {tab === 2 ? (
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Stock bajo</Typography>
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
             <Button variant="contained" onClick={loadLow}>Consultar</Button>
@@ -278,7 +278,7 @@ const Reports: React.FC = () => {
               ))}
             </Box>
           ) : (
-            <Table size="small" sx={{ mt: 2 }}>
+            <ResizableTable minHeight={240} sx={{ mt: 2 }}><Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
                   <TableCell>SKU</TableCell>
@@ -297,13 +297,13 @@ const Reports: React.FC = () => {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </Table></ResizableTable>
           )}
         </Paper>
       ) : null}
 
       {tab === 3 ? (
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Rentabilidad</Typography>
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
             <TextField type="date" value={profitFrom} onChange={(e) => setProfitFrom(e.target.value)} />
@@ -354,7 +354,7 @@ const Reports: React.FC = () => {
                   ))}
                 </Box>
               ) : (
-                <Table size="small" sx={{ mt: 2 }}>
+                <ResizableTable minHeight={240} sx={{ mt: 2 }}><Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
                       <TableCell>Producto</TableCell>
@@ -377,7 +377,7 @@ const Reports: React.FC = () => {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                </Table></ResizableTable>
               )}
             </>
           )}
@@ -388,3 +388,4 @@ const Reports: React.FC = () => {
 };
 
 export default Reports;
+

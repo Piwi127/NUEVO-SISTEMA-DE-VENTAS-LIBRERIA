@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
   Alert,
   Box,
@@ -24,7 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, useToast } from "@/app/components";
+import { ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, ResizableTable, useToast } from "@/app/components";
 import { useAuth } from "@/auth/AuthProvider";
 import { listProducts } from "@/modules/catalog/api";
 import {
@@ -451,7 +451,7 @@ const Inventory: React.FC = () => {
 
   if (baseError) {
     return (
-      <Box sx={{ display: "grid", gap: 2 }}>
+      <Box sx={{ display: "grid", gap: 1.5 }}>
         <PageHeader
           title="Inventario"
           subtitle="Carga masiva, operaciones y kardex."
@@ -459,7 +459,7 @@ const Inventory: React.FC = () => {
           chips={[`Rol: ${role}`, `Productos: ${products.length}`]}
           loading={baseLoading}
         />
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <ErrorState
             title="No se pudo cargar inventario"
             onRetry={() => {
@@ -474,7 +474,7 @@ const Inventory: React.FC = () => {
 
   if (baseLoading) {
     return (
-      <Box sx={{ display: "grid", gap: 2 }}>
+      <Box sx={{ display: "grid", gap: 1.5 }}>
         <PageHeader
           title="Inventario"
           subtitle="Carga masiva, operaciones y kardex."
@@ -482,7 +482,7 @@ const Inventory: React.FC = () => {
           chips={[`Rol: ${role}`, `Productos: ${products.length}`]}
           loading
         />
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <LoadingState title="Cargando inventario..." rows={3} />
         </Paper>
       </Box>
@@ -490,7 +490,7 @@ const Inventory: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 1.5 }}>
       <PageHeader
         title="Inventario"
         subtitle="Carga masiva, operaciones y kardex."
@@ -498,7 +498,7 @@ const Inventory: React.FC = () => {
         chips={[`Rol: ${role}`, `Productos: ${products.length}`, `Almacenes: ${warehouses.length}`]}
       />
 
-      <Paper sx={{ p: 1 }}>
+      <Paper sx={{ p: { xs: 0.8, md: 0.95 } }}>
         <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" allowScrollButtonsMobile>
           <Tab label="Carga masiva" />
           <Tab label="Operaciones" />
@@ -508,11 +508,11 @@ const Inventory: React.FC = () => {
 
       {tab === 0 ? (
         role !== "admin" ? (
-          <Paper sx={{ p: 2 }}>
+          <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
             <EmptyState title="Sin acceso a carga masiva" description="Solo administradores pueden importar inventario." icon={<Inventory2Icon color="disabled" />} />
           </Paper>
         ) : (
-          <Paper sx={{ p: 2 }}>
+          <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               Carga masiva
             </Typography>
@@ -558,7 +558,7 @@ const Inventory: React.FC = () => {
                     ))}
                   </Box>
                 ) : (
-                  <Table size="small">
+                  <ResizableTable minHeight={240}><Table size="small" stickyHeader>
                     <TableHead>
                       <TableRow>
                         {REQUIRED.map((column) => (
@@ -575,7 +575,7 @@ const Inventory: React.FC = () => {
                         </TableRow>
                       ))}
                     </TableBody>
-                  </Table>
+                  </Table></ResizableTable>
                 )}
                 <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
                   Total de filas detectadas: {totalRows}
@@ -588,8 +588,8 @@ const Inventory: React.FC = () => {
 
       {tab === 1 ? (
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "0.9fr 1.1fr" } }}>
-          <Box sx={{ display: "grid", gap: 2 }}>
-            <Paper sx={{ p: 2 }}>
+          <Box sx={{ display: "grid", gap: 1.5 }}>
+            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Almacenes
               </Typography>
@@ -614,7 +614,7 @@ const Inventory: React.FC = () => {
               </Box>
             </Paper>
 
-            <Paper sx={{ p: 2 }}>
+            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Ajuste de inventario
               </Typography>
@@ -667,8 +667,8 @@ const Inventory: React.FC = () => {
             </Paper>
           </Box>
 
-          <Box sx={{ display: "grid", gap: 2 }}>
-            <Paper sx={{ p: 2 }}>
+          <Box sx={{ display: "grid", gap: 1.5 }}>
+            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Transferencias
               </Typography>
@@ -758,7 +758,7 @@ const Inventory: React.FC = () => {
               </Box>
             </Paper>
 
-            <Paper sx={{ p: 2 }}>
+            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Lotes
               </Typography>
@@ -840,7 +840,7 @@ const Inventory: React.FC = () => {
               </Box>
             </Paper>
 
-            <Paper sx={{ p: 2 }}>
+            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Conteo ciclico
               </Typography>
@@ -912,7 +912,7 @@ const Inventory: React.FC = () => {
       ) : null}
 
       {tab === 2 ? (
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6">Kardex</Typography>
           <Divider sx={{ my: 2 }} />
           <TextField
@@ -953,7 +953,7 @@ const Inventory: React.FC = () => {
               ))}
             </Box>
           ) : (
-            <Table size="small">
+            <ResizableTable minHeight={240}><Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
                   <TableCell>Fecha</TableCell>
@@ -972,7 +972,7 @@ const Inventory: React.FC = () => {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </Table></ResizableTable>
           )}
         </Paper>
       ) : null}
@@ -991,5 +991,6 @@ const Inventory: React.FC = () => {
 };
 
 export default Inventory;
+
 
 

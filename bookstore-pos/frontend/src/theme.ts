@@ -1,4 +1,4 @@
-import { createTheme, responsiveFontSizes } from "@mui/material/styles";
+﻿import { createTheme, responsiveFontSizes } from "@mui/material/styles";
 
 let theme = createTheme({
   breakpoints: {
@@ -68,8 +68,8 @@ let theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: 14,
-          boxShadow: "0 10px 24px rgba(12, 31, 51, 0.08)",
+          borderRadius: 10,
+          boxShadow: "0 10px 22px rgba(12, 31, 51, 0.07)",
           border: "1px solid rgba(18, 53, 90, 0.08)",
         },
       },
@@ -96,9 +96,9 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           margin: "4px 8px",
-          borderRadius: 10,
-          paddingTop: 10,
-          paddingBottom: 10,
+          borderRadius: 9,
+          paddingTop: 9,
+          paddingBottom: 9,
           color: "#f1f5fb",
           "& .MuiListItemIcon-root": {
             color: "rgba(241,245,251,0.82)",
@@ -130,9 +130,9 @@ let theme = createTheme({
       },
       styleOverrides: {
         root: {
-          minHeight: 40,
-          borderRadius: 10,
-          paddingInline: 14,
+          minHeight: 36,
+          borderRadius: 9,
+          paddingInline: 12,
         },
         contained: {
           boxShadow: "0 8px 18px rgba(12, 42, 74, 0.26)",
@@ -156,7 +156,7 @@ let theme = createTheme({
     MuiTabs: {
       styleOverrides: {
         root: {
-          minHeight: 40,
+          minHeight: 36,
         },
         indicator: {
           height: 3,
@@ -168,9 +168,49 @@ let theme = createTheme({
     MuiTab: {
       styleOverrides: {
         root: {
-          minHeight: 40,
+          minHeight: 36,
+          paddingInline: 12,
           fontWeight: 700,
           textTransform: "none",
+        },
+      },
+    },
+    MuiFormHelperText: {
+      styleOverrides: {
+        root: {
+          marginTop: 4,
+          lineHeight: 1.25,
+          fontSize: "0.72rem",
+        },
+      },
+    },
+    MuiDialogTitle: {
+      styleOverrides: {
+        root: {
+          padding: "12px 14px 6px",
+        },
+      },
+    },
+    MuiDialogContent: {
+      styleOverrides: {
+        root: {
+          padding: "10px 14px 14px",
+        },
+      },
+    },
+    MuiDialogActions: {
+      styleOverrides: {
+        root: {
+          padding: "10px 14px 14px",
+          gap: 8,
+        },
+      },
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          padding: "6px 10px",
+          alignItems: "center",
         },
       },
     },
@@ -198,7 +238,7 @@ let theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          borderRadius: 10,
+          borderRadius: 9,
           backgroundColor: "rgba(255,255,255,0.9)",
         },
       },
@@ -207,6 +247,10 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           overflowX: "auto",
+          overflowY: "auto",
+          resize: "vertical",
+          maxHeight: "72vh",
+          minWidth: "100%",
         },
       },
     },
@@ -222,6 +266,13 @@ let theme = createTheme({
         head: {
           fontWeight: 700,
           color: "#12355a",
+          whiteSpace: "nowrap",
+          paddingTop: 9,
+          paddingBottom: 9,
+        },
+        body: {
+          paddingTop: 8,
+          paddingBottom: 8,
         },
       },
     },
@@ -229,11 +280,23 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           border: "1px solid rgba(18, 53, 90, 0.12)",
-          borderRadius: 12,
+          borderRadius: 10,
+          backgroundColor: "rgba(255,255,255,0.92)",
         },
         columnHeaders: {
           background: "rgba(18, 53, 90, 0.06)",
           fontWeight: 700,
+        },
+        row: {
+          "&:hover": {
+            backgroundColor: "rgba(18, 53, 90, 0.035)",
+          },
+        },
+        columnSeparator: {
+          color: "rgba(18, 53, 90, 0.22)",
+        },
+        cell: {
+          borderColor: "rgba(18, 53, 90, 0.08)",
         },
       },
     },

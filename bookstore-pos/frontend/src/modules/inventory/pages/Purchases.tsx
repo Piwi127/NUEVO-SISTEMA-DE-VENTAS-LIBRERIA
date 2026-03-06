@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -22,7 +22,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable, EmptyState, ErrorState, LoadingState, PageHeader, TableToolbar, useToast } from "@/app/components";
+import { CardTable, EmptyState, ErrorState, LoadingState, PageHeader, ResizableTable, TableToolbar, useToast } from "@/app/components";
 import { listProducts, listSuppliers } from "@/modules/catalog/api";
 import {
   createPurchaseOrder,
@@ -351,7 +351,7 @@ const Purchases: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 1.5 }}>
       <PageHeader
         title="Compras"
         subtitle="Ordenes, recepcion y pagos de proveedores."
@@ -363,7 +363,7 @@ const Purchases: React.FC = () => {
         loading={loadingProducts || loadingSuppliers || loadingOrders || loadingPurchases}
       />
 
-      <Paper sx={{ p: 1.5 }}>
+      <Paper sx={{ p: { xs: 0.9, md: 1.05 } }}>
         <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" allowScrollButtonsMobile>
           <Tab label="Orden de compra" />
           <Tab label="Recepcion" />
@@ -373,7 +373,7 @@ const Purchases: React.FC = () => {
       </Paper>
 
       {tab === 0 ? (
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
             Orden de compra
           </Typography>
@@ -475,7 +475,7 @@ const Purchases: React.FC = () => {
                   ))}
                 </Box>
               ) : (
-                <Table size="small">
+                <ResizableTable minHeight={240}><Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
                       <TableCell>Producto</TableCell>
@@ -498,7 +498,7 @@ const Purchases: React.FC = () => {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                </Table></ResizableTable>
               )
             ) : null}
 
@@ -510,7 +510,7 @@ const Purchases: React.FC = () => {
       ) : null}
 
       {tab === 1 ? (
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
             Recepcion parcial
           </Typography>
@@ -661,7 +661,7 @@ const Purchases: React.FC = () => {
       ) : null}
 
       {tab === 2 ? (
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
             Pago a proveedor
           </Typography>
@@ -752,7 +752,7 @@ const Purchases: React.FC = () => {
             </Button>
           </TableToolbar>
 
-          <Paper sx={{ p: 2 }}>
+          <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
             {loadingPurchases ? (
               <LoadingState title="Cargando historial..." />
             ) : purchasesError ? (
@@ -762,7 +762,7 @@ const Purchases: React.FC = () => {
             ) : isCompact ? (
               <CardTable rows={purchaseRows} />
             ) : (
-              <Table size="small">
+              <ResizableTable minHeight={240}><Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
                     <TableCell>ID</TableCell>
@@ -783,7 +783,7 @@ const Purchases: React.FC = () => {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></ResizableTable>
             )}
           </Paper>
         </>
@@ -793,3 +793,4 @@ const Purchases: React.FC = () => {
 };
 
 export default Purchases;
+

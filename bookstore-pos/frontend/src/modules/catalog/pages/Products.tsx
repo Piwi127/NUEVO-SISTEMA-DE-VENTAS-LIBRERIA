@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -22,7 +22,17 @@ import PriceChangeIcon from "@mui/icons-material/PriceChange";
 import { useNavigate } from "react-router-dom";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, TableToolbar, useToast } from "@/app/components";
+import {
+  CardTable,
+  ConfirmDialog,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  ResizablePanel,
+  TableToolbar,
+  useToast,
+} from "@/app/components";
 import { applyBulkProductPricing, deleteProduct, listProductCategories, listProducts } from "@/modules/catalog/api";
 import { Product } from "@/modules/shared/types";
 import { useSettings } from "@/app/store";
@@ -156,9 +166,9 @@ const Products: React.FC = () => {
   const columns: GridColDef[] = useMemo(
     () => [
       { field: "id", headerName: "ID", width: 75 },
-      { field: "sku", headerName: "SKU", width: 120 },
-      { field: "name", headerName: "Nombre", flex: 1, minWidth: 240 },
-      { field: "category", headerName: "Categoria", width: 150 },
+      { field: "sku", headerName: "SKU", width: 140 },
+      { field: "name", headerName: "Nombre", flex: 1, minWidth: 260 },
+      { field: "category", headerName: "Categoria", width: 160 },
       { field: "tags", headerName: "Tags", width: 220 },
       { field: "price", headerName: "Precio", width: 110 },
       { field: "cost", headerName: "Costo", width: 110 },
@@ -240,10 +250,10 @@ const Products: React.FC = () => {
   }));
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 1.5 }}>
       <PageHeader
         title="Productos"
-        subtitle="Catalogo, precios y control de stock minimo."
+        subtitle="Catalogo y control de stock."
         icon={<CategoryIcon color="primary" />}
         chips={[`Resultados: ${rows.length}`, `Categorias: ${categories.length}`, `Seleccionados: ${selectedIds.length}`]}
         loading={isLoading || productsQuery.isFetching}
@@ -251,10 +261,10 @@ const Products: React.FC = () => {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(210px, 1fr))" },
-              gap: 1,
+              gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(3, minmax(0, 1fr))" },
+              gap: 0.85,
               width: "100%",
-              maxWidth: { lg: 760 },
+              maxWidth: { xl: 820 },
               "& .MuiButton-root": {
                 width: "100%",
                 minWidth: 0,
@@ -295,14 +305,14 @@ const Products: React.FC = () => {
         }
       />
 
-      <TableToolbar title="Filtro rapido" subtitle="Busca por SKU, nombre, tags o categoria.">
+      <TableToolbar title="Filtro rapido" subtitle="Busca por SKU, nombre o categoria.">
         <TextField
           label="Buscar"
           size="small"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           sx={{ maxWidth: 340 }}
-          placeholder="SKU, nombre o tags"
+          placeholder="SKU, nombre o categoria"
         />
         <TextField
           select
@@ -311,7 +321,7 @@ const Products: React.FC = () => {
           value={category}
           onChange={(event) => setCategory(event.target.value)}
           sx={{ minWidth: 210 }}
-          helperText="Filtra por categoria"
+
         >
           <MenuItem value="">Todas</MenuItem>
           {categories.map((item) => (
@@ -322,36 +332,67 @@ const Products: React.FC = () => {
         </TextField>
       </TableToolbar>
 
-      <Paper sx={{ p: 2 }}>
-        {isLoading ? (
-          <LoadingState title="Cargando productos..." />
-        ) : isError ? (
-          <ErrorState title="No se pudieron cargar productos" onRetry={() => productsQuery.refetch()} />
-        ) : rows.length === 0 ? (
-          <EmptyState title="Sin productos" description="No hay productos con ese filtro." icon={<CategoryIcon color="disabled" />} />
-        ) : isCompact ? (
-          <CardTable rows={cardRows} />
-        ) : (
-          <div style={{ height: 460, width: "100%" }}>
-            <DataGrid
-              rows={displayRows}
-              columns={columns}
-              pageSizeOptions={[10, 25, 50, 100]}
-              checkboxSelection
-              disableRowSelectionOnClick
-              rowSelectionModel={selectedIds}
-              onRowSelectionModelChange={(selection) =>
-                setSelectedIds(selection.map((value) => Number(value)).filter((value) => Number.isFinite(value)))
-              }
-              onRowDoubleClick={(params) => goToEdit(params.row.id as number)}
-              sx={{
-                border: "none",
-                "& .MuiDataGrid-columnHeaders": { bgcolor: "rgba(18,53,90,0.08)", color: "#12355a" },
-              }}
-            />
-          </div>
-        )}
-      </Paper>
+      {isCompact ? (
+        <Paper sx={{ p: { xs: 0.9, md: 1.05 } }}>
+          {isLoading ? (
+            <LoadingState title="Cargando productos..." />
+          ) : isError ? (
+            <ErrorState title="No se pudieron cargar productos" onRetry={() => productsQuery.refetch()} />
+          ) : rows.length === 0 ? (
+            <EmptyState title="Sin productos" description="No hay productos con ese filtro." icon={<CategoryIcon color="disabled" />} />
+          ) : (
+            <CardTable rows={cardRows} />
+          )}
+        </Paper>
+      ) : (
+        <ResizablePanel
+          resize="y"
+          minHeight={340}
+          defaultHeight={500}
+          persistKey="products-grid"
+          sx={{ p: 0 }}
+          contentSx={{ p: 0, height: "100%" }}
+        >
+          {isLoading ? (
+            <Box sx={{ p: 2 }}>
+              <LoadingState title="Cargando productos..." />
+            </Box>
+          ) : isError ? (
+            <Box sx={{ p: 2 }}>
+              <ErrorState title="No se pudieron cargar productos" onRetry={() => productsQuery.refetch()} />
+            </Box>
+          ) : rows.length === 0 ? (
+            <Box sx={{ p: 2 }}>
+              <EmptyState title="Sin productos" description="No hay productos con ese filtro." icon={<CategoryIcon color="disabled" />} />
+            </Box>
+          ) : (
+            <Box sx={{ height: "100%", width: "100%" }}>
+              <DataGrid
+                rows={displayRows}
+                columns={columns}
+                pageSizeOptions={[10, 25, 50, 100]}
+                checkboxSelection
+                density="compact"
+                columnHeaderHeight={42}
+                rowHeight={42}
+                disableRowSelectionOnClick
+                rowSelectionModel={selectedIds}
+                onRowSelectionModelChange={(selection) =>
+                  setSelectedIds(selection.map((value) => Number(value)).filter((value) => Number.isFinite(value)))
+                }
+                onRowDoubleClick={(params) => goToEdit(params.row.id as number)}
+                sx={{
+                  border: "none",
+                  "& .MuiDataGrid-columnHeaders": { bgcolor: "rgba(18,53,90,0.08)", color: "#12355a" },
+                  "& .MuiDataGrid-cell": {
+                    outline: "none",
+                  },
+                }}
+              />
+            </Box>
+          )}
+        </ResizablePanel>
+      )}
 
       {rows.length >= MAX_PRODUCTS && !normalizedQuery ? (
         <Paper sx={{ p: 1.5 }}>

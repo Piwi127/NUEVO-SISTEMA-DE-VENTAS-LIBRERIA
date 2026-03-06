@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
   Box,
   Button,
@@ -25,7 +25,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import SecurityIcon from "@mui/icons-material/Security";
 import SettingsIcon from "@mui/icons-material/Settings";
 import HistoryIcon from "@mui/icons-material/History";
-import { PageHeader } from "@/app/components";
+import { PageHeader, ResizableTable } from "@/app/components";
 import { LoadingState } from "@/app/components";
 import { ErrorState } from "@/app/components";
 import { EmptyState } from "@/app/components";
@@ -292,7 +292,7 @@ const AdminPanel: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 1.5 }}>
       <PageHeader
         title="Administracion"
         subtitle="Configuracion corporativa, seguridad y control operativo."
@@ -303,9 +303,9 @@ const AdminPanel: React.FC = () => {
             sx={{
               display: "grid",
               gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-              gap: 1,
+              gap: 0.85,
               width: "100%",
-              maxWidth: { md: 420 },
+              maxWidth: { md: 380 },
               "& .MuiButton-root": {
                 width: "100%",
                 minWidth: 0,
@@ -325,7 +325,7 @@ const AdminPanel: React.FC = () => {
         </Paper>
       ) : null}
 
-      <Paper sx={{ p: { xs: 2, md: 3 } }}>
+      <Paper sx={{ p: { xs: 1, md: 1.35 } }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
           <SettingsIcon color="primary" />
           <Typography variant="h6">Panel de configuracion</Typography>
@@ -382,7 +382,7 @@ const AdminPanel: React.FC = () => {
         ) : null}
       </Paper>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 1, md: 1.2 } }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
           <SettingsIcon color="primary" />
           <Typography variant="h6">Diagnostico rapido</Typography>
@@ -397,7 +397,7 @@ const AdminPanel: React.FC = () => {
         </Stack>
       </Paper>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 1, md: 1.2 } }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
           <SecurityIcon color="primary" />
           <Typography variant="h6">Seguridad</Typography>
@@ -418,7 +418,7 @@ const AdminPanel: React.FC = () => {
         </Stack>
       </Paper>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 1, md: 1.2 } }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
           <HistoryIcon color="primary" />
           <Typography variant="h6">Auditoria</Typography>
@@ -431,7 +431,7 @@ const AdminPanel: React.FC = () => {
         ) : audit.length === 0 ? (
           <EmptyState title="Sin registros" description="Ejecuta una accion o presiona recargar." icon={<HistoryIcon color="disabled" />} />
         ) : (
-          <Table size="small">
+          <ResizableTable minHeight={260}><Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell>ID</TableCell>
@@ -454,7 +454,7 @@ const AdminPanel: React.FC = () => {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </Table></ResizableTable>
         )}
       </Paper>
     </Box>
@@ -462,5 +462,6 @@ const AdminPanel: React.FC = () => {
 };
 
 export default AdminPanel;
+
 
 

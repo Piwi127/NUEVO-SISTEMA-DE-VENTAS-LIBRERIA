@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Box, Button, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, TableToolbar, useToast } from "@/app/components";
+import { CardTable, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, ResizableTable, TableToolbar, useToast } from "@/app/components";
 import { confirmUser2FA, createUser, listUsers, resetUser2FA, setupUser2FA, unlockUser, updateUser, updateUserPassword, updateUserStatus } from "@/modules/admin/api";
 import { User } from "@/modules/shared/types";
 import { getPasswordStrengthLabel, getPasswordStrengthScore, hasRequiredPasswordStrength } from "@/app/utils";
@@ -270,7 +270,7 @@ const Users: React.FC = () => {
   });
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 1.5 }}>
       <PageHeader
         title="Usuarios"
         subtitle="Roles, estado, bloqueo y doble factor."
@@ -291,8 +291,8 @@ const Users: React.FC = () => {
         </TextField>
       </TableToolbar>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
+      <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
+        <Typography variant="h6" sx={{ mb: 1.1 }}>
           Usuarios
         </Typography>
         {isLoading ? (
@@ -304,7 +304,7 @@ const Users: React.FC = () => {
         ) : isCompact ? (
           <CardTable rows={cardRows} />
         ) : (
-          <Table size="small">
+          <ResizableTable minHeight={250}><Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell>Usuario</TableCell>
@@ -353,15 +353,15 @@ const Users: React.FC = () => {
                 );
               })}
             </TableBody>
-          </Table>
+          </Table></ResizableTable>
         )}
       </Paper>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
+      <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
+        <Typography variant="h6" sx={{ mb: 1.1 }}>
           {editingId ? "Editar usuario" : "Nuevo usuario"}
         </Typography>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 2, maxWidth: 420 }}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 1.1, maxWidth: 460 }}>
           {submitError ? (
             <Typography variant="body2" color="error">
               {submitError}
@@ -424,7 +424,7 @@ const Users: React.FC = () => {
           <Typography variant="caption" color="text.secondary">
             {editingId ? `Estado actual: ${editingIsActive ? "Activo" : "Inactivo"}.` : "Los usuarios nuevos se crean activos por defecto."} Los cambios de estado se gestionan desde las acciones rapidas.
           </Typography>
-          <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
             <Button type="button" variant="outlined" onClick={generateStrongPassword} disabled={isSubmitting}>
               Generar password segura
             </Button>
@@ -472,7 +472,7 @@ const Users: React.FC = () => {
         description="Se genero un secreto para este usuario. Ingresa el codigo OTP para terminar la activacion."
         content={
           setup2FAState ? (
-            <Box sx={{ display: "grid", gap: 2 }}>
+            <Box sx={{ display: "grid", gap: 1.5 }}>
               <TextField label="Secreto generado" value={setup2FAState.secret} InputProps={{ readOnly: true }} />
               <TextField
                 autoFocus
@@ -498,3 +498,4 @@ const Users: React.FC = () => {
 };
 
 export default Users;
+
