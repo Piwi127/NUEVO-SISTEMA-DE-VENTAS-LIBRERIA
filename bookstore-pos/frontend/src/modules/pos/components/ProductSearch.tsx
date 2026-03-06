@@ -1,21 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Avatar,
   Box,
   Button,
-  CircularProgress,
   Chip,
+  CircularProgress,
   FormControlLabel,
   InputAdornment,
   List,
-  ListItemButton,
   ListItem,
-  ListItemText,
+  ListItemButton,
   MenuItem,
   Paper,
+  Stack,
+  Switch,
   Tab,
   Tabs,
-  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -26,6 +25,8 @@ import { listProductCategories, listProducts } from "@/modules/catalog/api";
 import { Product } from "@/modules/shared/types";
 import { useCartStore, useSettings } from "@/app/store";
 import { formatMoney } from "@/app/utils";
+
+const SEARCH_LIMIT = 120;
 
 const TERM_GROUPS: string[][] = [
   ["cuaderno", "cuadernos", "hoja", "hojas", "libreta", "notebook", "rayado", "cuadriculado", "apuntes"],
@@ -45,6 +46,22 @@ const TERM_GROUPS: string[][] = [
 
 const DEFAULT_HINTS = ["tinta", "hojas", "imprimir", "manualidades", "escribir", "archivar"];
 const STOP_WORDS = new Set(["de", "del", "la", "el", "y", "para", "con", "por", "en"]);
+
+type ProductSearchView = "dropdown" | "panel";
+type SearchChipColor = "default" | "primary" | "secondary" | "success" | "info" | "warning" | "error";
+
+type RankedResult = {
+  product: Product;
+  score: number;
+  price: number;
+  matchLabel: string;
+  matchColor: SearchChipColor;
+  stockLabel: string;
+  stockColor: SearchChipColor;
+  inCartQty: number;
+  hasSpecialPrice: boolean;
+  isRelated: boolean;
+};
 
 const normalize = (value: string) =>
   value
@@ -76,8 +93,8 @@ const buildCorrection = (value: string): string => {
     for (const known of knownTerms) {
       if (Math.abs(known.length - base.length) > 2) continue;
       let mismatches = 0;
-      for (let i = 0; i < Math.min(known.length, base.length); i += 1) {
-        if (known[i] !== base[i]) mismatches += 1;
+      for (let index = 0; index < Math.min(known.length, base.length); index += 1) {
+        if (known[index] !== base[index]) mismatches += 1;
         if (mismatches > 2) break;
       }
       const distance = mismatches + Math.abs(known.length - base.length);
@@ -101,6 +118,23 @@ const expandTokens = (tokens: string[]): string[] => {
     }
   });
   return Array.from(result);
+};
+
+const fuzzyIncludes = (token: string, value: string): boolean => {
+  if (!token || !value) return false;
+  if (value.includes(token)) return true;
+
+  const words = value.split(/[^a-z0-9]+/).filter(Boolean);
+  return words.some((word) => {
+    if (Math.abs(word.length - token.length) > 1) return false;
+    let mismatches = 0;
+    for (let index = 0; index < Math.min(word.length, token.length); index += 1) {
+      if (word[index] !== token[index]) mismatches += 1;
+      if (mismatches > 1) return false;
+    }
+    mismatches += Math.abs(word.length - token.length);
+    return mismatches <= 1;
+  });
 };
 
 const scoreProduct = (product: Product, rawTokens: string[], expandedTokens: string[]): number => {
@@ -169,29 +203,55 @@ const scoreProduct = (product: Product, rawTokens: string[], expandedTokens: str
   return score;
 };
 
-const fuzzyIncludes = (token: string, value: string): boolean => {
-  if (!token || !value) return false;
-  if (value.includes(token)) return true;
-
-  const words = value.split(/[^a-z0-9]+/).filter(Boolean);
-  return words.some((word) => {
-    if (Math.abs(word.length - token.length) > 1) return false;
-    let mismatches = 0;
-    for (let i = 0; i < Math.min(word.length, token.length); i += 1) {
-      if (word[i] !== token[i]) mismatches += 1;
-      if (mismatches > 1) return false;
-    }
-    mismatches += Math.abs(word.length - token.length);
-    return mismatches <= 1;
-  });
+const getStockMeta = (product: Product): { label: string; color: SearchChipColor } => {
+  if (product.stock <= 0) return { label: "Sin stock", color: "error" };
+  if (product.stock_min > 0 && product.stock <= product.stock_min) {
+    return { label: `Stock bajo ${product.stock}`, color: "warning" };
+  }
+  return { label: `Stock ${product.stock}`, color: "success" };
 };
 
-type ProductSearchView = "dropdown" | "panel";
+const getMatchMeta = (product: Product, rawTokens: string[], expandedTokens: string[]): { label: string; color: SearchChipColor; isRelated: boolean } => {
+  const name = normalize(product.name || "");
+  const category = normalize(product.category || "");
+  const tags = normalize(product.tags || "");
+  const sku = normalize(product.sku || "");
 
-export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputRef?: React.Ref<HTMLInputElement>; view?: ProductSearchView }> = ({
+  if (rawTokens.some((token) => sku === token)) {
+    return { label: "SKU exacto", color: "success", isRelated: false };
+  }
+  if (rawTokens.some((token) => sku.startsWith(token))) {
+    return { label: "SKU similar", color: "info", isRelated: false };
+  }
+  if (rawTokens.length > 0 && rawTokens.every((token) => name.includes(token))) {
+    return { label: "Nombre", color: "primary", isRelated: false };
+  }
+  if (rawTokens.some((token) => category.includes(token) || tags.includes(token))) {
+    return { label: "Uso o categoria", color: "warning", isRelated: true };
+  }
+  if (expandedTokens.some((token) => name.includes(token) || category.includes(token) || tags.includes(token))) {
+    return { label: "Relacionado", color: "default", isRelated: true };
+  }
+  return { label: "Coincidencia", color: "default", isRelated: false };
+};
+
+const getAppliedPrice = (product: Product, priceMap?: Record<number, number>) => {
+  const baseSalePrice = product.sale_price ?? product.price;
+  return priceMap?.[product.id] ?? baseSalePrice;
+};
+
+type ProductSearchProps = {
+  priceMap?: Record<number, number>;
+  inputRef?: React.Ref<HTMLInputElement>;
+  view?: ProductSearchView;
+  minimal?: boolean;
+};
+
+export const ProductSearch: React.FC<ProductSearchProps> = ({
   priceMap,
   inputRef,
   view = "dropdown",
+  minimal = false,
 }) => {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -203,9 +263,10 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
 
   const cart = useCartStore();
   const { currency, compactMode } = useSettings();
+  const internalInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(search), 280);
+    const timer = window.setTimeout(() => setDebounced(search), 260);
     return () => window.clearTimeout(timer);
   }, [search]);
 
@@ -221,14 +282,14 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
 
   const productsQuery = useQuery({
     queryKey: ["products-smart-search", normalizedSearch, categoryFilter, onlyStock],
-    queryFn: () => listProducts(normalizedSearch, 250, 0, categoryFilter || undefined, onlyStock, true),
+    queryFn: () => listProducts(normalizedSearch, SEARCH_LIMIT, 0, categoryFilter || undefined, onlyStock, true),
     staleTime: 30_000,
     enabled: canSearch,
   });
 
   const fallbackQuery = useQuery({
     queryKey: ["products-smart-search-corrected", correctedSearch, categoryFilter, onlyStock],
-    queryFn: () => listProducts(correctedSearch, 250, 0, categoryFilter || undefined, onlyStock, true),
+    queryFn: () => listProducts(correctedSearch, SEARCH_LIMIT, 0, categoryFilter || undefined, onlyStock, true),
     staleTime: 30_000,
     enabled: canSearch && correctedSearch.length >= 2 && correctedSearch !== normalizedSearch,
   });
@@ -237,10 +298,10 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
   const categories = categoriesQuery.data || [];
 
   const rawTokens = useMemo(
-    () => tokenize(normalizedSearch).map(singularize).filter((t) => !STOP_WORDS.has(t)),
+    () => tokenize(normalizedSearch).map(singularize).filter((token) => !STOP_WORDS.has(token)),
     [normalizedSearch]
   );
-  const expanded = useMemo(() => expandTokens(rawTokens), [rawTokens]);
+  const expandedTokens = useMemo(() => expandTokens(rawTokens), [rawTokens]);
 
   const suggestionTerms = useMemo(() => {
     if (!rawTokens.length) return DEFAULT_HINTS;
@@ -249,31 +310,57 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
     return related.slice(0, 8);
   }, [rawTokens]);
 
-  const rankedProducts = useMemo(() => {
-    if (!canSearch) return [] as Product[];
+  const cartQtyById = useMemo(() => {
+    const next = new Map<number, number>();
+    cart.items.forEach((item) => next.set(item.product_id, item.qty));
+    return next;
+  }, [cart.items]);
+
+  const rankedResults = useMemo(() => {
+    if (!canSearch) return [] as RankedResult[];
 
     const sourceProducts =
       products.length > 0 ? products : fallbackQuery.data && fallbackQuery.data.length > 0 ? fallbackQuery.data : products;
 
     return sourceProducts
-      .map((product) => ({ product, score: scoreProduct(product, rawTokens, expanded) }))
-      .filter((item) => item.score > 0)
-      .sort((a, b) => b.score - a.score || b.product.stock - a.product.stock || a.product.name.localeCompare(b.product.name))
-      .map((item) => item.product);
-  }, [products, fallbackQuery.data, canSearch, rawTokens, expanded]);
-  const visibleResults = useMemo(() => rankedProducts.slice(0, 15), [rankedProducts]);
+      .map((product) => {
+        const score = scoreProduct(product, rawTokens, expandedTokens);
+        if (score <= 0) return null;
+        const price = getAppliedPrice(product, priceMap);
+        const basePrice = product.sale_price ?? product.price;
+        const matchMeta = getMatchMeta(product, rawTokens, expandedTokens);
+        const stockMeta = getStockMeta(product);
+        return {
+          product,
+          score,
+          price,
+          matchLabel: matchMeta.label,
+          matchColor: matchMeta.color,
+          stockLabel: stockMeta.label,
+          stockColor: stockMeta.color,
+          inCartQty: cartQtyById.get(product.id) || 0,
+          hasSpecialPrice: Math.abs(price - basePrice) > 0.001,
+          isRelated: matchMeta.isRelated,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (!a || !b) return 0;
+        return b.score - a.score || b.product.stock - a.product.stock || a.product.name.localeCompare(b.product.name);
+      }) as RankedResult[];
+  }, [products, fallbackQuery.data, canSearch, rawTokens, expandedTokens, priceMap, cartQtyById]);
+
+  const visibleResults = useMemo(() => rankedResults.slice(0, 10), [rankedResults]);
+  const topResult = rankedResults[0] || null;
+  const stockCount = useMemo(() => rankedResults.filter((entry) => entry.product.stock > 0).length, [rankedResults]);
+  const relatedCount = useMemo(() => rankedResults.filter((entry) => entry.isRelated).length, [rankedResults]);
   const panelResults = useMemo(() => {
-    const source = rankedProducts.slice(0, 60);
-    if (resultTab === "stock") return source.filter((p) => p.stock > 0);
-    if (resultTab === "suggested") {
-      const tokenSet = new Set(expanded);
-      return source.filter((p) => {
-        const haystack = normalize(`${p.name} ${p.category || ""} ${p.tags || ""}`);
-        return Array.from(tokenSet).some((t) => haystack.includes(t));
-      });
-    }
+    const source = rankedResults.slice(0, minimal ? 24 : 60);
+    if (minimal) return source;
+    if (resultTab === "stock") return source.filter((entry) => entry.product.stock > 0);
+    if (resultTab === "suggested") return source.filter((entry) => entry.isRelated);
     return source;
-  }, [rankedProducts, resultTab, expanded]);
+  }, [rankedResults, resultTab, minimal]);
 
   const smartHint = useMemo(() => {
     if (!canSearch || correctedSearch === normalizedSearch) return null;
@@ -282,53 +369,109 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
     return correctedSearch;
   }, [canSearch, correctedSearch, normalizedSearch, products.length, fallbackQuery.data]);
 
-  const addProduct = (product: Product) => {
-    const baseSalePrice = product.sale_price ?? product.price;
-    const price = priceMap?.[product.id] ?? baseSalePrice;
-    cart.addItem({ product_id: product.id, sku: product.sku, name: product.name, price });
+  const searchHelperText = useMemo(() => {
+    if (!canSearch) return minimal ? "2 caracteres minimo. Enter agrega la mejor coincidencia." : "Escribe al menos 2 caracteres. Enter agrega la mejor coincidencia.";
+    if (productsQuery.isFetching || fallbackQuery.isFetching) return "Buscando productos y priorizando coincidencias.";
+    if (visibleResults.length > 0) {
+      const highlighted = visibleResults[Math.min(highlightedIndex, visibleResults.length - 1)] || visibleResults[0];
+      return `Enter agrega ${highlighted.product.name}. Flechas arriba y abajo cambian la seleccion.`;
+    }
+    return "Sin coincidencias directas. Prueba por SKU, nombre o uso del producto.";
+  }, [canSearch, productsQuery.isFetching, fallbackQuery.isFetching, visibleResults, highlightedIndex, minimal]);
+
+  const handleInputRef = useCallback(
+    (node: HTMLInputElement | null) => {
+      internalInputRef.current = node;
+      if (!inputRef) return;
+      if (typeof inputRef === "function") {
+        inputRef(node);
+        return;
+      }
+      (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
+    },
+    [inputRef]
+  );
+
+  const refocusSearch = useCallback(() => {
+    const node = internalInputRef.current;
+    if (!node) return;
+    node.focus();
+    if (node.value.length > 0) node.select();
+  }, []);
+
+  const addProduct = useCallback(
+    (product: Product) => {
+      const price = getAppliedPrice(product, priceMap);
+      cart.addItem({ product_id: product.id, sku: product.sku, name: product.name, price });
+      if (view === "dropdown") setIsDropdownOpen(false);
+      window.setTimeout(refocusSearch, 0);
+    },
+    [cart, priceMap, view, refocusSearch]
+  );
+
+  const appendSuggestion = (term: string) => {
+    setSearch((prev) => `${prev} ${term}`.trim());
+    setIsDropdownOpen(true);
+    window.setTimeout(refocusSearch, 0);
+  };
+
+  const replaceSearch = (value: string) => {
+    setSearch(value);
+    setIsDropdownOpen(true);
+    window.setTimeout(refocusSearch, 0);
   };
 
   useEffect(() => {
     setHighlightedIndex(0);
   }, [normalizedSearch, categoryFilter, onlyStock]);
 
+  const renderResultMeta = (entry: RankedResult) => (
+    <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", rowGap: 0.75 }}>
+      <Chip size="small" label={entry.stockLabel} color={entry.stockColor} />
+      <Chip size="small" label={entry.matchLabel} color={entry.matchColor} />
+      {entry.inCartQty > 0 ? <Chip size="small" label={`En carrito x${entry.inCartQty}`} color="secondary" /> : null}
+      {entry.hasSpecialPrice ? <Chip size="small" label={minimal ? "Especial" : "Precio especial"} color="secondary" variant="outlined" /> : null}
+    </Stack>
+  );
+
   return (
     <Box>
-      <Box sx={{ display: "grid", gap: 1.5, mb: 2 }}>
+      <Box sx={{ display: "grid", gap: minimal ? 1.25 : 1.5, mb: 2 }}>
         <Box sx={{ position: "relative" }}>
           <TextField
             fullWidth
-            label="Busqueda inteligente"
-            placeholder="Escribe nombre, SKU, utilidad o funcionamiento (ej: tinta, hojas, imprimir)"
+            label={minimal ? "Buscar producto" : "Busqueda inteligente"}
+            placeholder={minimal ? "SKU, nombre o uso" : "Escribe nombre, SKU o uso del producto (ej: tinta, hojas, imprimir)"}
+            helperText={searchHelperText}
+            autoComplete="off"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
+            onChange={(event) => {
+              setSearch(event.target.value);
               setIsDropdownOpen(true);
             }}
             onFocus={() => setIsDropdownOpen(true)}
             onBlur={() => window.setTimeout(() => setIsDropdownOpen(false), 120)}
-            inputRef={inputRef}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown" && visibleResults.length > 0) {
-                e.preventDefault();
+            inputRef={handleInputRef}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" && visibleResults.length > 0) {
+                event.preventDefault();
                 setIsDropdownOpen(true);
                 setHighlightedIndex((prev) => Math.min(prev + 1, visibleResults.length - 1));
                 return;
               }
-              if (e.key === "ArrowUp" && visibleResults.length > 0) {
-                e.preventDefault();
+              if (event.key === "ArrowUp" && visibleResults.length > 0) {
+                event.preventDefault();
                 setHighlightedIndex((prev) => Math.max(prev - 1, 0));
                 return;
               }
-              if (e.key === "Escape") {
+              if (event.key === "Escape") {
                 setIsDropdownOpen(false);
                 return;
               }
-              if (e.key === "Enter" && visibleResults.length > 0) {
-                e.preventDefault();
-                const product = visibleResults[Math.min(highlightedIndex, visibleResults.length - 1)] || visibleResults[0];
-                addProduct(product);
-                return;
+              if (event.key === "Enter" && visibleResults.length > 0) {
+                event.preventDefault();
+                const entry = visibleResults[Math.min(highlightedIndex, visibleResults.length - 1)] || visibleResults[0];
+                addProduct(entry.product);
               }
             }}
             InputProps={{
@@ -349,7 +492,7 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
                 left: 0,
                 right: 0,
                 zIndex: 15,
-                maxHeight: 420,
+                maxHeight: 460,
                 overflowY: "auto",
                 borderRadius: 2,
               }}
@@ -373,51 +516,58 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
 
               {!productsQuery.isFetching && !fallbackQuery.isFetching && visibleResults.length > 0 ? (
                 <List dense disablePadding>
-                  {visibleResults.map((product, index) => {
-                    const baseSalePrice = product.sale_price ?? product.price;
-                    const price = priceMap?.[product.id] ?? baseSalePrice;
-                    return (
-                      <ListItem
-                        key={product.id}
-                        disablePadding
-                        secondaryAction={
-                          <Button
-                            variant="contained"
-                            size="small"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => addProduct(product)}
-                          >
-                            Agregar
-                          </Button>
-                        }
-                      >
-                        <ListItemButton
-                          selected={index === highlightedIndex}
-                          onMouseEnter={() => setHighlightedIndex(index)}
-                          onClick={() => addProduct(product)}
-                          sx={{ pr: 12 }}
+                  {visibleResults.map((entry, index) => (
+                    <ListItem
+                      key={entry.product.id}
+                      disablePadding
+                      secondaryAction={
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => addProduct(entry.product)}
                         >
-                          <ListItemText
-                            primary={`${product.sku} - ${product.name}`}
-                            secondary={`Categoria: ${product.category || "-"} | Stock: ${product.stock} | ${formatMoney(price)} ${currency}`}
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                    );
-                  })}
+                          Agregar
+                        </Button>
+                      }
+                    >
+                      <ListItemButton
+                        selected={index === highlightedIndex}
+                        onMouseEnter={() => setHighlightedIndex(index)}
+                        onClick={() => addProduct(entry.product)}
+                        sx={{ pr: 12, py: minimal ? 1 : 1.25 }}
+                      >
+                        <Box sx={{ display: "grid", gap: 0.75, width: "100%" }}>
+                          <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography sx={{ fontWeight: 800 }} noWrap>
+                                {entry.product.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {entry.product.sku || "Sin SKU"} · {entry.product.category || "Sin categoria"}
+                              </Typography>
+                            </Box>
+                            <Typography sx={{ fontWeight: 900, whiteSpace: "nowrap" }}>{formatMoney(entry.price)}</Typography>
+                          </Stack>
+                          {renderResultMeta(entry)}
+                        </Box>
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
                 </List>
               ) : null}
             </Paper>
           ) : null}
         </Box>
 
-        <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center", flexDirection: compactMode ? "column" : "row" }}>
+        <Stack direction={{ xs: "column", md: compactMode ? "column" : "row" }} spacing={1.5} alignItems={{ md: "center" }}>
           <TextField
             select
             label="Categoria"
             value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            sx={{ minWidth: 220, width: compactMode ? "100%" : "auto" }}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            size={minimal ? "small" : "medium"}
+            sx={{ minWidth: minimal ? 180 : 220, width: compactMode ? "100%" : "auto" }}
           >
             <MenuItem value="">Todas</MenuItem>
             {categories.map((category) => (
@@ -426,21 +576,31 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
               </MenuItem>
             ))}
           </TextField>
-          <FormControlLabel control={<Switch checked={onlyStock} onChange={(e) => setOnlyStock(e.target.checked)} />} label="Solo con stock" />
-          <Chip label={`Resultados: ${canSearch ? rankedProducts.length : 0}`} color="primary" size="small" />
-          {productsQuery.isFetching || fallbackQuery.isFetching ? (
-            <Chip icon={<CircularProgress size={12} />} label="Buscando..." size="small" />
+          <FormControlLabel control={<Switch checked={onlyStock} onChange={(event) => setOnlyStock(event.target.checked)} />} label="Solo con stock" />
+          {!minimal ? (
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+              <Chip label={`Resultados ${canSearch ? rankedResults.length : 0}`} color="primary" size="small" />
+              <Chip label={`Disponibles ${canSearch ? stockCount : 0}`} size="small" />
+              <Chip label={`Relacionados ${canSearch ? relatedCount : 0}`} size="small" />
+              {productsQuery.isFetching || fallbackQuery.isFetching ? (
+                <Chip icon={<CircularProgress size={12} />} label="Buscando..." size="small" />
+              ) : null}
+            </Stack>
+          ) : canSearch ? (
+            <Chip label={`${rankedResults.length} resultados`} color="primary" size="small" />
           ) : null}
-        </Box>
+        </Stack>
 
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
-            Sugerencias:
-          </Typography>
-          {suggestionTerms.map((term) => (
-            <Chip key={term} label={term} size="small" onClick={() => setSearch((prev) => `${prev} ${term}`.trim())} />
-          ))}
-        </Box>
+        {!minimal ? (
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
+              Sugerencias:
+            </Typography>
+            {suggestionTerms.map((term) => (
+              <Chip key={term} label={term} size="small" onClick={() => appendSuggestion(term)} />
+            ))}
+          </Box>
+        ) : null}
       </Box>
 
       {!canSearch ? (
@@ -451,10 +611,10 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
         </Box>
       ) : null}
 
-      {view === "dropdown" && canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching && rankedProducts.length === 0 ? (
+      {view === "dropdown" && canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching && rankedResults.length === 0 ? (
         <Box sx={{ mt: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            No se encontraron coincidencias. Prueba por nombre, SKU, categoria o por utilidad (ej. tinta, hojas, imprimir).
+            No se encontraron coincidencias. Prueba por nombre, SKU, categoria o por utilidad, por ejemplo: tinta, hojas o imprimir.
           </Typography>
         </Box>
       ) : null}
@@ -463,7 +623,7 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
         <Box sx={{ mt: 1.5 }}>
           <Typography variant="body2" color="text.secondary">
             Quizas quisiste decir:{" "}
-            <Button size="small" onClick={() => setSearch(smartHint)}>
+            <Button size="small" onClick={() => replaceSearch(smartHint)}>
               {smartHint}
             </Button>
           </Typography>
@@ -472,13 +632,52 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
 
       {view === "panel" ? (
         <Box sx={{ mt: 1 }}>
-          <Paper sx={{ bgcolor: "rgba(255,255,255,0.9)", border: "1px solid #d9e2ec" }}>
-            <Tabs value={resultTab} onChange={(_, v) => setResultTab(v)} variant="fullWidth">
-              <Tab label={`Todos (${rankedProducts.length})`} value="all" />
-              <Tab label="Con stock" value="stock" />
-              <Tab label="Relacionados" value="suggested" />
-            </Tabs>
-          </Paper>
+          {topResult && !minimal ? (
+            <Paper
+              sx={{
+                p: 2,
+                mb: 1.25,
+                background: "linear-gradient(155deg, rgba(18,53,90,0.06) 0%, rgba(18,53,90,0.02) 52%, rgba(154,123,47,0.08) 100%)",
+                border: "1px solid rgba(18,53,90,0.1)",
+              }}
+            >
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ md: "center" }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: 1 }}>
+                    Mejor coincidencia
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }} noWrap>
+                    {topResult.product.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {topResult.product.sku || "Sin SKU"} · {topResult.product.category || "Sin categoria"}
+                  </Typography>
+                  {renderResultMeta(topResult)}
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                    Enter agrega este producto inmediatamente. Precio aplicado: {formatMoney(topResult.price)} {currency}.
+                  </Typography>
+                </Box>
+                <Stack direction={{ xs: "row", md: "column" }} spacing={1} alignItems={{ md: "flex-end" }}>
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                    {formatMoney(topResult.price)}
+                  </Typography>
+                  <Button variant="contained" startIcon={<AddIcon />} onClick={() => addProduct(topResult.product)}>
+                    Agregar
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
+          ) : null}
+
+          {!minimal ? (
+            <Paper sx={{ bgcolor: "rgba(255,255,255,0.9)", border: "1px solid #d9e2ec" }}>
+              <Tabs value={resultTab} onChange={(_, value) => setResultTab(value)} variant="fullWidth">
+                <Tab label={`Todos (${rankedResults.length})`} value="all" />
+                <Tab label={`Con stock (${stockCount})`} value="stock" />
+                <Tab label={`Relacionados (${relatedCount})`} value="suggested" />
+              </Tabs>
+            </Paper>
+          ) : null}
 
           <Paper sx={{ mt: 1, border: "1px solid #d9e2ec", maxHeight: 560, overflowY: "auto" }}>
             {!canSearch ? (
@@ -508,39 +707,30 @@ export const ProductSearch: React.FC<{ priceMap?: Record<number, number>; inputR
 
             {canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching ? (
               <List disablePadding>
-                {panelResults.map((product) => {
-                  const baseSalePrice = product.sale_price ?? product.price;
-                  const price = priceMap?.[product.id] ?? baseSalePrice;
-                  return (
-                    <ListItem
-                      key={product.id}
-                      sx={{ borderBottom: "1px solid #e4e7eb", py: 1.2, pr: 1.5 }}
-                      secondaryAction={
-                        <Button
-                          variant="contained"
-                          color="success"
-                          onClick={() => addProduct(product)}
-                          sx={{ minWidth: 44, width: 44, height: 44, borderRadius: "50%", p: 0 }}
-                        >
-                          <AddIcon />
-                        </Button>
-                      }
-                    >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%", pr: 7 }}>
-                        <Avatar variant="rounded" sx={{ width: 56, height: 56, bgcolor: "#d9e2ec", color: "#486581", fontWeight: 700 }}>
-                          {product.name.slice(0, 1).toUpperCase()}
-                        </Avatar>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 700, color: "#102a43" }}>{product.name}</Typography>
+                {panelResults.map((entry) => (
+                  <ListItem
+                    key={entry.product.id}
+                    sx={{ borderBottom: "1px solid #e4e7eb", py: minimal ? 1 : 1.25, px: minimal ? 1.25 : 1.5 }}
+                    secondaryAction={
+                      <Button variant="contained" startIcon={<AddIcon />} onClick={() => addProduct(entry.product)}>
+                        Agregar
+                      </Button>
+                    }
+                  >
+                    <Box sx={{ display: "grid", gap: 0.8, width: "100%", pr: 14 }}>
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: "flex-start" }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 800, color: "#102a43" }}>{entry.product.name}</Typography>
                           <Typography variant="caption" sx={{ color: "#486581" }}>
-                            SKU: {product.sku} | Cat: {product.category || "-"} | Stock: {product.stock}
+                            {entry.product.sku || "Sin SKU"} · {entry.product.category || "Sin categoria"}
                           </Typography>
                         </Box>
-                        <Typography sx={{ fontWeight: 800, color: "#243b53", minWidth: 92, textAlign: "right" }}>{formatMoney(price)}</Typography>
-                      </Box>
-                    </ListItem>
-                  );
-                })}
+                        <Typography sx={{ fontWeight: 900, color: "#243b53", whiteSpace: "nowrap" }}>{formatMoney(entry.price)}</Typography>
+                      </Stack>
+                      {renderResultMeta(entry)}
+                    </Box>
+                  </ListItem>
+                ))}
               </List>
             ) : null}
           </Paper>

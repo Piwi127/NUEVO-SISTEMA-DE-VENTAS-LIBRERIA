@@ -1,4 +1,4 @@
-# Frontend UX Master Plan
+﻿# Frontend UX Master Plan
 
 ## Estado
 - Estado general: aprobado para ejecucion.
@@ -81,7 +81,7 @@ Mejorar la experiencia del frontend para que el sistema sea mas claro, mas rapid
 
 ## Fase 4: Redisenio del POS
 - Estado: en progreso.
-- Enfoque actual: carrito mobile, postventa rapida y cierre de cobro.
+- Enfoque actual: densidad final del POS, version simplificada de cajero y cierre operativo.
 - Objetivo: reducir ruido visual y acelerar el cobro.
 - Cambios:
 - Simplificar cabecera y resumen.
@@ -97,6 +97,9 @@ Mejorar la experiencia del frontend para que el sistema sea mas claro, mas rapid
 - [x] Mejorar el dialogo de pago con etiquetas legibles y resumen de importes.
 - [x] Reforzar la lectura visual del carrito en mobile.
 - [x] Ajustar el cierre final de cobro y postventa rapida.
+- [x] Mejorar ProductSearch con mejor coincidencia visible, stock y precio aplicado.
+- [x] Acelerar la seleccion con foco estable y agregado rapido por teclado.
+- [x] Crear version simplificada de cajero con solo buscador y carrito visibles.
 
 ## Fase 5: Catalogo y Mantenimiento
 - Objetivo: hacer el catalogo mas administrable.
@@ -131,7 +134,7 @@ Mejorar la experiencia del frontend para que el sistema sea mas claro, mas rapid
 - Aumentar cobertura E2E en mobile y flujos criticos.
 
 ## Orden recomendado
-1. Continuar Fase 4 sobre busqueda de productos, lectura de stock y optimizacion del cierre operativo.
+1. Cerrar Fase 4 con ajustes finales de densidad, mensajes operativos y pruebas de uso rapido.
 2. Pasar a Fase 5 y Fase 6.
 3. Cerrar con Fase 7 y Fase 8.
 
@@ -142,4 +145,3 @@ Mejorar la experiencia del frontend para que el sistema sea mas claro, mas rapid
 - Formularios criticos con validacion inline.
 - Menor peso del bundle inicial.
 - Mas cobertura E2E en acciones sensibles.
-

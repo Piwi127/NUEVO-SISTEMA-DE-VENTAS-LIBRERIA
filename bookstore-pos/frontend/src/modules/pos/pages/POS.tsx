@@ -31,8 +31,10 @@ import PauseCircleIcon from "@mui/icons-material/PauseCircle";
 import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import HistoryIcon from "@mui/icons-material/History";
+import TuneIcon from "@mui/icons-material/Tune";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/auth/AuthProvider";
 import { ConfirmDialog, PageHeader, useToast } from "@/app/components";
 import { formatMoney } from "@/app/utils";
 import {
@@ -79,10 +81,12 @@ const getSuggestedHeldCartLabel = () =>
 
 const POS: React.FC = () => {
   const cart = useCartStore();
+  const { role } = useAuth();
   const { taxRate, taxIncluded, paymentMethods, compactMode } = useSettings();
   const { showToast } = useToast();
   const compact = useMediaQuery("(max-width:900px)");
   const isCompact = compactMode || compact;
+  const isCashierMode = role === "cashier";
 
   const [sessionId] = useState(() => makeSessionId());
   const wsRef = useRef<WebSocket | null>(null);
@@ -152,6 +156,7 @@ const POS: React.FC = () => {
   const [holdDialogOpen, setHoldDialogOpen] = useState(false);
   const [holdLabel, setHoldLabel] = useState("");
   const [heldCarts, setHeldCarts] = useState<HeldCart[]>([]);
+  const [cashierOptionsOpen, setCashierOptionsOpen] = useState(false);
   const prevItemCountRef = useRef(0);
 
   const persistHeldCarts = (next: HeldCart[]) => {
@@ -219,12 +224,12 @@ const POS: React.FC = () => {
     persistHeldCarts(heldCarts.filter((item) => item.id !== held.id));
     setHeldOpen(false);
     showToast({ message: `Venta recuperada: ${held.label}`, severity: "success" });
+    window.setTimeout(() => searchRef.current?.focus(), 0);
   };
 
   const deleteHeldCart = (heldId: string) => {
     persistHeldCarts(heldCarts.filter((item) => item.id !== heldId));
   };
-
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(() => {
@@ -293,11 +298,11 @@ const POS: React.FC = () => {
   }, [lastSale]);
 
   useEffect(() => {
-    if (isCompact && itemCount > prevItemCountRef.current && itemCount > 0) {
+    if (!isCashierMode && isCompact && itemCount > prevItemCountRef.current && itemCount > 0) {
       setCartOpen(true);
     }
     prevItemCountRef.current = itemCount;
-  }, [itemCount, isCompact]);
+  }, [itemCount, isCompact, isCashierMode]);
 
   useEffect(() => {
     loadHeldCarts();
@@ -348,6 +353,7 @@ const POS: React.FC = () => {
     setCustomerId("");
     setPromoId("");
     setCartOpen(false);
+    setCashierOptionsOpen(false);
     window.setTimeout(() => searchRef.current?.focus(), 0);
   };
 
@@ -367,6 +373,7 @@ const POS: React.FC = () => {
           label="Cliente"
           value={customerId}
           onChange={(event) => handleCustomerChange(String(event.target.value))}
+          size={isCashierMode ? "small" : "medium"}
           sx={{
             "& .MuiInputLabel-root": { color: surface === "dark" ? "rgba(255,255,255,0.85)" : undefined },
           }}
@@ -386,6 +393,7 @@ const POS: React.FC = () => {
           label="Promocion"
           value={promoId}
           onChange={(event) => handlePromoChange(String(event.target.value))}
+          size={isCashierMode ? "small" : "medium"}
           sx={{
             "& .MuiInputLabel-root": { color: surface === "dark" ? "rgba(255,255,255,0.85)" : undefined },
           }}
@@ -522,6 +530,199 @@ const POS: React.FC = () => {
         minute: "2-digit",
       })
     : "";
+  if (isCashierMode) {
+    return (
+      <>
+        <Box sx={{ display: "grid", gap: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} lg={7}>
+              <Paper sx={{ p: { xs: 1.5, md: 2 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff" }}>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} justifyContent="space-between" alignItems={{ sm: "center" }} sx={{ mb: 1.25 }}>
+                  <Box>
+                    <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: 1 }}>
+                      Caja
+                    </Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                      Buscar productos
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                    <Chip size="small" color={cash?.is_open ? "success" : "warning"} label={cash?.is_open ? "Caja abierta" : "Caja cerrada"} />
+                    <Chip size="small" icon={<QrCodeScannerIcon />} label="F2 buscar" />
+                    <Chip size="small" icon={<ShoppingCartCheckoutIcon />} label="F4 cobrar" />
+                  </Stack>
+                </Stack>
+                <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal />
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} lg={5}>
+              <Paper sx={{ p: { xs: 1.5, md: 2 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff", position: { lg: "sticky" }, top: { lg: 12 } }}>
+                <Stack spacing={1.5}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} justifyContent="space-between" alignItems={{ sm: "center" }}>
+                    <Box>
+                      <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: 1 }}>
+                        Cobro
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                        Carrito
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {cash?.is_open ? "Total actual" : "Pendiente de caja"}
+                      </Typography>
+                      <Typography variant="h4" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
+                        {formatMoney(total)}
+                      </Typography>
+                    </Box>
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                    <Chip size="small" label={`${itemCount} items`} />
+                    {lastSale ? <Chip size="small" color="success" label={lastSale.invoiceNumber} /> : null}
+                    {totalsSummary.packDiscount > 0 ? <Chip size="small" icon={<LocalOfferIcon />} label={`Pack ${formatMoney(totalsSummary.packDiscount)}`} /> : null}
+                  </Stack>
+
+                  {!cashQuery.isLoading && !cash?.is_open ? (
+                    <Alert
+                      severity="warning"
+                      action={
+                        <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
+                          Abrir caja
+                        </Button>
+                      }
+                    >
+                      Caja cerrada. Puedes seguir cargando el carrito.
+                    </Alert>
+                  ) : null}
+
+                  <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} tone="light" minimal />
+
+                  <Stack spacing={1}>
+                    <Button fullWidth variant="contained" size="large" disabled={primaryActionDisabled} onClick={handlePrimaryAction}>
+                      {primaryActionLabel}
+                    </Button>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                      <Button fullWidth variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart}>
+                        Guardar
+                      </Button>
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        startIcon={<PlaylistAddCheckIcon />}
+                        disabled={heldCarts.length === 0}
+                        onClick={() => setHeldOpen(true)}
+                      >
+                        Recuperar
+                      </Button>
+                    </Stack>
+                    <Button variant="text" size="small" startIcon={<TuneIcon />} onClick={() => setCashierOptionsOpen((prev) => !prev)}>
+                      {cashierOptionsOpen ? "Ocultar opciones" : "Cliente, promo y ticket"}
+                    </Button>
+                  </Stack>
+
+                  {cashierOptionsOpen ? (
+                    <Stack spacing={1.25} sx={{ pt: 0.5 }}>
+                      {renderCheckoutSelectors("light")}
+                      {lastSale ? (
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                          <Button fullWidth variant="outlined" startIcon={<RestartAltIcon />} onClick={handleStartFreshSale}>
+                            Nueva venta
+                          </Button>
+                          <Button fullWidth variant="outlined" onClick={handlePrint}>
+                            Imprimir
+                          </Button>
+                          <Button fullWidth variant="outlined" onClick={handleEscpos}>
+                            ESC/POS
+                          </Button>
+                        </Stack>
+                      ) : null}
+                      {lastSale ? (
+                        <Button variant="text" startIcon={<HistoryIcon />} onClick={() => navigate("/sales-history")}>
+                          Ver ventas
+                        </Button>
+                      ) : null}
+                    </Stack>
+                  ) : null}
+
+                  {lastSale && itemCount === 0 ? (
+                    <Typography variant="caption" color="success.main">
+                      Ultima venta {lastSale.invoiceNumber} registrada a las {lastSaleTimeLabel}. Usa "Nueva venta" para limpiar el cierre.
+                    </Typography>
+                  ) : null}
+                </Stack>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Box>
+
+        <PaymentDialog
+          open={payOpen}
+          total={total}
+          methods={selectPaymentMethods(paymentMethods)}
+          onClose={() => setPayOpen(false)}
+          onConfirm={(payments: Payment[]) => handlePayment(payments)}
+        />
+
+        <ConfirmDialog
+          open={holdDialogOpen}
+          title="Guardar venta en espera"
+          description="Asigna un nombre corto para recuperar esta venta rapidamente."
+          content={
+            <TextField
+              autoFocus
+              fullWidth
+              label="Nombre de la venta"
+              value={holdLabel}
+              onChange={(event) => setHoldLabel(event.target.value)}
+              placeholder="Pedido mostrador"
+            />
+          }
+          onCancel={() => {
+            setHoldDialogOpen(false);
+            setHoldLabel("");
+          }}
+          onConfirm={handleConfirmHoldCurrentCart}
+          confirmText="Guardar en espera"
+        />
+
+        <Dialog open={heldOpen} onClose={() => setHeldOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Ventas en espera</DialogTitle>
+          <DialogContent>
+            {heldCarts.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No hay ventas guardadas.
+              </Typography>
+            ) : (
+              <List>
+                {heldCarts.map((held) => (
+                  <ListItemButton key={held.id} onClick={() => restoreHeldCart(held)}>
+                    <ListItemText
+                      primary={held.label}
+                      secondary={`${new Date(held.created_at).toLocaleString("es-PE")} - ${held.items.length} items - ${formatMoney(
+                        held.items.reduce((acc, item) => acc + item.price * item.qty, 0)
+                      )}`}
+                    />
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        deleteHeldCart(held.id);
+                      }}
+                    >
+                      Eliminar
+                    </Button>
+                  </ListItemButton>
+                ))}
+              </List>
+            )}
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -616,7 +817,6 @@ const POS: React.FC = () => {
           </Grid>
         </Grid>
       </Paper>
-
       {lastSale && itemCount === 0 ? (
         <Paper
           sx={{
@@ -716,7 +916,7 @@ const POS: React.FC = () => {
         confirmText="Guardar en espera"
       />
 
-      {isCompact ? (
+      {!isCashierMode && isCompact ? (
         <Fab
           color="primary"
           variant="extended"
@@ -730,44 +930,46 @@ const POS: React.FC = () => {
         </Fab>
       ) : null}
 
-      <Drawer
-        anchor="right"
-        open={isCompact ? cartOpen : false}
-        onClose={() => setCartOpen(false)}
-        PaperProps={{
-          sx: {
-            bgcolor: "rgba(11, 42, 74, 0.72)",
-            color: "#ffffff",
-            borderLeft: "1px solid rgba(255,255,255,0.18)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            backgroundImage: "linear-gradient(180deg, rgba(7,31,56,0.78) 0%, rgba(11,42,74,0.68) 100%)",
-          },
-        }}
-      >
-        <Box
-          sx={{
-            width: { xs: "100vw", sm: 470 },
-            maxWidth: "100vw",
-            p: 2,
-            color: "#ffffff",
-            "& .MuiTypography-root": { color: "#ffffff", fontWeight: 700 },
-            "& .MuiTableCell-root": { color: "#ffffff", borderColor: "rgba(255,255,255,0.22)", fontWeight: 700 },
-            "& .MuiInputBase-input": { color: "#ffffff", fontWeight: 700 },
-            "& .MuiInputLabel-root": { color: "rgba(255,255,255,0.85)", fontWeight: 700 },
-            "& .MuiSvgIcon-root": { color: "#ffffff" },
-            "& .MuiButton-text": { color: "#ffffff", fontWeight: 700 },
-            "& .MuiButton-outlined": { borderColor: "rgba(255,255,255,0.5)", color: "#ffffff", fontWeight: 700 },
-            "& .MuiChip-label": { color: "#ffffff", fontWeight: 700 },
-            "& .MuiFormLabel-root": { color: "rgba(255,255,255,0.85)", fontWeight: 700 },
-            "& .MuiTypography-colorTextSecondary": { color: "rgba(255,255,255,0.9)" },
-            "& .MuiButton-contained.Mui-disabled": { bgcolor: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.72)" },
-            "& .MuiButton-outlined.Mui-disabled": { borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.62)" },
+      {!isCashierMode ? (
+        <Drawer
+          anchor="right"
+          open={isCompact ? cartOpen : false}
+          onClose={() => setCartOpen(false)}
+          PaperProps={{
+            sx: {
+              bgcolor: "rgba(11, 42, 74, 0.72)",
+              color: "#ffffff",
+              borderLeft: "1px solid rgba(255,255,255,0.18)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              backgroundImage: "linear-gradient(180deg, rgba(7,31,56,0.78) 0%, rgba(11,42,74,0.68) 100%)",
+            },
           }}
         >
-          {renderCheckoutPanelContent("dark")}
-        </Box>
-      </Drawer>
+          <Box
+            sx={{
+              width: { xs: "100vw", sm: 470 },
+              maxWidth: "100vw",
+              p: 2,
+              color: "#ffffff",
+              "& .MuiTypography-root": { color: "#ffffff", fontWeight: 700 },
+              "& .MuiTableCell-root": { color: "#ffffff", borderColor: "rgba(255,255,255,0.22)", fontWeight: 700 },
+              "& .MuiInputBase-input": { color: "#ffffff", fontWeight: 700 },
+              "& .MuiInputLabel-root": { color: "rgba(255,255,255,0.85)", fontWeight: 700 },
+              "& .MuiSvgIcon-root": { color: "#ffffff" },
+              "& .MuiButton-text": { color: "#ffffff", fontWeight: 700 },
+              "& .MuiButton-outlined": { borderColor: "rgba(255,255,255,0.5)", color: "#ffffff", fontWeight: 700 },
+              "& .MuiChip-label": { color: "#ffffff", fontWeight: 700 },
+              "& .MuiFormLabel-root": { color: "rgba(255,255,255,0.85)", fontWeight: 700 },
+              "& .MuiTypography-colorTextSecondary": { color: "rgba(255,255,255,0.9)" },
+              "& .MuiButton-contained.Mui-disabled": { bgcolor: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.72)" },
+              "& .MuiButton-outlined.Mui-disabled": { borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.62)" },
+            }}
+          >
+            {renderCheckoutPanelContent("dark")}
+          </Box>
+        </Drawer>
+      ) : null}
 
       <Dialog open={heldOpen} onClose={() => setHeldOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Ventas en espera</DialogTitle>

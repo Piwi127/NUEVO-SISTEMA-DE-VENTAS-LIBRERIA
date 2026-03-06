@@ -30,9 +30,10 @@ type CartProps = {
   packPricingLines?: Record<number, PackPricingLine>;
   totalsSummary?: PosTotalsSummary;
   tone?: "light" | "dark";
+  minimal?: boolean;
 };
 
-export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, tone = "light" }) => {
+export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, tone = "light", minimal = false }) => {
   const cart = useCartStore();
   const { currency, taxRate, taxIncluded, compactMode } = useSettings();
   const compact = useMediaQuery("(max-width:900px)");
@@ -123,14 +124,20 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
 
   return (
     <Box>
-      <Stack spacing={1.25} sx={{ mb: 1.5 }}>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-          <Chip size="small" label={`${cart.items.length} productos`} sx={{ bgcolor: palette.chipBg }} />
-          <Chip size="small" label={`${totalUnits} unidades`} sx={{ bgcolor: palette.chipBg }} />
-          {selectedProductIds.length > 0 ? (
-            <Chip size="small" label={`${selectedProductIds.length} seleccionados`} sx={{ bgcolor: palette.chipBg }} />
-          ) : null}
-        </Stack>
+      <Stack spacing={minimal ? 1 : 1.25} sx={{ mb: 1.5 }}>
+        {minimal ? (
+          <Typography variant="caption" sx={{ color: palette.textMuted, fontWeight: 700 }}>
+            {cart.items.length} productos · {totalUnits} unidades
+          </Typography>
+        ) : (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Chip size="small" label={`${cart.items.length} productos`} sx={{ bgcolor: palette.chipBg }} />
+            <Chip size="small" label={`${totalUnits} unidades`} sx={{ bgcolor: palette.chipBg }} />
+            {selectedProductIds.length > 0 ? (
+              <Chip size="small" label={`${selectedProductIds.length} seleccionados`} sx={{ bgcolor: palette.chipBg }} />
+            ) : null}
+          </Stack>
+        )}
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
           <Button variant="outlined" size="small" onClick={toggleAllProducts} disabled={!cart.items.length}>
             {allSelected ? "Quitar seleccion" : "Seleccionar todo"}
@@ -143,7 +150,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
             disabled={!selectedProductIds.length}
             onClick={removeSelectedProducts}
           >
-            Eliminar seleccionados ({selectedProductIds.length})
+            {minimal ? `Eliminar (${selectedProductIds.length})` : `Eliminar seleccionados (${selectedProductIds.length})`}
           </Button>
           <Button variant="outlined" size="small" disabled={!cart.items.length} onClick={cart.clear}>
             Vaciar carrito
@@ -154,7 +161,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
       {!cart.items.length ? (
         <Paper
           sx={{
-            p: 2,
+            p: minimal ? 1.5 : 2,
             borderRadius: 2,
             border: `1px solid ${palette.cardBorder}`,
             bgcolor: palette.cardBg,
@@ -169,16 +176,16 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
           </Typography>
         </Paper>
       ) : isCompact ? (
-        <Box sx={{ display: "grid", gap: 1.25 }}>
+        <Box sx={{ display: "grid", gap: minimal ? 1 : 1.25 }}>
           {cart.items.map((item) => {
             const linePricing = getLinePricing(item.product_id, item.qty, item.price);
             return (
               <Paper
                 key={item.product_id}
                 sx={{
-                  p: 1.5,
+                  p: minimal ? 1.25 : 1.5,
                   display: "grid",
-                  gap: 1.25,
+                  gap: minimal ? 1 : 1.25,
                   bgcolor: palette.cardBg,
                   border: `1px solid ${palette.cardBorder}`,
                   boxShadow: "none",
@@ -216,13 +223,13 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
                 </Stack>
 
                 <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-                  <Paper sx={{ p: 1.25, bgcolor: palette.subtleBg, boxShadow: "none" }}>
+                  <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
                     <Typography variant="caption" sx={{ color: palette.textMuted }}>
                       Precio unitario
                     </Typography>
                     <Typography sx={{ fontWeight: 800 }}>{formatMoney(item.price)}</Typography>
                   </Paper>
-                  <Paper sx={{ p: 1.25, bgcolor: palette.subtleBg, boxShadow: "none" }}>
+                  <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
                     <Typography variant="caption" sx={{ color: palette.textMuted }}>
                       Total de linea
                     </Typography>
@@ -230,7 +237,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
                   </Paper>
                 </Box>
 
-                <Paper sx={{ p: 1.25, bgcolor: palette.subtleBg, boxShadow: "none" }}>
+                <Paper sx={{ p: 1.1, bgcolor: palette.subtleBg, boxShadow: "none" }}>
                   <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
                     <Box>
                       <Typography variant="caption" sx={{ color: palette.textMuted }}>
@@ -345,7 +352,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
       <Box sx={{ mt: 2, display: "grid", gap: 1 }}>
         <TextField
           label="Descuento manual"
-          helperText="Aplica un descuento adicional para esta venta."
+          helperText={minimal ? undefined : "Aplica un descuento adicional para esta venta."}
           size="small"
           type="number"
           value={Number.isFinite(discount) ? discount : 0}
@@ -357,7 +364,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
       <Box
         sx={{
           mt: 2,
-          p: 2,
+          p: minimal ? 1.5 : 2,
           color: isDark ? "#fff" : "text.primary",
           borderRadius: 2,
           display: "grid",
@@ -366,9 +373,11 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
           bgcolor: palette.summaryBg,
         }}
       >
-        <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
-          Resumen de cobro
-        </Typography>
+        {!minimal ? (
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
+            Resumen de cobro
+          </Typography>
+        ) : null}
         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
           <Box>Subtotal items</Box>
           <Box>{formatMoney(summary.subtotalAfterPacks)}</Box>
@@ -391,9 +400,11 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
         </Box>
       </Box>
 
-      <Typography sx={{ mt: 1, fontSize: 12, color: palette.textMuted, fontWeight: 700 }}>
-        Moneda de trabajo: {currency}
-      </Typography>
+      {!minimal ? (
+        <Typography sx={{ mt: 1, fontSize: 12, color: palette.textMuted, fontWeight: 700 }}>
+          Moneda de trabajo: {currency}
+        </Typography>
+      ) : null}
     </Box>
   );
 };
