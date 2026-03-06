@@ -1,6 +1,15 @@
-import { createTheme } from "@mui/material/styles";
+import { createTheme, responsiveFontSizes } from "@mui/material/styles";
 
-export const theme = createTheme({
+let theme = createTheme({
+  breakpoints: {
+    values: {
+      xs: 0,
+      sm: 600,
+      md: 900,
+      lg: 1280,
+      xl: 1600,
+    },
+  },
   palette: {
     mode: "light",
     primary: { main: "#12355a" },
@@ -14,13 +23,48 @@ export const theme = createTheme({
   shape: { borderRadius: 12 },
   typography: {
     fontFamily: "'Plus Jakarta Sans', 'Segoe UI', sans-serif",
-    h4: { fontWeight: 700, letterSpacing: 0.1 },
-    h5: { fontWeight: 700, letterSpacing: 0.1 },
-    h6: { fontWeight: 700, letterSpacing: 0.1 },
+    h4: {
+      fontWeight: 800,
+      letterSpacing: "-0.03em",
+      fontSize: "clamp(1.85rem, 1.45rem + 1.2vw, 2.55rem)",
+    },
+    h5: {
+      fontWeight: 800,
+      letterSpacing: "-0.02em",
+      fontSize: "clamp(1.35rem, 1.1rem + 0.8vw, 1.85rem)",
+    },
+    h6: {
+      fontWeight: 800,
+      letterSpacing: "-0.02em",
+      fontSize: "clamp(1.05rem, 0.96rem + 0.45vw, 1.3rem)",
+    },
     subtitle1: { fontWeight: 600 },
+    body1: { lineHeight: 1.6 },
+    body2: { lineHeight: 1.6 },
     button: { textTransform: "none", fontWeight: 700, letterSpacing: 0.2 },
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        html: {
+          height: "100%",
+          WebkitTextSizeAdjust: "100%",
+        },
+        body: {
+          minWidth: 320,
+          minHeight: "100vh",
+          overflowX: "hidden",
+        },
+        "#root": {
+          minHeight: "100vh",
+        },
+        "img, svg, video, canvas": {
+          display: "block",
+          maxWidth: "100%",
+          height: "auto",
+        },
+      },
+    },
     MuiPaper: {
       styleOverrides: {
         root: {
@@ -88,6 +132,7 @@ export const theme = createTheme({
         root: {
           minHeight: 40,
           borderRadius: 10,
+          paddingInline: 14,
         },
         contained: {
           boxShadow: "0 8px 18px rgba(12, 42, 74, 0.26)",
@@ -133,6 +178,15 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           fontWeight: 700,
+          maxWidth: "100%",
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          width: "calc(100% - 24px)",
+          margin: 12,
         },
       },
     },
@@ -146,6 +200,13 @@ export const theme = createTheme({
         root: {
           borderRadius: 10,
           backgroundColor: "rgba(255,255,255,0.9)",
+        },
+      },
+    },
+    MuiTableContainer: {
+      styleOverrides: {
+        root: {
+          overflowX: "auto",
         },
       },
     },
@@ -178,3 +239,7 @@ export const theme = createTheme({
     },
   } as any,
 });
+
+theme = responsiveFontSizes(theme, { factor: 2.1 });
+
+export { theme };

@@ -1,29 +1,26 @@
 import React, { useEffect, useState } from "react";
 import {
   Box,
-  Breadcrumbs,
   Chip,
   Divider,
   Drawer,
   IconButton,
-  Link,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   Paper,
   Stack,
-  Tab,
-  Tabs,
   Toolbar,
   Tooltip,
   Typography,
   useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import PushPinIcon from "@mui/icons-material/PushPin";
+import PushPinOutlinedIcon from "@mui/icons-material/PushPinOutlined";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
@@ -33,6 +30,8 @@ import { api } from "@/modules/shared/api";
 import { menuSections } from "@/modules/registry";
 
 const NAV_WIDTH = 296;
+const EDGE_TRIGGER_WIDTH = 24;
+const DESKTOP_NAV_PIN_KEY = "bookstore-desktop-nav-pinned";
 
 const formatRole = (role: string | null | undefined) => {
   if (!role) return "Sin rol";
@@ -51,13 +50,25 @@ const matchesPath = (pathname: string, itemPath: string) =>
 
 export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const compact = useMediaQuery("(max-width:900px)");
+  const [desktopNavVisible, setDesktopNavVisible] = useState(false);
+  const [desktopNavHovered, setDesktopNavHovered] = useState(false);
+  const [desktopNavPinned, setDesktopNavPinned] = useState(() => {
+    if (typeof window === "undefined") return false;
+
+    try {
+      return window.localStorage.getItem(DESKTOP_NAV_PIN_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const theme = useTheme();
+  const compact = useMediaQuery(theme.breakpoints.down("md"));
+  const shortViewport = useMediaQuery("(max-height:760px)");
   const [healthOk, setHealthOk] = useState(true);
   const { role, username, logout } = useAuth();
   const {
     projectName,
     logoUrl,
-    compactMode,
     setProjectName,
     setCurrency,
     setTaxRate,
@@ -84,17 +95,15 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
     }))
     .filter((section) => section.items.length > 0);
 
-  const activeSection =
-    filteredSections.find((section) => section.items.some((item) => matchesPath(location.pathname, item.path))) ||
-    filteredSections[0];
   const activeItem =
-    activeSection?.items
+    filteredSections
+      .flatMap((section) => section.items)
       .filter((item) => matchesPath(location.pathname, item.path))
-      .sort((a, b) => b.path.length - a.path.length)[0] || activeSection?.items[0];
-  const homePath = filteredSections[0]?.items[0]?.path || "/";
-  const activeTab = activeItem?.path || false;
-  const currentSectionPath = activeSection?.items[0]?.path || homePath;
+      .sort((a, b) => b.path.length - a.path.length)[0] || filteredSections[0]?.items[0];
   const projectLabel = projectName || "Sistema";
+  const isDesktopNavOpen = !compact && (desktopNavPinned || desktopNavVisible);
+  const pinLabel = desktopNavPinned ? "Liberar menu lateral" : "Fijar menu lateral";
+  const desktopNavWidth = shortViewport ? 272 : NAV_WIDTH;
   const metaChipSx = {
     bgcolor: "rgba(255,255,255,0.76)",
     color: "text.primary",
@@ -161,17 +170,74 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
     };
   }, []);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(DESKTOP_NAV_PIN_KEY, desktopNavPinned ? "1" : "0");
+    } catch {
+      // ignore storage failures
+    }
+  }, [desktopNavPinned]);
+
+  useEffect(() => {
+    if (compact) {
+      setDesktopNavVisible(false);
+      setDesktopNavHovered(false);
+      return;
+    }
+
+    if (desktopNavPinned) {
+      setDesktopNavVisible(true);
+      return;
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (event.clientX <= EDGE_TRIGGER_WIDTH) {
+        setDesktopNavVisible(true);
+        return;
+      }
+
+      if (!desktopNavHovered && event.clientX > desktopNavWidth + EDGE_TRIGGER_WIDTH) {
+        setDesktopNavVisible(false);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (!desktopNavHovered) {
+        setDesktopNavVisible(false);
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("blur", handleWindowBlur);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, [compact, desktopNavHovered, desktopNavPinned, desktopNavWidth]);
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
+  const handleToggleDesktopPin = () => {
+    setDesktopNavPinned((current) => {
+      const next = !current;
+      setDesktopNavVisible(next);
+      if (!next) {
+        setDesktopNavHovered(false);
+      }
+      return next;
+    });
+  };
+
   const navigationContent = (closeAfterNavigate: boolean) => (
     <Box sx={{ display: "grid", gridTemplateRows: "auto 1fr auto", height: "100%" }}>
-      <Box sx={{ px: 1, pt: 1, pb: 2 }}>
+      <Box sx={{ px: 1, pt: shortViewport ? 0.75 : 1, pb: shortViewport ? 1.5 : 2 }}>
         <Stack direction="row" spacing={1.5} alignItems="center">
           {logoUrl ? (
-            <Box component="img" src={logoUrl} alt="logo" sx={{ width: 40, height: 40, borderRadius: 1.5, objectFit: "cover" }} />
+            <Box component="img" src={logoUrl} alt="logo" sx={{ width: shortViewport ? 36 : 40, height: shortViewport ? 36 : 40, borderRadius: 1.5, objectFit: "cover" }} />
           ) : (
             <Box
               sx={{
@@ -265,21 +331,69 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           "radial-gradient(circle at top left, rgba(18,53,90,0.08) 0%, rgba(18,53,90,0) 28%), linear-gradient(180deg, #f5f7fa 0%, #eef2f6 100%)",
       }}
     >
+      <Box
+        onMouseEnter={() => setDesktopNavVisible(true)}
+        sx={{
+          display: { xs: "none", md: desktopNavPinned ? "none" : "block" },
+          position: "fixed",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: EDGE_TRIGGER_WIDTH,
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          pointerEvents: isDesktopNavOpen ? "none" : "auto",
+          opacity: isDesktopNavOpen ? 0 : 1,
+          transition: "opacity 160ms ease",
+          background: "linear-gradient(90deg, rgba(18,53,90,0.14) 0%, rgba(18,53,90,0) 100%)",
+          "&::after": {
+            content: '""',
+            position: "absolute",
+            top: "50%",
+            left: 6,
+            width: 3,
+            height: 44,
+            borderRadius: 999,
+            background: "rgba(18,53,90,0.2)",
+            transform: "translateY(-50%)",
+          },
+        }}
+      />
+
       <Drawer
         variant="permanent"
         open
         sx={{
           display: { xs: "none", md: "block" },
-          width: NAV_WIDTH,
+          width: isDesktopNavOpen ? desktopNavWidth : 0,
           flexShrink: 0,
+          overflow: "visible",
+          transition: "width 180ms ease",
           "& .MuiDrawer-paper": {
-            width: NAV_WIDTH,
+            width: desktopNavWidth,
             boxSizing: "border-box",
             p: 1.5,
+            overflowX: "hidden",
+            transform: isDesktopNavOpen ? "translateX(0)" : "translateX(-100%)",
+            transition: "transform 180ms ease",
+            pointerEvents: isDesktopNavOpen ? "auto" : "none",
           },
         }}
       >
-        {navigationContent(false)}
+        <Box
+          sx={{ height: "100%" }}
+          onMouseEnter={() => {
+            setDesktopNavHovered(true);
+            setDesktopNavVisible(true);
+          }}
+          onMouseLeave={(event) => {
+            setDesktopNavHovered(false);
+            if (!desktopNavPinned && event.clientX > EDGE_TRIGGER_WIDTH) {
+              setDesktopNavVisible(false);
+            }
+          }}
+        >
+          {navigationContent(false)}
+        </Box>
       </Drawer>
 
       <Drawer
@@ -289,7 +403,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
         sx={{
           display: { xs: "block", md: "none" },
           "& .MuiDrawer-paper": {
-            width: 286,
+            width: "min(86vw, 320px)",
             boxSizing: "border-box",
             p: 1.5,
           },
@@ -319,42 +433,50 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
         >
           <Toolbar
             sx={{
-              minHeight: { xs: 72, md: 76 },
-              px: { xs: 2, md: 3 },
-              gap: 1.25,
+              minHeight: { xs: 60, sm: 64, md: shortViewport ? 64 : 68 },
+              px: { xs: 1, sm: 1.5, md: 2.5 },
+              py: { xs: 0.75, sm: 0 },
+              gap: { xs: 0.75, sm: 1 },
               alignItems: "center",
-              flexWrap: { xs: "wrap", md: "nowrap" },
+              flexWrap: { xs: "wrap", sm: "nowrap" },
             }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flexGrow: 1, minWidth: 0, width: { xs: "100%", sm: "auto" } }}>
               {compact ? (
                 <IconButton color="primary" onClick={() => setMobileOpen(true)} aria-label="Abrir navegacion">
                   <MenuIcon />
                 </IconButton>
               ) : null}
-              <Box sx={{ minWidth: 0 }}>
-                <Typography variant="caption" sx={{ display: "block", color: "text.secondary", letterSpacing: 1.2, textTransform: "uppercase", mb: 0.35 }}>
-                  Proyecto
-                </Typography>
-                <Typography variant="h6" sx={{ color: "text.primary", fontWeight: 800 }} noWrap>
-                  {projectLabel}
-                </Typography>
-              </Box>
+              <Typography variant="h6" sx={{ color: "text.primary", fontWeight: 800, fontSize: { xs: "1.02rem", sm: "1.1rem", md: "1.2rem" } }} noWrap>
+                {projectLabel}
+              </Typography>
+              {!compact ? (
+                <Tooltip title={pinLabel}>
+                  <IconButton
+                    color="primary"
+                    onClick={handleToggleDesktopPin}
+                    aria-label={pinLabel}
+                    sx={{
+                      border: "1px solid rgba(18,53,90,0.08)",
+                      bgcolor: desktopNavPinned ? "rgba(18,53,90,0.1)" : "rgba(255,255,255,0.72)",
+                    }}
+                  >
+                    {desktopNavPinned ? <PushPinIcon fontSize="small" /> : <PushPinOutlinedIcon fontSize="small" />}
+                  </IconButton>
+                </Tooltip>
+              ) : null}
             </Stack>
 
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ justifyContent: "flex-end" }}>
-              <Tooltip title="Fecha local">
-                <Chip
-                  icon={<CalendarMonthIcon sx={{ color: "inherit !important" }} />}
-                  label={new Date().toLocaleDateString("es-PE")}
-                  size="small"
-                  sx={metaChipSx}
-                />
-              </Tooltip>
-              <Chip label={username ?? "Usuario"} size="small" sx={metaChipSx} />
-              <Chip label={formatRole(role)} size="small" sx={metaChipSx} />
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ justifyContent: "flex-end", alignItems: "center", width: { xs: "100%", sm: "auto" } }}>
+              <Chip
+                label={username ?? "Usuario"}
+                size="small"
+                sx={{
+                  ...metaChipSx,
+                  display: { xs: "none", sm: "inline-flex" },
+                }}
+              />
               {!healthOk ? <Chip label="API offline" size="small" color="error" /> : null}
-              {compactMode ? <Chip label="Compacta" size="small" sx={metaChipSx} /> : null}
               <Tooltip title="Cerrar sesion">
                 <IconButton color="primary" onClick={handleLogout} aria-label="Cerrar sesion" sx={{ border: "1px solid rgba(18,53,90,0.08)", bgcolor: "rgba(255,255,255,0.72)" }}>
                   <LogoutIcon />
@@ -364,111 +486,19 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           </Toolbar>
         </Paper>
 
-        <Box sx={{ p: { xs: 1.5, md: 2.25 }, display: "grid", gap: 1.5 }}>
-          <Paper
-            sx={{
-              p: { xs: 1.35, md: 1.5 },
-              background: "rgba(255,255,255,0.72)",
-              border: "1px solid rgba(18,53,90,0.08)",
-              boxShadow: "0 10px 22px rgba(12,31,51,0.04)",
-              backdropFilter: "blur(18px)",
-              WebkitBackdropFilter: "blur(18px)",
-            }}
-          >
-            <Stack spacing={1.15}>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ md: "flex-start" }}>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="caption" sx={{ display: "block", color: "text.secondary", letterSpacing: 1.1, textTransform: "uppercase", mb: 0.45 }}>
-                    Navegacion del modulo
-                  </Typography>
-                  <Breadcrumbs
-                    separator={<NavigateNextIcon fontSize="small" sx={{ color: "text.disabled" }} />}
-                    aria-label="breadcrumb"
-                    sx={{
-                      "& .MuiBreadcrumbs-ol": { flexWrap: "wrap", rowGap: 0.5 },
-                      "& .MuiBreadcrumbs-li": { alignItems: "center" },
-                    }}
-                  >
-                    <Link component={RouterLink} to={homePath} underline="hover" color="inherit" sx={{ fontWeight: 600 }}>
-                      Panel
-                    </Link>
-                    {activeSection ? (
-                      <Link component={RouterLink} to={currentSectionPath} underline="hover" color="inherit" sx={{ fontWeight: 600 }}>
-                        {activeSection.title}
-                      </Link>
-                    ) : null}
-                    <Typography color="text.primary" sx={{ fontWeight: 700 }}>
-                      {activeItem?.label || projectLabel}
-                    </Typography>
-                  </Breadcrumbs>
-                </Box>
-
-                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ justifyContent: { xs: "flex-start", md: "flex-end" } }}>
-                  {activeSection ? (
-                    <Chip
-                      size="small"
-                      label={`Area ${activeSection.title}`}
-                      sx={{ bgcolor: "rgba(18,53,90,0.05)", color: "text.primary", border: "1px solid rgba(18,53,90,0.08)" }}
-                    />
-                  ) : null}
-                  <Chip
-                    size="small"
-                    label={activeItem?.label || projectLabel}
-                    sx={{ bgcolor: "rgba(255,255,255,0.7)", color: "text.secondary", border: "1px solid rgba(18,53,90,0.08)" }}
-                  />
-                </Stack>
-              </Stack>
-
-              {activeSection && activeSection.items.length > 1 ? (
-                <Tabs
-                  value={activeTab}
-                  variant="scrollable"
-                  allowScrollButtonsMobile
-                  sx={{
-                    minHeight: "auto",
-                    "& .MuiTabs-indicator": { display: "none" },
-                    "& .MuiTabs-flexContainer": { gap: 0.75 },
-                  }}
-                >
-                  {activeSection.items.map((item) => {
-                    const selected = activeItem?.path === item.path;
-
-                    return (
-                      <Tab
-                        key={item.path}
-                        value={item.path}
-                        component={RouterLink}
-                        to={item.path}
-                        icon={React.isValidElement(item.icon) ? item.icon : undefined}
-                        iconPosition={React.isValidElement(item.icon) ? "start" : undefined}
-                        label={item.label}
-                        sx={{
-                          minHeight: 36,
-                          px: 1.5,
-                          py: 0.6,
-                          borderRadius: 999,
-                          minWidth: 0,
-                          color: selected ? "primary.main" : "text.secondary",
-                          bgcolor: selected ? "rgba(18,53,90,0.08)" : "transparent",
-                          border: selected ? "1px solid rgba(18,53,90,0.12)" : "1px solid rgba(18,53,90,0.06)",
-                          boxShadow: selected ? "0 8px 18px rgba(12,31,51,0.05)" : "none",
-                          "& .MuiTab-iconWrapper": {
-                            mr: 0.75,
-                            mb: "0 !important",
-                            "& .MuiSvgIcon-root": { fontSize: 18 },
-                          },
-                        }}
-                      />
-                    );
-                  })}
-                </Tabs>
-              ) : null}
-            </Stack>
-          </Paper>
-
+        <Box sx={{ width: "100%", maxWidth: { xl: 1680 }, mx: "auto", p: { xs: 1, sm: 1.5, md: 2.25 }, pb: { xs: 1.5, sm: 2, md: 3 }, display: "grid" }}>
           {children}
         </Box>
       </Box>
     </Box>
   );
 };
+
+
+
+
+
+
+
+
+

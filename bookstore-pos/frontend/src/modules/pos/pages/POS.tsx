@@ -20,7 +20,6 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
-import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import PauseCircleIcon from "@mui/icons-material/PauseCircle";
 import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
@@ -82,6 +81,19 @@ const POS: React.FC = () => {
   const compact = useMediaQuery("(max-width:900px)");
   const isCompact = compactMode || compact;
   const isCashierMode = role === "cashier";
+  const panelCardSx = {
+    p: { xs: 1.4, md: 1.75 },
+    background: "rgba(255,255,255,0.82)",
+    border: "1px solid rgba(18,53,90,0.08)",
+    boxShadow: "0 10px 24px rgba(12,31,51,0.05)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+  };
+  const compactPanelCardSx = {
+    ...panelCardSx,
+    p: { xs: 1.25, md: 1.5 },
+  };
+
 
   const [sessionId] = useState(() => makeSessionId());
   const wsRef = useRef<WebSocket | null>(null);
@@ -309,23 +321,6 @@ const POS: React.FC = () => {
   const primaryActionLabel = cash?.is_open ? "Cobrar" : "Abrir caja";
   const primaryActionDisabled = cash?.is_open ? !canCharge : cashQuery.isLoading || cashQuery.isError;
 
-  const statusTitle = cashQuery.isLoading
-    ? "Verificando estado de caja"
-    : cashQuery.isError
-      ? "No se pudo validar el estado de caja"
-      : cash?.is_open
-        ? "Caja abierta y lista para cobrar"
-        : "Caja cerrada";
-
-  const statusDescription = cashQuery.isError
-    ? "Revisa la conexion con el servicio de caja antes de procesar cobros."
-    : cash?.is_open
-      ? lastSale && itemCount === 0
-        ? "La ultima venta ya fue registrada. Puedes imprimir el ticket o iniciar una nueva venta de inmediato."
-        : itemCount > 0
-          ? "La venta ya esta en curso. Ajusta cliente o promocion si aplica y pasa a cobro."
-          : "Busca o escanea un producto para comenzar una venta nueva."
-      : "Abre caja antes de cobrar. Puedes seguir armando el carrito mientras tanto.";
 
   const handleCustomerChange = (value: string) => {
     setCustomerId(value === "" ? "" : Number(value));
@@ -430,15 +425,16 @@ const POS: React.FC = () => {
 
   const renderCheckoutPanelContent = (surface: "light" | "dark") => {
     const isDark = surface === "dark";
+
     return (
       <Stack spacing={1.5}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "center" }}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "flex-start" }}>
           <Box sx={{ minWidth: 0, flexGrow: 1 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
               Carrito
             </Typography>
-            <Typography variant="caption" color={isDark ? "rgba(255,255,255,0.82)" : "text.secondary"}>
-              {itemCount > 0 ? `${itemCount} items activos` : "Sin productos agregados"}
+            <Typography variant="body2" color={isDark ? "rgba(255,255,255,0.82)" : "text.secondary"} sx={{ mt: 0.6 }}>
+              {itemCount > 0 ? `${itemCount} items en carrito` : "Sin productos agregados"}
               {customerId ? ` | ${selectedCustomerName}` : ""}
               {(promoId || totalsSummary.promotionDiscount > 0) ? ` | ${promoSummaryLabel}` : ""}
             </Typography>
@@ -499,35 +495,31 @@ const POS: React.FC = () => {
         <Box sx={{ display: "grid", gap: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} lg={7}>
-              <Paper sx={{ p: { xs: 1.25, md: 1.5 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff" }}>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75} justifyContent="space-between" alignItems={{ sm: "center" }} sx={{ mb: 1 }}>
-                  <Box>
+              <Paper sx={compactPanelCardSx}>
+                <Stack spacing={1.25}>
+                  <Box sx={{ minWidth: 0 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                       Buscar productos
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {cash?.is_open ? "Caja abierta" : "Caja cerrada"} | F2 buscar | F4 cobrar
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55 }}>
+                      Escanea o escribe codigo, SKU o nombre.
                     </Typography>
                   </Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {itemCount > 0 ? `${itemCount} items cargados` : "Venta nueva"}
-                  </Typography>
+                  <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal splitTabs />
                 </Stack>
-                <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal splitTabs />
               </Paper>
             </Grid>
 
             <Grid item xs={12} lg={5}>
-              <Paper sx={{ p: { xs: 1.25, md: 1.5 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff", position: { lg: "sticky" }, top: { lg: 12 } }}>
+              <Paper sx={{ ...compactPanelCardSx, position: { lg: "sticky" }, top: { lg: 12 } }}>
                 <Stack spacing={1.25}>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75} justifyContent="space-between" alignItems={{ sm: "center" }}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "flex-start" }}>
                     <Box>
                       <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                         Carrito
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {itemCount > 0 ? `${itemCount} items activos` : "Sin productos agregados"}
-                        {totalsSummary.packDiscount > 0 ? ` | Pack -${formatMoney(totalsSummary.packDiscount)}` : ""}
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55 }}>
+                        {itemCount > 0 ? `${itemCount} items en carrito` : "Sin productos agregados"}
                         {lastSale && itemCount === 0 ? ` | Ultima ${lastSale.invoiceNumber}` : ""}
                       </Typography>
                     </Box>
@@ -686,68 +678,17 @@ const POS: React.FC = () => {
     <Box sx={{ display: "grid", gap: 2 }}>
       <PageHeader
         title="Punto de venta"
-        subtitle="Venta rapida y cobro desde una sola vista."
-        icon={<PointOfSaleIcon color="primary" />}
-        chips={[]}
+        subtitle="Venta y cobro desde una sola vista."
         loading={isLoading}
       />
 
-      <Paper
-        sx={{
-          p: { xs: 1.25, md: 1.5 },
-          border: "1px solid #d9e2ec",
-          bgcolor: "#ffffff",
-        }}
-      >
-        <Stack direction={{ xs: "column", xl: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ xl: "center" }}>
-          <Box sx={{ minWidth: 0, maxWidth: 760 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              {statusTitle}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {statusDescription}
-            </Typography>
-          </Box>
 
-          <Stack spacing={0.25} sx={{ minWidth: { xl: 240 } }}>
-            <Typography variant="caption" color="text.secondary">
-              {cash?.is_open ? "Caja abierta" : "Caja cerrada"} | F2 buscar | F4 cobrar
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Cliente: {selectedCustomerName}
-              {(promoId || totalsSummary.promotionDiscount > 0) ? ` | Promo: ${promoSummaryLabel}` : ""}
-            </Typography>
-          </Stack>
-
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ minWidth: { xl: 420 }, ml: { xl: "auto" } }}>
-            {isCompact ? (
-              <Button variant="outlined" startIcon={<ReceiptLongIcon />} onClick={() => setCartOpen(true)}>
-                Ver carrito
-              </Button>
-            ) : null}
-            <Button variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart}>
-              Guardar
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<PlaylistAddCheckIcon />}
-              disabled={heldCarts.length === 0}
-              onClick={() => setHeldOpen(true)}
-            >
-              Recuperar ({heldCarts.length})
-            </Button>
-            <Button variant="contained" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ ml: { xl: "auto" }, fontWeight: 800 }}>
-              {primaryActionLabel}
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
       {lastSale && itemCount === 0 ? (
         <Paper
           sx={{
-            p: { xs: 1.25, md: 1.5 },
-            border: "1px solid rgba(82, 183, 136, 0.25)",
-            bgcolor: "rgba(247, 252, 249, 0.98)",
+            ...panelCardSx,
+            border: "1px solid rgba(82,183,136,0.24)",
+            background: "linear-gradient(180deg, rgba(247,252,249,0.98) 0%, rgba(240,249,244,0.96) 100%)",
           }}
         >
           <Stack spacing={1}>
@@ -782,27 +723,24 @@ const POS: React.FC = () => {
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={7}>
-          <Paper sx={{ p: { xs: 1.25, md: 1.5 }, border: "1px solid #d9e2ec", bgcolor: "#ffffff" }}>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75} alignItems={{ xs: "flex-start", sm: "center" }} sx={{ mb: 1 }}>
-              <Box sx={{ flexGrow: 1 }}>
+          <Paper sx={panelCardSx}>
+            <Stack spacing={1.25}>
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                   Buscar productos
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55 }}>
                   Escanea o escribe codigo, SKU o nombre.
                 </Typography>
               </Box>
-              <Typography variant="caption" color="text.secondary">
-                F2 enfoca la busqueda
-              </Typography>
+              <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal />
             </Stack>
-            <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal />
           </Paper>
         </Grid>
 
         {!isCompact ? (
           <Grid item xs={12} lg={5}>
-            <Paper sx={{ p: 1.5, border: "1px solid #d9e2ec", bgcolor: "#ffffff", position: "sticky", top: 12 }}>
+            <Paper sx={{ ...panelCardSx, position: "sticky", top: 12 }}>
               {renderCheckoutPanelContent("light")}
             </Paper>
           </Grid>
@@ -932,3 +870,7 @@ const POS: React.FC = () => {
 };
 
 export default POS;
+
+
+
+

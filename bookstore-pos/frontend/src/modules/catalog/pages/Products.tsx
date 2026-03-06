@@ -248,7 +248,20 @@ const Products: React.FC = () => {
         chips={[`Resultados: ${rows.length}`, `Categorias: ${categories.length}`, `Seleccionados: ${selectedIds.length}`]}
         loading={isLoading || productsQuery.isFetching}
         right={
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(210px, 1fr))" },
+              gap: 1,
+              width: "100%",
+              maxWidth: { lg: 760 },
+              "& .MuiButton-root": {
+                width: "100%",
+                minWidth: 0,
+                justifyContent: "center",
+              },
+            }}
+          >
             <Button
               variant="outlined"
               color="error"
@@ -410,3 +423,5 @@ const Products: React.FC = () => {
 };
 
 export default Products;
+
+

@@ -299,10 +299,23 @@ const AdminPanel: React.FC = () => {
         icon={<SettingsIcon color="primary" />}
         loading={settingsLoading || auditLoading}
         right={
-          <Stack direction="row" spacing={1}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+              gap: 1,
+              width: "100%",
+              maxWidth: { md: 420 },
+              "& .MuiButton-root": {
+                width: "100%",
+                minWidth: 0,
+                justifyContent: "center",
+              },
+            }}
+          >
             <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackup}>Backup</Button>
             <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>Guardar cambios</Button>
-          </Stack>
+          </Box>
         }
       />
 
@@ -449,3 +462,5 @@ const AdminPanel: React.FC = () => {
 };
 
 export default AdminPanel;
+
+
