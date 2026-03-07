@@ -4,6 +4,11 @@ from pydantic import BaseModel
 class ProductBase(BaseModel):
     sku: str
     name: str
+    author: str = ""
+    publisher: str = ""
+    isbn: str = ""
+    barcode: str = ""
+    shelf_location: str = ""
     category: str = ""
     tags: str = ""
     price: float

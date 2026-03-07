@@ -1,10 +1,11 @@
 @echo off
 setlocal
-set ROOT=%~dp0
-cd /d "%ROOT%..\\frontend"
+set "ROOT=%~dp0"
+set "FRONTEND_DIR=%ROOT%..\frontend"
+cd /d "%FRONTEND_DIR%"
 
 set "LAN_IP="
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command "$ip=(Get-NetIPConfiguration ^| Where-Object { $_.IPv4DefaultGateway -and $_.IPv4Address } ^| Select-Object -First 1 -ExpandProperty IPv4Address ^| Select-Object -ExpandProperty IPAddress); if(-not $ip){$ip=(Get-NetIPAddress -AddressFamily IPv4 ^| Where-Object {$_.IPAddress -ne '127.0.0.1' -and $_.IPAddress -notlike '169.254*'} ^| Select-Object -First 1 -ExpandProperty IPAddress)}; if(-not $ip){$ip='127.0.0.1'}; Write-Output $ip"`) do set "LAN_IP=%%i"
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%get_lan_ip.ps1"`) do set "LAN_IP=%%i"
 if not defined LAN_IP set "LAN_IP=127.0.0.1"
 
 if exist "C:\Program Files\nodejs" set "PATH=C:\Program Files\nodejs;%PATH%"
@@ -23,14 +24,24 @@ if not defined NPM_CMD (
 )
 
 call "%NPM_CMD%" install --no-audit --no-fund
+if errorlevel 1 goto :setup_error
+
 if not exist .env (
-  copy .env.example .env
+  copy .env.example .env >nul
+  if errorlevel 1 goto :setup_error
 )
+
 set "VITE_API_URL="
 echo.
 echo Frontend iniciado para local y red:
 echo - http://localhost:5173
 echo - http://%LAN_IP%:5173
 echo.
-call "%NPM_CMD%" run dev -- --host 0.0.0.0 --port 5173 --strictPort
-endlocal
+call "%NPM_CMD%" run dev
+exit /b %errorlevel%
+
+:setup_error
+echo [ERROR] No se pudo preparar el frontend.
+echo [ERROR] Revisa Node.js, npm y las dependencias del proyecto.
+pause
+exit /b 1

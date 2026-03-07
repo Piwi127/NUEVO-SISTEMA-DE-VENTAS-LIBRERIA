@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -10,7 +10,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -20,6 +19,7 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import RemoveIcon from "@mui/icons-material/Remove";
 import AddIcon from "@mui/icons-material/Add";
+import { ResizableTable } from "@/app/components";
 import { useCartStore } from "@/app/store";
 import { formatMoney } from "@/app/utils";
 import { useSettings } from "@/app/store";
@@ -348,8 +348,16 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
           })}
         </Box>
       ) : (
-        <TableContainer sx={{ borderRadius: 2, border: `1px solid ${palette.cardBorder}`, bgcolor: palette.cardBg }}>
-          <Table size="small">
+        <ResizableTable
+          minHeight={250}
+          sx={{
+            borderRadius: 2,
+            border: `1px solid ${palette.cardBorder}`,
+            background: palette.cardBg,
+            boxShadow: "none",
+          }}
+        >
+          <Table size="small" stickyHeader>
             <TableHead>
               <TableRow sx={{ bgcolor: palette.subtleBg }}>
                 <TableCell padding="checkbox">
@@ -423,7 +431,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
               })}
             </TableBody>
           </Table>
-        </TableContainer>
+        </ResizableTable>
       )}
 
       <Box sx={{ mt: 2, display: "grid", gap: 1 }}>
@@ -475,4 +483,8 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
     </Box>
   );
 };
+
+
+
+
 

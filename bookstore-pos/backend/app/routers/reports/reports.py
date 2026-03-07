@@ -8,6 +8,8 @@ from app.schemas.report import (
     LowStockItem,
     ProfitabilityProductReport,
     ProfitabilitySummaryReport,
+    ReplenishmentSuggestionReport,
+    StockRotationReport,
     TopProductReport,
 )
 from app.services.reports.reports_service import ReportsService
@@ -53,6 +55,26 @@ async def profitability_products(from_date: str, to: str, limit: int = 100, db: 
     return await service.profitability_by_product(from_date, to, limit)
 
 
+@router.get(
+    "/rotation",
+    response_model=list[StockRotationReport],
+    dependencies=[Depends(require_permission("reports.read"))],
+)
+async def stock_rotation(from_date: str, to: str, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    service = ReportsService(db)
+    return await service.stock_rotation(from_date, to, limit)
+
+
+@router.get(
+    "/replenishment",
+    response_model=list[ReplenishmentSuggestionReport],
+    dependencies=[Depends(require_permission("reports.read"))],
+)
+async def replenishment(from_date: str, to: str, target_days: int = 21, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    service = ReportsService(db)
+    return await service.replenishment_suggestions(from_date, to, target_days, limit)
+
+
 @router.get("/daily/export", dependencies=[Depends(require_permission("reports.read"))])
 async def export_daily(date: str, db: AsyncSession = Depends(get_db)):
     service = ReportsService(db)
@@ -85,4 +107,18 @@ async def export_profitability(from_date: str, to: str, db: AsyncSession = Depen
 async def export_profitability_products(from_date: str, to: str, limit: int = 100, db: AsyncSession = Depends(get_db)):
     service = ReportsService(db)
     content = await service.export_profitability_by_product(from_date, to, limit)
+    return PlainTextResponse(content, media_type="text/csv")
+
+
+@router.get("/rotation/export", dependencies=[Depends(require_permission("reports.read"))])
+async def export_rotation(from_date: str, to: str, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    service = ReportsService(db)
+    content = await service.export_rotation(from_date, to, limit)
+    return PlainTextResponse(content, media_type="text/csv")
+
+
+@router.get("/replenishment/export", dependencies=[Depends(require_permission("reports.read"))])
+async def export_replenishment(from_date: str, to: str, target_days: int = 21, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    service = ReportsService(db)
+    content = await service.export_replenishment(from_date, to, target_days, limit)
     return PlainTextResponse(content, media_type="text/csv")

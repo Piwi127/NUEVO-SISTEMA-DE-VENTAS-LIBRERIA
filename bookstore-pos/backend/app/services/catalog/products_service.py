@@ -15,8 +15,8 @@ from app.models.purchasing import PurchaseOrderItem
 from app.models.sale import SaleItem
 from app.models.sale_return import SaleReturnItem
 from app.models.warehouse import InventoryCount, StockBatch, StockLevel, StockTransferItem
-
 from app.services._transaction import service_transaction
+
 
 class ProductsService:
     def __init__(self, db: AsyncSession, current_user):
@@ -56,13 +56,40 @@ class ProductsService:
         payload["direct_costs_breakdown"] = breakdown if isinstance(breakdown, str) and breakdown.strip() else "{}"
         return payload
 
-    async def create_product(self, data):
-        exists = await self.db.execute(select(Product).where(Product.sku == data.sku))
-        if exists.scalar_one_or_none():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="SKU duplicado")
+    @staticmethod
+    def _clean_text(value: object) -> str:
+        return str(value or "").strip()
 
-        initial_stock = data.stock
-        payload = self._normalize_pricing_payload(data.model_dump())
+    @classmethod
+    def _normalize_catalog_payload(cls, payload: dict) -> dict:
+        for field in ("sku", "name", "author", "publisher", "barcode", "shelf_location", "category", "tags"):
+            payload[field] = cls._clean_text(payload.get(field))
+
+        isbn = cls._clean_text(payload.get("isbn"))
+        payload["isbn"] = isbn.replace("-", "").replace(" ", "")
+        return payload
+
+    async def _ensure_unique_identifiers(self, payload: dict, *, exclude_product_id: int | None = None) -> None:
+        checks = (
+            ("sku", payload.get("sku"), "SKU duplicado"),
+            ("isbn", payload.get("isbn"), "ISBN duplicado"),
+            ("barcode", payload.get("barcode"), "Codigo de barras duplicado"),
+        )
+        for field_name, value, message in checks:
+            if not value:
+                continue
+            stmt = select(Product.id).where(getattr(Product, field_name) == value)
+            if exclude_product_id is not None:
+                stmt = stmt.where(Product.id != exclude_product_id)
+            exists = await self.db.execute(stmt.limit(1))
+            if exists.scalar_one_or_none() is not None:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=message)
+
+    async def create_product(self, data):
+        payload = self._normalize_catalog_payload(self._normalize_pricing_payload(data.model_dump()))
+        await self._ensure_unique_identifiers(payload)
+
+        initial_stock = int(payload.get("stock") or 0)
         payload["stock"] = 0
 
         async with self._transaction():
@@ -91,17 +118,14 @@ class ProductsService:
         product = result.scalar_one_or_none()
         if not product:
             raise HTTPException(status_code=404, detail="Producto no encontrado")
-        if product.sku != data.sku:
-            exists = await self.db.execute(select(Product).where(Product.sku == data.sku))
-            if exists.scalar_one_or_none():
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="SKU duplicado")
 
         old_price = float(product.price or 0)
         old_cost = float(product.cost or 0)
         old_sale_price = float(product.sale_price or 0)
         old_unit_cost = float(product.unit_cost or 0)
 
-        update_payload = self._normalize_pricing_payload(data.model_dump())
+        update_payload = self._normalize_catalog_payload(self._normalize_pricing_payload(data.model_dump()))
+        await self._ensure_unique_identifiers(update_payload, exclude_product_id=product_id)
         stock_delta = 0
         if update_payload.get("stock") is not None:
             stock_delta = int(update_payload["stock"]) - int(product.stock or 0)

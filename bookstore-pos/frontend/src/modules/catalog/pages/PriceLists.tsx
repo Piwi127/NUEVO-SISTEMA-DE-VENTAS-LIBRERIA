@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Box, Button, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, Tab, Tabs, TextField, Typography, useMediaQuery } from "@mui/material";
 import PriceChangeIcon from "@mui/icons-material/PriceChange";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable } from "@/app/components";
+import { CardTable, ResizableTable } from "@/app/components";
 import { EmptyState } from "@/app/components";
 import { PageHeader } from "@/app/components";
 import { useToast } from "@/app/components";
@@ -128,22 +128,24 @@ const PriceLists: React.FC = () => {
           ) : isCompact ? (
             <Box sx={{ mt: 2 }}><CardTable rows={cardRows} /></Box>
           ) : (
-            <Table size="small" sx={{ mt: 2 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Producto</TableCell>
-                  <TableCell>Precio</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.map((it, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{it.product_id}</TableCell>
-                    <TableCell>{it.price}</TableCell>
+            <ResizableTable minHeight={220} sx={{ mt: 2 }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Producto</TableCell>
+                    <TableCell>Precio</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {items.map((it, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{it.product_id}</TableCell>
+                      <TableCell>{it.price}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ResizableTable>
           )}
         </Paper>
       ) : null}
@@ -152,3 +154,4 @@ const PriceLists: React.FC = () => {
 };
 
 export default PriceLists;
+

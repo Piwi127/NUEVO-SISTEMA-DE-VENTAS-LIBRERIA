@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
   Box,
   Button,
@@ -15,7 +15,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import ReplayIcon from "@mui/icons-material/Replay";
-import { PageHeader } from "@/app/components";
+import { PageHeader, ResizableTable } from "@/app/components";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getReceipt, returnSale, listReturns } from "@/modules/pos/api";
 import { useToast } from "@/app/components";
@@ -186,42 +186,44 @@ const Returns: React.FC = () => {
             }))}
           />
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Fecha</TableCell>
-                <TableCell>Venta</TableCell>
-                <TableCell>Comprobante</TableCell>
-                <TableCell>Validacion</TableCell>
-                <TableCell>Motivo</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>{r.id}</TableCell>
-                  <TableCell>{formatDateTimeRegional(r.created_at)}</TableCell>
-                  <TableCell>{r.sale_id}</TableCell>
-                  <TableCell>
-                    {r.invoice_number ? (
-                      <Link component="button" underline="hover" onClick={() => handleOpenReceipt(r.sale_id)}>
-                        {r.invoice_number}
-                      </Link>
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell>
-                    {r.sale_status === "VOID" ? (
-                      <Chip label="Validado" color="success" size="small" />
-                    ) : (
-                      <Chip label="Pendiente" color="warning" size="small" />
-                    )}
-                  </TableCell>
-                  <TableCell>{r.reason || "-"}</TableCell>
+          <ResizableTable minHeight={220}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Fecha</TableCell>
+                  <TableCell>Venta</TableCell>
+                  <TableCell>Comprobante</TableCell>
+                  <TableCell>Validacion</TableCell>
+                  <TableCell>Motivo</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {rows.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.id}</TableCell>
+                    <TableCell>{formatDateTimeRegional(r.created_at)}</TableCell>
+                    <TableCell>{r.sale_id}</TableCell>
+                    <TableCell>
+                      {r.invoice_number ? (
+                        <Link component="button" underline="hover" onClick={() => handleOpenReceipt(r.sale_id)}>
+                          {r.invoice_number}
+                        </Link>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {r.sale_status === "VOID" ? (
+                        <Chip label="Validado" color="success" size="small" />
+                      ) : (
+                        <Chip label="Pendiente" color="warning" size="small" />
+                      )}
+                    </TableCell>
+                    <TableCell>{r.reason || "-"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResizableTable>
         )}
       </Paper>
     </Box>
@@ -229,3 +231,4 @@ const Returns: React.FC = () => {
 };
 
 export default Returns;
+

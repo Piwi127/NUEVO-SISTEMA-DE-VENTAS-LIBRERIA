@@ -1,7 +1,10 @@
 import csv
+import math
+from datetime import date as date_type
 from io import StringIO
 
-from sqlalchemy import func, select, and_
+from fastapi import HTTPException
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
@@ -11,6 +14,8 @@ from app.schemas.report import (
     LowStockItem,
     ProfitabilityProductReport,
     ProfitabilitySummaryReport,
+    ReplenishmentSuggestionReport,
+    StockRotationReport,
     TopProductReport,
 )
 
@@ -26,6 +31,77 @@ class ReportsService:
             func.date(Sale.created_at) <= to,
             Sale.status != "VOID",
         )
+
+    @staticmethod
+    def _period_days(from_date: str, to: str) -> int:
+        try:
+            start = date_type.fromisoformat(from_date)
+            end = date_type.fromisoformat(to)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Rango de fechas invalido") from exc
+        if end < start:
+            raise HTTPException(status_code=400, detail="'to' no puede ser menor que 'from_date'")
+        return (end - start).days + 1
+
+    @staticmethod
+    def _safe_limit(limit: int, default: int = 100) -> int:
+        if limit is None:
+            return default
+        return min(max(limit, 1), 500)
+
+    @staticmethod
+    def _safe_target_days(target_days: int, default: int = 21) -> int:
+        if target_days is None:
+            return default
+        return min(max(target_days, 1), 90)
+
+    @staticmethod
+    def _coverage_days(stock: int, avg_daily_sales: float) -> float | None:
+        if avg_daily_sales <= 0:
+            return None
+        return stock / avg_daily_sales
+
+    @staticmethod
+    def _rotation_status(stock: int, stock_min: int, coverage_days: float | None, qty_sold: int) -> str:
+        if qty_sold <= 0:
+            return "warning" if stock_min > 0 and stock <= stock_min else "stagnant"
+        if stock <= 0 or (coverage_days is not None and coverage_days <= 3):
+            return "critical"
+        if stock <= stock_min or (coverage_days is not None and coverage_days <= 7):
+            return "warning"
+        return "stable"
+
+    @staticmethod
+    def _replenishment_urgency(stock: int, stock_min: int, coverage_days: float | None) -> str:
+        if stock <= 0 or (coverage_days is not None and coverage_days <= 3):
+            return "urgent"
+        if stock < stock_min or (coverage_days is not None and coverage_days <= 7):
+            return "high"
+        return "medium"
+
+    async def _sales_aggregate_map(self, from_date: str, to: str) -> dict[int, dict[str, float]]:
+        stmt = (
+            select(
+                SaleItem.product_id,
+                func.coalesce(func.sum(SaleItem.qty), 0).label("qty_sold"),
+                func.coalesce(func.sum(SaleItem.final_total), 0).label("sales_total"),
+            )
+            .join(Sale, Sale.id == SaleItem.sale_id)
+            .where(self._sales_date_filters(from_date, to))
+            .group_by(SaleItem.product_id)
+        )
+        result = await self.db.execute(stmt)
+        return {
+            int(row.product_id): {
+                "qty_sold": int(row.qty_sold or 0),
+                "sales_total": float(row.sales_total or 0),
+            }
+            for row in result.all()
+        }
+
+    async def _report_products(self) -> list[Product]:
+        result = await self.db.execute(select(Product).order_by(Product.name.asc(), Product.id.asc()))
+        return list(result.scalars().all())
 
     async def daily_report(self, date: str) -> DailyReport:
         stmt = select(func.count(Sale.id), func.coalesce(func.sum(Sale.total), 0)).where(
@@ -105,7 +181,7 @@ class ReportsService:
         )
 
     async def profitability_by_product(self, from_date: str, to: str, limit: int = 100) -> list[ProfitabilityProductReport]:
-        safe_limit = min(max(limit, 1), 500)
+        safe_limit = self._safe_limit(limit)
         unit_cost_expr = func.coalesce(SaleItem.unit_cost_snapshot, Product.unit_cost, Product.cost, 0.0)
         sales_total_expr = func.coalesce(func.sum(SaleItem.final_total), 0)
         estimated_cost_expr = func.coalesce(func.sum(SaleItem.qty * unit_cost_expr), 0)
@@ -144,6 +220,110 @@ class ReportsService:
                 )
             )
         return reports
+
+    async def stock_rotation(self, from_date: str, to: str, limit: int = 100) -> list[StockRotationReport]:
+        safe_limit = self._safe_limit(limit)
+        period_days = self._period_days(from_date, to)
+        sales_map = await self._sales_aggregate_map(from_date, to)
+        products = await self._report_products()
+
+        rows: list[StockRotationReport] = []
+        for product in products:
+            stock = int(product.stock or 0)
+            stock_min = int(product.stock_min or 0)
+            sales = sales_map.get(product.id, {"qty_sold": 0, "sales_total": 0.0})
+            qty_sold = int(sales["qty_sold"])
+            sales_total = float(sales["sales_total"])
+            if qty_sold <= 0 and stock <= 0 and stock_min <= 0:
+                continue
+
+            avg_daily_sales = qty_sold / period_days if period_days > 0 else 0.0
+            coverage_days = self._coverage_days(stock, avg_daily_sales)
+            rows.append(
+                StockRotationReport(
+                    product_id=product.id,
+                    sku=product.sku,
+                    name=product.name,
+                    author=product.author or "",
+                    publisher=product.publisher or "",
+                    isbn=product.isbn or "",
+                    stock=stock,
+                    stock_min=stock_min,
+                    qty_sold=qty_sold,
+                    sales_total=sales_total,
+                    avg_daily_sales=avg_daily_sales,
+                    stock_coverage_days=coverage_days,
+                    stock_status=self._rotation_status(stock, stock_min, coverage_days, qty_sold),
+                )
+            )
+
+        rows.sort(
+            key=lambda row: (
+                -row.qty_sold,
+                row.stock_coverage_days if row.stock_coverage_days is not None else float("inf"),
+                row.name.lower(),
+            )
+        )
+        return rows[:safe_limit]
+
+    async def replenishment_suggestions(
+        self,
+        from_date: str,
+        to: str,
+        target_days: int = 21,
+        limit: int = 100,
+    ) -> list[ReplenishmentSuggestionReport]:
+        safe_limit = self._safe_limit(limit)
+        safe_target_days = self._safe_target_days(target_days)
+        period_days = self._period_days(from_date, to)
+        sales_map = await self._sales_aggregate_map(from_date, to)
+        products = await self._report_products()
+
+        rows: list[ReplenishmentSuggestionReport] = []
+        urgency_rank = {"urgent": 0, "high": 1, "medium": 2}
+
+        for product in products:
+            stock = int(product.stock or 0)
+            stock_min = int(product.stock_min or 0)
+            sales = sales_map.get(product.id, {"qty_sold": 0, "sales_total": 0.0})
+            qty_sold = int(sales["qty_sold"])
+            sales_total = float(sales["sales_total"])
+            avg_daily_sales = qty_sold / period_days if period_days > 0 else 0.0
+            coverage_days = self._coverage_days(stock, avg_daily_sales)
+            target_stock = max(stock_min, int(math.ceil(avg_daily_sales * safe_target_days)))
+            suggested_qty = max(target_stock - stock, 0)
+            if suggested_qty <= 0:
+                continue
+
+            rows.append(
+                ReplenishmentSuggestionReport(
+                    product_id=product.id,
+                    sku=product.sku,
+                    name=product.name,
+                    author=product.author or "",
+                    publisher=product.publisher or "",
+                    isbn=product.isbn or "",
+                    stock=stock,
+                    stock_min=stock_min,
+                    qty_sold=qty_sold,
+                    sales_total=sales_total,
+                    avg_daily_sales=avg_daily_sales,
+                    stock_coverage_days=coverage_days,
+                    target_stock=target_stock,
+                    suggested_qty=suggested_qty,
+                    urgency=self._replenishment_urgency(stock, stock_min, coverage_days),
+                )
+            )
+
+        rows.sort(
+            key=lambda row: (
+                urgency_rank.get(row.urgency, 99),
+                -row.suggested_qty,
+                -row.qty_sold,
+                row.name.lower(),
+            )
+        )
+        return rows[:safe_limit]
 
     async def export_daily(self, date: str) -> str:
         report = await self.daily_report(date)
@@ -213,6 +393,92 @@ class ReportsService:
                     row.estimated_cost_total,
                     row.gross_profit,
                     row.margin_percent,
+                ]
+            )
+        return output.getvalue()
+
+    async def export_rotation(self, from_date: str, to: str, limit: int = 100) -> str:
+        rows = await self.stock_rotation(from_date, to, limit)
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "product_id",
+                "sku",
+                "name",
+                "author",
+                "publisher",
+                "isbn",
+                "stock",
+                "stock_min",
+                "qty_sold",
+                "sales_total",
+                "avg_daily_sales",
+                "stock_coverage_days",
+                "stock_status",
+            ]
+        )
+        for row in rows:
+            writer.writerow(
+                [
+                    row.product_id,
+                    row.sku,
+                    row.name,
+                    row.author,
+                    row.publisher,
+                    row.isbn,
+                    row.stock,
+                    row.stock_min,
+                    row.qty_sold,
+                    row.sales_total,
+                    row.avg_daily_sales,
+                    row.stock_coverage_days,
+                    row.stock_status,
+                ]
+            )
+        return output.getvalue()
+
+    async def export_replenishment(self, from_date: str, to: str, target_days: int = 21, limit: int = 100) -> str:
+        rows = await self.replenishment_suggestions(from_date, to, target_days, limit)
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "product_id",
+                "sku",
+                "name",
+                "author",
+                "publisher",
+                "isbn",
+                "stock",
+                "stock_min",
+                "qty_sold",
+                "sales_total",
+                "avg_daily_sales",
+                "stock_coverage_days",
+                "target_stock",
+                "suggested_qty",
+                "urgency",
+            ]
+        )
+        for row in rows:
+            writer.writerow(
+                [
+                    row.product_id,
+                    row.sku,
+                    row.name,
+                    row.author,
+                    row.publisher,
+                    row.isbn,
+                    row.stock,
+                    row.stock_min,
+                    row.qty_sold,
+                    row.sales_total,
+                    row.avg_daily_sales,
+                    row.stock_coverage_days,
+                    row.target_stock,
+                    row.suggested_qty,
+                    row.urgency,
                 ]
             )
         return output.getvalue()

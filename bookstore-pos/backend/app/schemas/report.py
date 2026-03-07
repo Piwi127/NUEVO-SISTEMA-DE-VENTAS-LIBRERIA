@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel
+from pydantic import BaseModel
 
 
 class DailyReport(BaseModel):
@@ -39,3 +39,37 @@ class ProfitabilityProductReport(BaseModel):
     estimated_cost_total: float
     gross_profit: float
     margin_percent: float
+
+
+class StockRotationReport(BaseModel):
+    product_id: int
+    sku: str
+    name: str
+    author: str
+    publisher: str
+    isbn: str
+    stock: int
+    stock_min: int
+    qty_sold: int
+    sales_total: float
+    avg_daily_sales: float
+    stock_coverage_days: float | None
+    stock_status: str
+
+
+class ReplenishmentSuggestionReport(BaseModel):
+    product_id: int
+    sku: str
+    name: str
+    author: str
+    publisher: str
+    isbn: str
+    stock: int
+    stock_min: int
+    qty_sold: int
+    sales_total: float
+    avg_daily_sales: float
+    stock_coverage_days: float | None
+    target_stock: int
+    suggested_qty: int
+    urgency: str

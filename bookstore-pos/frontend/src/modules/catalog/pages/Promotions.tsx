@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -21,7 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CardTable, EmptyState, ErrorState, PageHeader, TableToolbar, useToast } from "@/app/components";
+import { CardTable, EmptyState, ErrorState, PageHeader, ResizableTable, TableToolbar, useToast } from "@/app/components";
 import {
   ProductPromotionRule,
   createProductPromotionRule,
@@ -474,26 +474,28 @@ const Promotions: React.FC = () => {
         ) : isCompact ? (
           <CardTable rows={globalCardRows} />
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Nombre</TableCell>
-                <TableCell>Tipo</TableCell>
-                <TableCell>Valor</TableCell>
-                <TableCell>Estado</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {globalPromotions.map((promotion) => (
-                <TableRow key={promotion.id}>
-                  <TableCell>{promotion.name}</TableCell>
-                  <TableCell>{promotion.type}</TableCell>
-                  <TableCell>{promotion.type === "PERCENT" ? `${promotion.value}%` : promotion.value}</TableCell>
-                  <TableCell>{promotion.is_active ? "Activa" : "Inactiva"}</TableCell>
+          <ResizableTable minHeight={220}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Tipo</TableCell>
+                  <TableCell>Valor</TableCell>
+                  <TableCell>Estado</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {globalPromotions.map((promotion) => (
+                  <TableRow key={promotion.id}>
+                    <TableCell>{promotion.name}</TableCell>
+                    <TableCell>{promotion.type}</TableCell>
+                    <TableCell>{promotion.type === "PERCENT" ? `${promotion.value}%` : promotion.value}</TableCell>
+                    <TableCell>{promotion.is_active ? "Activa" : "Inactiva"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResizableTable>
         )}
       </Paper>
 
@@ -508,45 +510,47 @@ const Promotions: React.FC = () => {
         ) : isCompact ? (
           <CardTable rows={packCardRows} />
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Nombre</TableCell>
-                <TableCell>Producto</TableCell>
-                <TableCell>Regla</TableCell>
-                <TableCell>Estado</TableCell>
-                <TableCell>Acciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {packRules.map((rule) => (
-                <TableRow key={rule.id}>
-                  <TableCell>{rule.name}</TableCell>
-                  <TableCell>{productNameById[rule.product_id] || `Producto #${rule.product_id}`}</TableCell>
-                  <TableCell>
-                    {rule.bundle_qty} x {rule.bundle_price.toFixed(2)}
-                  </TableCell>
-                  <TableCell>{rule.is_active ? "Activa" : "Inactiva"}</TableCell>
-                  <TableCell>
-                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                      <Button size="small" variant="outlined" onClick={() => loadRuleForEdit(rule)}>
-                        Editar
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color={rule.is_active ? "warning" : "success"}
-                        disabled={toggleRuleMutation.isPending}
-                        onClick={() => toggleRuleMutation.mutate(rule)}
-                      >
-                        {rule.is_active ? "Desactivar" : "Activar"}
-                      </Button>
-                    </Box>
-                  </TableCell>
+          <ResizableTable minHeight={220}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Producto</TableCell>
+                  <TableCell>Regla</TableCell>
+                  <TableCell>Estado</TableCell>
+                  <TableCell>Acciones</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {packRules.map((rule) => (
+                  <TableRow key={rule.id}>
+                    <TableCell>{rule.name}</TableCell>
+                    <TableCell>{productNameById[rule.product_id] || `Producto #${rule.product_id}`}</TableCell>
+                    <TableCell>
+                      {rule.bundle_qty} x {rule.bundle_price.toFixed(2)}
+                    </TableCell>
+                    <TableCell>{rule.is_active ? "Activa" : "Inactiva"}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                        <Button size="small" variant="outlined" onClick={() => loadRuleForEdit(rule)}>
+                          Editar
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color={rule.is_active ? "warning" : "success"}
+                          disabled={toggleRuleMutation.isPending}
+                          onClick={() => toggleRuleMutation.mutate(rule)}
+                        >
+                          {rule.is_active ? "Desactivar" : "Activar"}
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResizableTable>
         )}
       </Paper>
     </Box>
@@ -554,3 +558,4 @@ const Promotions: React.FC = () => {
 };
 
 export default Promotions;
+

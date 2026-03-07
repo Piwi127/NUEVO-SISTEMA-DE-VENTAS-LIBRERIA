@@ -1,9 +1,11 @@
-﻿import { api } from "@/modules/shared/api";
+import { api } from "@/modules/shared/api";
 import {
   DailyReport,
   LowStockItem,
   ProfitabilityProductReport,
   ProfitabilitySummaryReport,
+  ReplenishmentSuggestionReport,
+  StockRotationReport,
   TopProductReport,
 } from "@/modules/shared/types";
 
@@ -77,6 +79,44 @@ export const exportProfitabilitySummary = async (from: string, to: string): Prom
 export const exportProfitabilityProducts = async (from: string, to: string, limit = 100): Promise<Blob> => {
   const res = await api.get("/reports/profitability/products/export", {
     params: { from_date: from, to, limit },
+    responseType: "blob",
+  });
+  return res.data;
+};
+
+export const getStockRotation = async (from: string, to: string, limit = 100): Promise<StockRotationReport[]> => {
+  const res = await api.get("/reports/rotation", { params: { from_date: from, to, limit } });
+  return res.data;
+};
+
+export const exportStockRotation = async (from: string, to: string, limit = 100): Promise<Blob> => {
+  const res = await api.get("/reports/rotation/export", {
+    params: { from_date: from, to, limit },
+    responseType: "blob",
+  });
+  return res.data;
+};
+
+export const getReplenishmentSuggestions = async (
+  from: string,
+  to: string,
+  targetDays = 21,
+  limit = 100
+): Promise<ReplenishmentSuggestionReport[]> => {
+  const res = await api.get("/reports/replenishment", {
+    params: { from_date: from, to, target_days: targetDays, limit },
+  });
+  return res.data;
+};
+
+export const exportReplenishmentSuggestions = async (
+  from: string,
+  to: string,
+  targetDays = 21,
+  limit = 100
+): Promise<Blob> => {
+  const res = await api.get("/reports/replenishment/export", {
+    params: { from_date: from, to, target_days: targetDays, limit },
     responseType: "blob",
   });
   return res.data;

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -35,11 +35,15 @@ import {
   exportLow,
   exportProfitabilityProducts,
   exportProfitabilitySummary,
+  exportReplenishmentSuggestions,
+  exportStockRotation,
   exportTop,
   getDailyReport,
   getLowStock,
   getProfitabilityProducts,
   getProfitabilitySummary,
+  getReplenishmentSuggestions,
+  getStockRotation,
   getTopProducts,
   hasProfitabilitySupport,
 } from "@/modules/reports/api";
@@ -48,6 +52,8 @@ import type {
   LowStockItem,
   ProfitabilityProductReport,
   ProfitabilitySummaryReport,
+  ReplenishmentSuggestionReport,
+  StockRotationReport,
   TopProductReport,
 } from "@/modules/reports/types";
 
@@ -89,24 +95,29 @@ const Reports: React.FC = () => {
   const [to, setTo] = useState(today);
   const [profitFrom, setProfitFrom] = useState(last30);
   const [profitTo, setProfitTo] = useState(today);
+  const [targetCoverageDays, setTargetCoverageDays] = useState(21);
 
   const [daily, setDaily] = useState<DailyReport | null>(null);
   const [top, setTop] = useState<TopProductReport[]>([]);
   const [low, setLow] = useState<LowStockItem[]>([]);
   const [profitabilitySummary, setProfitabilitySummary] = useState<ProfitabilitySummaryReport | null>(null);
   const [profitabilityProducts, setProfitabilityProducts] = useState<ProfitabilityProductReport[]>([]);
+  const [rotation, setRotation] = useState<StockRotationReport[]>([]);
+  const [replenishment, setReplenishment] = useState<ReplenishmentSuggestionReport[]>([]);
 
   const [loadingExecutive, setLoadingExecutive] = useState(false);
   const [loadingDaily, setLoadingDaily] = useState(false);
   const [loadingTop, setLoadingTop] = useState(false);
   const [loadingLow, setLoadingLow] = useState(false);
   const [loadingProfitability, setLoadingProfitability] = useState(false);
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
   const [errorExecutive, setErrorExecutive] = useState(false);
   const [errorDaily, setErrorDaily] = useState(false);
   const [errorTop, setErrorTop] = useState(false);
   const [errorLow, setErrorLow] = useState(false);
   const [errorProfitability, setErrorProfitability] = useState(false);
+  const [errorInsights, setErrorInsights] = useState(false);
   const [loadedTabs, setLoadedTabs] = useState<Record<number, boolean>>({});
   const [profitabilitySupported, setProfitabilitySupported] = useState(true);
 
@@ -152,6 +163,14 @@ const Reports: React.FC = () => {
       getProfitabilityProducts(targetFrom, targetTo, 100),
     ]);
     return { supported: true, summary, rows };
+  };
+
+  const fetchInsights = async (targetFrom: string, targetTo: string, targetDays: number) => {
+    const [rotationRows, replenishmentRows] = await Promise.all([
+      getStockRotation(targetFrom, targetTo, 100),
+      getReplenishmentSuggestions(targetFrom, targetTo, targetDays, 100),
+    ]);
+    return { rotationRows, replenishmentRows };
   };
 
   const markTabsLoaded = (...keys: number[]) => {
@@ -256,6 +275,21 @@ const Reports: React.FC = () => {
     }
   };
 
+  const loadInsights = async () => {
+    setLoadingInsights(true);
+    setErrorInsights(false);
+    try {
+      const result = await fetchInsights(from, to, targetCoverageDays);
+      setRotation(result.rotationRows);
+      setReplenishment(result.replenishmentRows);
+      markTabsLoaded(5);
+    } catch {
+      setErrorInsights(true);
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
+
   useEffect(() => {
     if (loadedTabs[tab]) return;
 
@@ -265,6 +299,7 @@ const Reports: React.FC = () => {
       if (tab === 2) await loadTop();
       if (tab === 3) await loadLow();
       if (tab === 4) await loadProfitability();
+      if (tab === 5) await loadInsights();
     };
 
     void loadByTab();
@@ -282,6 +317,31 @@ const Reports: React.FC = () => {
   const marginPercent = Number(profitabilitySummary?.margin_percent || 0);
   const lowPreview = low.slice(0, 5);
   const topPreview = top.slice(0, 5);
+  const rotationTracked = useMemo(() => rotation.length, [rotation]);
+  const rotationUnits = useMemo(() => rotation.reduce((acc, item) => acc + Number(item.qty_sold || 0), 0), [rotation]);
+  const rotationRiskCount = useMemo(
+    () => rotation.filter((item) => item.stock_status === "critical" || item.stock_status === "warning").length,
+    [rotation]
+  );
+  const replenishmentUnits = useMemo(
+    () => replenishment.reduce((acc, item) => acc + Number(item.suggested_qty || 0), 0),
+    [replenishment]
+  );
+  const replenishmentUrgent = useMemo(
+    () => replenishment.filter((item) => item.urgency === "urgent").length,
+    [replenishment]
+  );
+  const stockStatusMeta: Record<string, { label: string; color: "default" | "error" | "warning" | "success" | "info" }> = {
+    critical: { label: "Critico", color: "error" },
+    warning: { label: "Alerta", color: "warning" },
+    stable: { label: "Estable", color: "success" },
+    stagnant: { label: "Sin rotacion", color: "info" },
+  };
+  const urgencyMeta: Record<string, { label: string; color: "default" | "error" | "warning" | "info" }> = {
+    urgent: { label: "Urgente", color: "error" },
+    high: { label: "Alta", color: "warning" },
+    medium: { label: "Media", color: "info" },
+  };
 
   const quickActions = useMemo<QuickAction[]>(
     () => [
@@ -395,7 +455,7 @@ const Reports: React.FC = () => {
         subtitle="Pulso comercial, alertas operativas y reportes clave desde una sola vista de control."
         icon={<AssessmentIcon color="primary" />}
         chips={headerChips}
-        loading={loadingExecutive || loadingDaily || loadingTop || loadingLow || loadingProfitability}
+        loading={loadingExecutive || loadingDaily || loadingTop || loadingLow || loadingProfitability || loadingInsights}
         right={
           <Box
             sx={{
@@ -428,6 +488,7 @@ const Reports: React.FC = () => {
           <Tab label="Top productos" />
           <Tab label="Alertas de stock" />
           <Tab label="Rentabilidad" />
+          <Tab label="Rotacion y compra" />
         </Tabs>
       </Paper>
 
@@ -927,10 +988,231 @@ const Reports: React.FC = () => {
           )}
         </Paper>
       ) : null}
+
+      {tab === 5 ? (
+        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>Rotacion y compra sugerida</Typography>
+          <Box sx={filterGridSx}>
+            <TextField type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+            <TextField type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+            <TextField
+              type="number"
+              label="Cobertura objetivo (dias)"
+              value={targetCoverageDays}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value || 21);
+                setTargetCoverageDays(Math.max(1, Math.min(90, nextValue)));
+              }}
+              inputProps={{ min: 1, max: 90 }}
+            />
+            <Button variant="outlined" onClick={() => { setFrom(last7); setTo(today); }}>
+              Ultimos 7 dias
+            </Button>
+            <Button variant="outlined" onClick={() => { setFrom(last30); setTo(today); }}>
+              Ultimos 30 dias
+            </Button>
+            <Button variant="contained" onClick={loadInsights}>Consultar</Button>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={async () => download(await exportStockRotation(from, to, 100), "rotacion_productos.csv")}
+            >
+              Exportar rotacion
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={async () =>
+                download(
+                  await exportReplenishmentSuggestions(from, to, targetCoverageDays, 100),
+                  "sugerencias_reposicion.csv"
+                )
+              }
+            >
+              Exportar compra
+            </Button>
+          </Box>
+
+          {!loadingInsights && !errorInsights ? (
+            <Box sx={kpiGridSx}>
+              <KpiCard label="Productos analizados" value={`${rotationTracked}`} accent="#103a5f" />
+              <KpiCard label="Unidades movidas" value={`${rotationUnits}`} accent="#12746b" />
+              <KpiCard label="Riesgo de cobertura" value={`${rotationRiskCount}`} accent="#f97316" />
+              <KpiCard label="Compras sugeridas" value={`${replenishment.length}`} accent="#9a7b2f" />
+              <KpiCard label="Unidades a comprar" value={`${replenishmentUnits}`} accent="#375a7f" />
+              <KpiCard label="Urgentes" value={`${replenishmentUrgent}`} accent="#dc2626" />
+            </Box>
+          ) : null}
+
+          {loadingInsights ? (
+            <LoadingState title="Analizando rotacion y compra sugerida..." rows={3} />
+          ) : errorInsights ? (
+            <ErrorState title="No se pudieron cargar los insights de inventario" onRetry={loadInsights} />
+          ) : (
+            <Box sx={{ display: "grid", gap: 1.2, mt: 2 }}>
+              <Paper variant="outlined" sx={{ p: { xs: 1, md: 1.15 } }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
+                  <AutoGraphRoundedIcon color="primary" fontSize="small" />
+                  <Typography variant="h6">Rotacion por producto</Typography>
+                  <Chip size="small" label={`${rotationUnits} uds.`} sx={{ ml: "auto" }} />
+                </Stack>
+                {rotation.length === 0 ? (
+                  <Alert severity="info">No hay movimiento ni stock relevante para el rango consultado.</Alert>
+                ) : isCompact ? (
+                  <Box sx={{ display: "grid", gap: 1 }}>
+                    {rotation.map((row) => {
+                      const status = stockStatusMeta[row.stock_status] ?? stockStatusMeta.stagnant;
+                      const coverageLabel =
+                        row.stock_coverage_days == null ? "Sin rotacion" : `${Number(row.stock_coverage_days).toFixed(1)} dias`;
+                      return (
+                        <Paper key={row.product_id} variant="outlined" sx={{ p: 1.2 }}>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.8 }}>
+                            <Chip size="small" label={row.sku} />
+                            <Chip size="small" color={status.color} label={status.label} />
+                          </Stack>
+                          <Typography sx={{ fontWeight: 700 }}>{row.name}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {row.author || row.publisher ? `${row.author || "Autor s/d"} | ${row.publisher || "Editorial s/d"}` : "Sin metadata editorial"}
+                          </Typography>
+                          <Typography variant="body2">Vendidas: {row.qty_sold} | Stock: {row.stock}/{row.stock_min}</Typography>
+                          <Typography variant="body2">Promedio diario: {Number(row.avg_daily_sales || 0).toFixed(2)} | Cobertura: {coverageLabel}</Typography>
+                        </Paper>
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  <ResizableTable minHeight={240}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>SKU</TableCell>
+                          <TableCell>Producto</TableCell>
+                          <TableCell align="right">Vendidas</TableCell>
+                          <TableCell align="right">Stock</TableCell>
+                          <TableCell align="right">Prom/dia</TableCell>
+                          <TableCell align="right">Cobertura</TableCell>
+                          <TableCell align="right">Estado</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {rotation.map((row) => {
+                          const status = stockStatusMeta[row.stock_status] ?? stockStatusMeta.stagnant;
+                          return (
+                            <TableRow key={row.product_id}>
+                              <TableCell>{row.sku}</TableCell>
+                              <TableCell>
+                                <Typography sx={{ fontWeight: 700 }}>{row.name}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {row.author || row.publisher ? `${row.author || "Autor s/d"} | ${row.publisher || "Editorial s/d"}` : row.isbn || "Sin metadata editorial"}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right">{row.qty_sold}</TableCell>
+                              <TableCell align="right">{row.stock}/{row.stock_min}</TableCell>
+                              <TableCell align="right">{Number(row.avg_daily_sales || 0).toFixed(2)}</TableCell>
+                              <TableCell align="right">
+                                {row.stock_coverage_days == null ? "Sin rotacion" : `${Number(row.stock_coverage_days).toFixed(1)} dias`}
+                              </TableCell>
+                              <TableCell align="right">
+                                <Chip size="small" color={status.color} label={status.label} />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </ResizableTable>
+                )}
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: { xs: 1, md: 1.15 } }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
+                  <LocalShippingRoundedIcon color="warning" fontSize="small" />
+                  <Typography variant="h6">Sugerencias de reposicion</Typography>
+                  <Chip size="small" label={`${replenishmentUnits} uds.`} sx={{ ml: "auto" }} />
+                </Stack>
+                {replenishment.length === 0 ? (
+                  <Alert severity="success">No hay compras sugeridas para el rango y cobertura seleccionados.</Alert>
+                ) : isCompact ? (
+                  <Box sx={{ display: "grid", gap: 1 }}>
+                    {replenishment.map((row) => {
+                      const priority = urgencyMeta[row.urgency] ?? urgencyMeta.medium;
+                      const coverageLabel =
+                        row.stock_coverage_days == null ? "Sin rotacion" : `${Number(row.stock_coverage_days).toFixed(1)} dias`;
+                      return (
+                        <Paper key={row.product_id} variant="outlined" sx={{ p: 1.2 }}>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.8 }}>
+                            <Chip size="small" label={row.sku} />
+                            <Chip size="small" color={priority.color} label={priority.label} />
+                          </Stack>
+                          <Typography sx={{ fontWeight: 700 }}>{row.name}</Typography>
+                          <Typography variant="body2">Stock actual: {row.stock} | Objetivo: {row.target_stock}</Typography>
+                          <Typography variant="body2">Sugerido: {row.suggested_qty} uds. | Cobertura: {coverageLabel}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Venta reciente: {row.qty_sold} uds. | {formatMoney(row.sales_total)}
+                          </Typography>
+                        </Paper>
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  <ResizableTable minHeight={240}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>SKU</TableCell>
+                          <TableCell>Producto</TableCell>
+                          <TableCell align="right">Stock</TableCell>
+                          <TableCell align="right">Objetivo</TableCell>
+                          <TableCell align="right">Sugerido</TableCell>
+                          <TableCell align="right">Cobertura</TableCell>
+                          <TableCell align="right">Prioridad</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {replenishment.map((row) => {
+                          const priority = urgencyMeta[row.urgency] ?? urgencyMeta.medium;
+                          return (
+                            <TableRow key={row.product_id}>
+                              <TableCell>{row.sku}</TableCell>
+                              <TableCell>
+                                <Typography sx={{ fontWeight: 700 }}>{row.name}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  Venta reciente: {row.qty_sold} uds. | {formatMoney(row.sales_total)}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right">{row.stock}</TableCell>
+                              <TableCell align="right">{row.target_stock}</TableCell>
+                              <TableCell align="right">{row.suggested_qty}</TableCell>
+                              <TableCell align="right">
+                                {row.stock_coverage_days == null ? "Sin rotacion" : `${Number(row.stock_coverage_days).toFixed(1)} dias`}
+                              </TableCell>
+                              <TableCell align="right">
+                                <Chip size="small" color={priority.color} label={priority.label} />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </ResizableTable>
+                )}
+              </Paper>
+            </Box>
+          )}
+        </Paper>
+      ) : null}
     </Box>
   );
 };
 
 export default Reports;
+
+
+
+
+
+
+
+
 
 

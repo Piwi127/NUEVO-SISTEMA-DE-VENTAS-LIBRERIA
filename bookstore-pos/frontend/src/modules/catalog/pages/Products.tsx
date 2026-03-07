@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -19,8 +19,9 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import PriceChangeIcon from "@mui/icons-material/PriceChange";
+import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
 import { useNavigate } from "react-router-dom";
-import { DataGrid, GridColDef } from "@mui/x-data-grid";
+import { DataGrid, GridColDef, GridColumnResizeParams, GridRenderCellParams, useGridApiRef } from "@mui/x-data-grid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CardTable,
@@ -38,11 +39,35 @@ import { Product } from "@/modules/shared/types";
 import { useSettings } from "@/app/store";
 
 const MAX_PRODUCTS = 500;
+const PRODUCTS_GRID_COLUMN_WIDTHS_KEY = "products-grid-column-widths";
+const MIN_COLUMN_WIDTH = 70;
+
+type GridColumnWidthModel = Record<string, number>;
+
+const readStoredColumnWidths = (): GridColumnWidthModel => {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.localStorage.getItem(PRODUCTS_GRID_COLUMN_WIDTHS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const widths: GridColumnWidthModel = {};
+    Object.entries(parsed).forEach(([field, value]) => {
+      if (typeof value === "number" && Number.isFinite(value) && value >= MIN_COLUMN_WIDTH) {
+        widths[field] = value;
+      }
+    });
+    return widths;
+  } catch {
+    return {};
+  }
+};
 
 const Products: React.FC = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
+  const apiRef = useGridApiRef();
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
@@ -54,6 +79,7 @@ const Products: React.FC = () => {
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkMarginPercent, setBulkMarginPercent] = useState("35");
   const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
+  const [columnWidthModel, setColumnWidthModel] = useState<GridColumnWidthModel>(() => readStoredColumnWidths());
   const normalizedQuery = query.trim();
 
   const productsQuery = useQuery({
@@ -141,6 +167,28 @@ const Products: React.FC = () => {
     setSelectedIds((prev) => prev.filter((id) => rowIds.has(id)));
   }, [rows]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (Object.keys(columnWidthModel).length === 0) {
+      window.localStorage.removeItem(PRODUCTS_GRID_COLUMN_WIDTHS_KEY);
+      return;
+    }
+    window.localStorage.setItem(PRODUCTS_GRID_COLUMN_WIDTHS_KEY, JSON.stringify(columnWidthModel));
+  }, [columnWidthModel]);
+
+  useEffect(() => {
+    if (typeof apiRef.current.subscribeEvent !== "function") return;
+
+    return apiRef.current.subscribeEvent("columnWidthChange", (params: GridColumnResizeParams) => {
+      const nextWidth = Math.round(params.width);
+      if (!Number.isFinite(nextWidth)) return;
+      setColumnWidthModel((current) => {
+        if (current[params.colDef.field] === nextWidth) return current;
+        return { ...current, [params.colDef.field]: nextWidth };
+      });
+    });
+  }, [apiRef, isCompact]);
+
   const requestDeleteIds = (ids: number[]) => {
     if (!ids.length || deleteMutation.isPending) return;
     setDeleteTargetIds(ids);
@@ -163,59 +211,75 @@ const Products: React.FC = () => {
     navigate(`/products/${id}/edit`);
   };
 
+  const resetColumnWidths = () => {
+    setColumnWidthModel({});
+  };
+
   const columns: GridColDef[] = useMemo(
-    () => [
-      { field: "id", headerName: "ID", width: 75 },
-      { field: "sku", headerName: "SKU", width: 140 },
-      { field: "name", headerName: "Nombre", flex: 1, minWidth: 260 },
-      { field: "category", headerName: "Categoria", width: 160 },
-      { field: "tags", headerName: "Tags", width: 220 },
-      { field: "price", headerName: "Precio", width: 110 },
-      { field: "cost", headerName: "Costo", width: 110 },
-      { field: "stock", headerName: "Stock", width: 90 },
-      { field: "stock_min", headerName: "Stock Min", width: 110 },
-      {
-        field: "actions",
-        headerName: "Acciones",
-        width: 170,
-        sortable: false,
-        filterable: false,
-        disableColumnMenu: true,
-        renderCell: (params) => (
-          <Box sx={{ display: "flex", gap: 0.5 }}>
-            <IconButton
-              size="small"
-              onClick={(event) => {
-                event.stopPropagation();
-                goToEdit(params.row.id as number);
-              }}
-              title="Editar"
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              color="error"
-              disabled={deleteMutation.isPending}
-              onClick={(event) => {
-                event.stopPropagation();
-                handleDeleteOne(params.row.id as number);
-              }}
-              title="Eliminar"
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        ),
-      },
-    ],
-    [deleteMutation.isPending]
+    () =>
+      [
+        { field: "id", headerName: "ID", width: 75, minWidth: 70 },
+        { field: "sku", headerName: "SKU", width: 140, minWidth: 100 },
+        { field: "name", headerName: "Nombre", width: 260, minWidth: 140 },
+        { field: "author", headerName: "Autor", width: 180, minWidth: 120 },
+        { field: "isbn", headerName: "ISBN", width: 160, minWidth: 120 },
+        { field: "category", headerName: "Categoria", width: 160, minWidth: 110 },
+        { field: "tags", headerName: "Tags", width: 220, minWidth: 130 },
+        { field: "price", headerName: "Precio", width: 110, minWidth: 90 },
+        { field: "cost", headerName: "Costo", width: 110, minWidth: 90 },
+        { field: "stock", headerName: "Stock", width: 90, minWidth: 70 },
+        { field: "stock_min", headerName: "Stock Min", width: 110, minWidth: 90 },
+        {
+          field: "actions",
+          headerName: "Acciones",
+          width: 170,
+          minWidth: 120,
+          sortable: false,
+          filterable: false,
+          disableColumnMenu: true,
+          renderCell: (params: GridRenderCellParams<Product>) => (
+            <Box sx={{ display: "flex", gap: 0.5 }}>
+              <IconButton
+                size="small"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  goToEdit(params.row.id as number);
+                }}
+                title="Editar"
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                color="error"
+                disabled={deleteMutation.isPending}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleDeleteOne(params.row.id as number);
+                }}
+                title="Eliminar"
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          ),
+        },
+      ].map((column) => {
+        const storedWidth = columnWidthModel[column.field];
+        if (typeof storedWidth !== "number" || !Number.isFinite(storedWidth)) return column;
+
+        return {
+          ...column,
+          width: Math.max(storedWidth, column.minWidth ?? MIN_COLUMN_WIDTH),
+        };
+      }),
+    [columnWidthModel, deleteMutation.isPending]
   );
 
   const cardRows = displayRows.map((row: Product) => ({
     key: row.id,
     title: row.name,
-    subtitle: row.category || "Sin categoria",
+    subtitle: row.author ? `${row.author} • ${row.category || "Sin categoria"}` : row.category || "Sin categoria",
     right: (
       <Box sx={{ textAlign: "right", display: "grid", gap: 0.75, justifyItems: "end" }}>
         <Checkbox
@@ -243,6 +307,8 @@ const Products: React.FC = () => {
       </Box>
     ),
     fields: [
+      { label: "Autor", value: row.author || "Sin autor" },
+      { label: "ISBN", value: row.isbn || "Sin ISBN" },
       { label: "Precio", value: row.price },
       { label: "Stock", value: row.stock },
       { label: "Stock Min", value: row.stock_min },
@@ -305,14 +371,14 @@ const Products: React.FC = () => {
         }
       />
 
-      <TableToolbar title="Filtro rapido" subtitle="Busca por SKU, nombre o categoria.">
+      <TableToolbar title="Filtro rapido" subtitle="Busca por SKU, ISBN, autor, nombre o categoria. Arrastra el borde del encabezado para ajustar columnas.">
         <TextField
           label="Buscar"
           size="small"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           sx={{ width: "100%", maxWidth: { sm: 340 } }}
-          placeholder="SKU, nombre o categoria"
+          placeholder="SKU, ISBN, autor, nombre o categoria"
         />
         <TextField
           select
@@ -330,6 +396,11 @@ const Products: React.FC = () => {
             </MenuItem>
           ))}
         </TextField>
+        {!isCompact ? (
+          <Button variant="outlined" startIcon={<RestartAltRoundedIcon />} onClick={resetColumnWidths}>
+            Restablecer columnas
+          </Button>
+        ) : null}
       </TableToolbar>
 
       {isCompact ? (
@@ -368,6 +439,7 @@ const Products: React.FC = () => {
           ) : (
             <Box sx={{ height: "100%", width: "100%" }}>
               <DataGrid
+                apiRef={apiRef}
                 rows={displayRows}
                 columns={columns}
                 pageSizeOptions={[10, 25, 50, 100]}
@@ -384,6 +456,14 @@ const Products: React.FC = () => {
                 sx={{
                   border: "none",
                   "& .MuiDataGrid-columnHeaders": { bgcolor: "rgba(18,53,90,0.08)", color: "#12355a" },
+                  "& .MuiDataGrid-columnSeparator": {
+                    opacity: 1,
+                    visibility: "visible",
+                    color: "rgba(16,58,95,0.28)",
+                  },
+                  "& .MuiDataGrid-columnSeparator--resizable": {
+                    cursor: "col-resize",
+                  },
                   "& .MuiDataGrid-cell": {
                     outline: "none",
                   },
@@ -464,6 +544,19 @@ const Products: React.FC = () => {
 };
 
 export default Products;
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

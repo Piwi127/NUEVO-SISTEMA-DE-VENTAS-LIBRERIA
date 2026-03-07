@@ -12,6 +12,11 @@ export type Product = {
   id: number;
   sku: string;
   name: string;
+  author?: string;
+  publisher?: string;
+  isbn?: string;
+  barcode?: string;
+  shelf_location?: string;
   category: string;
   tags: string;
   price: number;
@@ -199,4 +204,38 @@ export type ProfitabilityProductReport = {
   estimated_cost_total: number;
   gross_profit: number;
   margin_percent: number;
+};
+
+export type StockRotationReport = {
+  product_id: number;
+  sku: string;
+  name: string;
+  author: string;
+  publisher: string;
+  isbn: string;
+  stock: number;
+  stock_min: number;
+  qty_sold: number;
+  sales_total: number;
+  avg_daily_sales: number;
+  stock_coverage_days?: number | null;
+  stock_status: string;
+};
+
+export type ReplenishmentSuggestionReport = {
+  product_id: number;
+  sku: string;
+  name: string;
+  author: string;
+  publisher: string;
+  isbn: string;
+  stock: number;
+  stock_min: number;
+  qty_sold: number;
+  sales_total: number;
+  avg_daily_sales: number;
+  stock_coverage_days?: number | null;
+  target_stock: number;
+  suggested_qty: number;
+  urgency: string;
 };

@@ -42,6 +42,7 @@ const TERM_GROUPS: string[][] = [
   ["tijera", "tijeras", "cutter", "cuchilla", "cortar"],
   ["tempera", "acrilico", "pintura", "oleo", "acuarela", "pincel", "colorear"],
   ["oficina", "papeleria", "utiles", "utilidad", "funcion", "funcionamiento"],
+  ["libro", "libros", "novela", "novelas", "cuento", "cuentos", "texto", "diccionario", "agenda"],
 ];
 
 const DEFAULT_HINTS = ["tinta", "hojas", "imprimir", "manualidades", "escribir", "archivar"];
@@ -144,11 +145,24 @@ const scoreProduct = (product: Product, rawTokens: string[], expandedTokens: str
   const category = normalize(product.category || "");
   const tags = normalize(product.tags || "");
   const sku = normalize(product.sku || "");
+  const author = normalize(product.author || "");
+  const publisher = normalize(product.publisher || "");
+  const isbn = normalize(product.isbn || "");
+  const barcode = normalize(product.barcode || "");
+  const shelfLocation = normalize(product.shelf_location || "");
   let score = 0;
   let strictHits = 0;
 
   rawTokens.forEach((token) => {
     let hit = false;
+    if (isbn === token || barcode === token) {
+      score += 170;
+      hit = true;
+    } else if (isbn.startsWith(token) || barcode.startsWith(token)) {
+      score += 130;
+      hit = true;
+    }
+
     if (sku === token) {
       score += 140;
       hit = true;
@@ -168,6 +182,14 @@ const scoreProduct = (product: Product, rawTokens: string[], expandedTokens: str
       hit = true;
     }
 
+    if (author.includes(token)) {
+      score += 54;
+      hit = true;
+    }
+    if (publisher.includes(token)) {
+      score += 36;
+      hit = true;
+    }
     if (category.includes(token)) {
       score += 40;
       hit = true;
@@ -176,11 +198,15 @@ const scoreProduct = (product: Product, rawTokens: string[], expandedTokens: str
       score += 45;
       hit = true;
     }
+    if (shelfLocation.includes(token)) {
+      score += 20;
+      hit = true;
+    }
     if (!hit) {
-      if (fuzzyIncludes(token, name)) {
+      if (fuzzyIncludes(token, name) || fuzzyIncludes(token, author)) {
         score += 26;
         hit = true;
-      } else if (fuzzyIncludes(token, category) || fuzzyIncludes(token, tags)) {
+      } else if (fuzzyIncludes(token, category) || fuzzyIncludes(token, tags) || fuzzyIncludes(token, publisher)) {
         score += 18;
         hit = true;
       }
@@ -194,6 +220,8 @@ const scoreProduct = (product: Product, rawTokens: string[], expandedTokens: str
     if (name.includes(token)) score += 17;
     if (category.includes(token)) score += 15;
     if (tags.includes(token)) score += 19;
+    if (author.includes(token)) score += 18;
+    if (publisher.includes(token)) score += 14;
   });
 
   if (strictHits === rawTokens.length && rawTokens.length > 0) score += 45;
@@ -216,7 +244,18 @@ const getMatchMeta = (product: Product, rawTokens: string[], expandedTokens: str
   const category = normalize(product.category || "");
   const tags = normalize(product.tags || "");
   const sku = normalize(product.sku || "");
+  const author = normalize(product.author || "");
+  const publisher = normalize(product.publisher || "");
+  const isbn = normalize(product.isbn || "");
+  const barcode = normalize(product.barcode || "");
+  const shelfLocation = normalize(product.shelf_location || "");
 
+  if (rawTokens.some((token) => isbn === token || barcode === token)) {
+    return { label: "ISBN o codigo", color: "success", isRelated: false };
+  }
+  if (rawTokens.some((token) => isbn.startsWith(token) || barcode.startsWith(token))) {
+    return { label: "ISBN similar", color: "info", isRelated: false };
+  }
   if (rawTokens.some((token) => sku === token)) {
     return { label: "SKU exacto", color: "success", isRelated: false };
   }
@@ -226,10 +265,13 @@ const getMatchMeta = (product: Product, rawTokens: string[], expandedTokens: str
   if (rawTokens.length > 0 && rawTokens.every((token) => name.includes(token))) {
     return { label: "Nombre", color: "primary", isRelated: false };
   }
-  if (rawTokens.some((token) => category.includes(token) || tags.includes(token))) {
+  if (rawTokens.some((token) => author.includes(token) || publisher.includes(token))) {
+    return { label: "Autor o editorial", color: "secondary", isRelated: false };
+  }
+  if (rawTokens.some((token) => category.includes(token) || tags.includes(token) || shelfLocation.includes(token))) {
     return { label: "Uso o categoria", color: "warning", isRelated: true };
   }
-  if (expandedTokens.some((token) => name.includes(token) || category.includes(token) || tags.includes(token))) {
+  if (expandedTokens.some((token) => name.includes(token) || category.includes(token) || tags.includes(token) || author.includes(token) || publisher.includes(token))) {
     return { label: "Relacionado", color: "default", isRelated: true };
   }
   return { label: "Coincidencia", color: "default", isRelated: false };
@@ -239,6 +281,15 @@ const getAppliedPrice = (product: Product, priceMap?: Record<number, number>) =>
   const baseSalePrice = product.sale_price ?? product.price;
   return priceMap?.[product.id] ?? baseSalePrice;
 };
+
+const buildProductMetaLine = (product: Product): string =>
+  [
+    product.sku || "Sin SKU",
+    product.author || product.publisher || product.category || "Sin categoria",
+    product.isbn || product.barcode || "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
 
 type ProductSearchProps = {
   priceMap?: Record<number, number>;
@@ -380,7 +431,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
       const highlighted = visibleResults[Math.min(highlightedIndex, visibleResults.length - 1)] || visibleResults[0];
       return `Enter agrega ${highlighted.product.name}. Flechas arriba y abajo cambian la seleccion.`;
     }
-    return "Sin coincidencias directas. Prueba por SKU, nombre o uso del producto.";
+    return "Sin coincidencias directas. Prueba por SKU, ISBN, autor o uso del producto.";
   }, [canSearch, productsQuery.isFetching, fallbackQuery.isFetching, visibleResults, highlightedIndex, minimal]);
 
   const handleInputRef = useCallback(
@@ -465,7 +516,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             <TextField
               fullWidth
               label={minimal ? "Buscar producto" : "Busqueda inteligente"}
-              placeholder={minimal ? "SKU, nombre o uso" : "Escribe nombre, SKU o uso del producto (ej: tinta, hojas, imprimir)"}
+              placeholder={minimal ? "SKU, ISBN, autor o uso" : "Escribe nombre, SKU, ISBN, autor o uso del producto (ej: novela, hojas, imprimir)"}
               helperText={searchHelperText}
               autoComplete="off"
               value={search}
@@ -533,7 +584,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                 {!productsQuery.isFetching && !fallbackQuery.isFetching && visibleResults.length === 0 ? (
                   <Box sx={{ p: 1.5 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Sin coincidencias. Prueba por nombre, SKU o utilidad.
+                      Sin coincidencias. Prueba por nombre, SKU, ISBN, autor o utilidad.
                     </Typography>
                   </Box>
                 ) : null}
@@ -569,7 +620,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                                   {entry.product.name}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {entry.product.sku || "Sin SKU"} | {entry.product.category || "Sin categoria"}
+                                  {buildProductMetaLine(entry.product)}
                                 </Typography>
                               </Box>
                               <Typography sx={{ fontWeight: 900, whiteSpace: "nowrap" }}>{formatMoney(entry.price)}</Typography>
@@ -656,7 +707,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
       {view === "dropdown" && canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching && rankedResults.length === 0 ? (
         <Box sx={{ mt: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            No se encontraron coincidencias. Prueba por nombre, SKU, categoria o por utilidad, por ejemplo: tinta, hojas o imprimir.
+            No se encontraron coincidencias. Prueba por nombre, SKU, ISBN, autor, categoria o por utilidad, por ejemplo: novela, hojas o imprimir.
           </Typography>
         </Box>
       ) : null}
@@ -705,7 +756,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     {topResult.product.name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    {topResult.product.sku || "Sin SKU"} | {topResult.product.category || "Sin categoria"}
+                    {buildProductMetaLine(topResult.product)}
                   </Typography>
                   {renderResultMeta(topResult)}
                   <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
@@ -777,7 +828,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                         <Box sx={{ minWidth: 0 }}>
                           <Typography sx={{ fontWeight: 800, color: "#102a43" }}>{entry.product.name}</Typography>
                           <Typography variant="caption" sx={{ color: "#486581" }}>
-                            {entry.product.sku || "Sin SKU"} | {entry.product.category || "Sin categoria"}
+                            {buildProductMetaLine(entry.product)}
                           </Typography>
                         </Box>
                         <Typography sx={{ fontWeight: 900, color: "#243b53", whiteSpace: "nowrap" }}>{formatMoney(entry.price)}</Typography>
@@ -797,4 +848,14 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     </Box>
   );
 };
+
+
+
+
+
+
+
+
+
+
 

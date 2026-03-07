@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Box, Button, MenuItem, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -50,6 +50,11 @@ const marginPercentSchema = z
 const productFormSchema = z.object({
   sku: z.string().trim().min(1, "Ingresa el SKU.").max(60, "El SKU es demasiado largo."),
   name: z.string().trim().min(2, "Ingresa al menos 2 caracteres.").max(180, "El nombre es demasiado largo."),
+  author: z.string().trim().max(160, "El autor es demasiado largo."),
+  publisher: z.string().trim().max(160, "La editorial es demasiado larga."),
+  isbn: z.string().trim().max(32, "El ISBN es demasiado largo."),
+  barcode: z.string().trim().max(80, "El codigo de barras es demasiado largo."),
+  shelf_location: z.string().trim().max(80, "La ubicacion es demasiado larga."),
   category: z.string().trim().max(80, "La categoria es demasiado larga."),
   tags: z.string().trim().max(200, "Las etiquetas son demasiado largas."),
   price: nonNegativeNumberSchema,
@@ -85,6 +90,11 @@ type PricingBackedProductFields = Pick<
 const emptyForm: ProductFormValues = {
   sku: "",
   name: "",
+  author: "",
+  publisher: "",
+  isbn: "",
+  barcode: "",
+  shelf_location: "",
   category: "",
   tags: "",
   price: 0,
@@ -203,6 +213,11 @@ const ProductForm: React.FC = () => {
     resetProduct({
       sku: source.sku || "",
       name: source.name || "",
+      author: source.author || "",
+      publisher: source.publisher || "",
+      isbn: source.isbn || "",
+      barcode: source.barcode || "",
+      shelf_location: source.shelf_location || "",
       category: source.category || "",
       tags: source.tags || "",
       price: Number(source.price || 0),
@@ -422,6 +437,11 @@ const ProductForm: React.FC = () => {
         ...values,
         sku: values.sku.trim(),
         name: values.name.trim(),
+        author: values.author.trim(),
+        publisher: values.publisher.trim(),
+        isbn: values.isbn.trim(),
+        barcode: values.barcode.trim(),
+        shelf_location: values.shelf_location.trim(),
         category: values.category.trim(),
         tags: values.tags.trim(),
         sale_price: Number(values.price || 0),
@@ -788,6 +808,60 @@ const ProductForm: React.FC = () => {
             sx={{
               display: "grid",
               gap: 1,
+              gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(5, minmax(0, 1fr))" },
+            }}
+          >
+            <TextField
+              label="Autor"
+              error={!!productErrors.author}
+              helperText={productErrors.author?.message}
+              fullWidth
+              {...registerProduct("author", {
+                onChange: () => setSubmitError(""),
+              })}
+            />
+            <TextField
+              label="Editorial"
+              error={!!productErrors.publisher}
+              helperText={productErrors.publisher?.message}
+              fullWidth
+              {...registerProduct("publisher", {
+                onChange: () => setSubmitError(""),
+              })}
+            />
+            <TextField
+              label="ISBN"
+              error={!!productErrors.isbn}
+              helperText={productErrors.isbn?.message}
+              fullWidth
+              {...registerProduct("isbn", {
+                onChange: () => setSubmitError(""),
+              })}
+            />
+            <TextField
+              label="Codigo barras"
+              error={!!productErrors.barcode}
+              helperText={productErrors.barcode?.message}
+              fullWidth
+              {...registerProduct("barcode", {
+                onChange: () => setSubmitError(""),
+              })}
+            />
+            <TextField
+              label="Ubicacion"
+              error={!!productErrors.shelf_location}
+              helperText={productErrors.shelf_location?.message}
+              fullWidth
+              {...registerProduct("shelf_location", {
+                onChange: () => setSubmitError(""),
+              })}
+            />
+          </Box>
+
+          <Box
+            sx={{
+              display: "grid",
+              gap: 1,
               gridTemplateColumns: { xs: "1fr", lg: "minmax(260px, 0.9fr) minmax(0, 1fr)" },
             }}
           >
@@ -889,6 +963,11 @@ const ProductForm: React.FC = () => {
 };
 
 export default ProductForm;
+
+
+
+
+
 
 
 

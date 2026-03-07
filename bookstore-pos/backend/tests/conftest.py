@@ -1,5 +1,6 @@
 import os
 import tempfile
+import uuid
 
 import pytest_asyncio
 import httpx
@@ -20,9 +21,7 @@ async def test_app():
     from app.core.security import get_password_hash
     from app.models.user import User
 
-    db_path = os.path.join(tempfile.gettempdir(), "bookstore_test.db")
-    if os.path.exists(db_path):
-        os.remove(db_path)
+    db_path = os.path.join(tempfile.gettempdir(), f"bookstore_test_{uuid.uuid4().hex}.db")
 
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", future=True)
 
@@ -59,9 +58,19 @@ async def test_app():
         os.remove(db_path)
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def reset_rate_limiter():
+    from app.core.rate_limit import rate_limiter
+
+    await rate_limiter.reset_for_tests()
+    yield
+    await rate_limiter.reset_for_tests()
+
+
 @pytest_asyncio.fixture
 async def client(test_app):
     async with test_app.router.lifespan_context(test_app):
         transport = httpx.ASGITransport(app=test_app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             yield client
+

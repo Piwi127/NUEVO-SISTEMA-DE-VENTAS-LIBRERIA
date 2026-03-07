@@ -23,7 +23,9 @@ TERM_GROUPS: list[list[str]] = [
     ["tijera", "tijeras", "cutter", "cuchilla"],
     ["tempera", "acrilico", "pintura", "oleo", "acuarela", "pincel"],
     ["escolar", "utiles", "oficina", "papeleria"],
+    ["libro", "libros", "novela", "novelas", "cuento", "cuentos", "texto", "diccionario", "agenda"],
 ]
+
 
 
 def _normalize(value: str) -> str:
@@ -38,12 +40,28 @@ def _normalize(value: str) -> str:
     )
 
 
+
 def _expand_tokens(tokens: list[str]) -> list[str]:
     expanded = set(tokens)
     for group in TERM_GROUPS:
         if any(term in expanded for term in group):
             expanded.update(group)
     return list(expanded)
+
+
+
+def _build_search_clause(term: str):
+    return or_(
+        Product.name.ilike(term),
+        Product.sku.ilike(term),
+        Product.author.ilike(term),
+        Product.publisher.ilike(term),
+        Product.isbn.ilike(term),
+        Product.barcode.ilike(term),
+        Product.shelf_location.ilike(term),
+        Product.category.ilike(term),
+        Product.tags.ilike(term),
+    )
 
 
 @router.get("/categories", response_model=list[str], dependencies=[Depends(require_permission("products.read"))])
@@ -91,27 +109,13 @@ async def list_products(
                 token_clauses = []
                 for token in _expand_tokens(tokens):
                     term = f"%{token}%"
-                    token_clauses.append(
-                        or_(
-                            Product.name.ilike(term),
-                            Product.sku.ilike(term),
-                            Product.category.ilike(term),
-                            Product.tags.ilike(term),
-                        )
-                    )
+                    token_clauses.append(_build_search_clause(term))
                 stmt = stmt.where(or_(*token_clauses))
             else:
                 token_clauses = []
                 for token in tokens:
                     term = f"%{token}%"
-                    token_clauses.append(
-                        or_(
-                            Product.name.ilike(term),
-                            Product.sku.ilike(term),
-                            Product.category.ilike(term),
-                            Product.tags.ilike(term),
-                        )
-                    )
+                    token_clauses.append(_build_search_clause(term))
                 stmt = stmt.where(and_(*token_clauses))
 
     stmt = stmt.order_by(Product.id).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
