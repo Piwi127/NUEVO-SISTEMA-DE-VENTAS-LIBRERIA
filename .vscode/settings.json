@@ -1,8 +1,8 @@
 {
   "python.analysis.extraPaths": [
-    "./bookstore-pos/backend"
+    "${workspaceFolder}/bookstore-pos/backend"
   ],
-  "python.defaultInterpreterPath": "./bookstore-pos/backend/.venv/Scripts/python.exe",
+  "python.defaultInterpreterPath": "${workspaceFolder}/bookstore-pos/backend/.venv/Scripts/python.exe",
   "python.analysis.diagnosticSeverityOverrides": {
     "reportMissingTypeStubs": "none",
     "reportMissingImports": "none"
