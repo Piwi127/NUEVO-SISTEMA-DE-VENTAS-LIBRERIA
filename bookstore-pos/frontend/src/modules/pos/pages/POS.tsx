@@ -32,7 +32,6 @@ import { useAuth } from "@/auth/AuthProvider";
 import { ConfirmDialog, PageHeader, useToast } from "@/app/components";
 import { formatMoney } from "@/app/utils";
 import {
-  type CartItem,
   selectCanCharge,
   selectCartItemCount,
   selectCustomerLabel,
@@ -44,34 +43,25 @@ import { listActiveProductPromotionRules, listActivePromotions } from "@/modules
 import { listCustomers } from "@/modules/catalog/api";
 import { getCurrentCash } from "@/modules/pos/api";
 import { calculatePackPricing, calculatePosTotalsSummary } from "@/modules/pos/utils/pricing";
-import { getWsBaseUrl } from "@/modules/shared/api/runtime";
-import { Cart, PaymentDialog, ProductSearch } from "@/modules/pos/components";
-import { usePosCheckout, usePosPricing } from "@/modules/pos/hooks";
+import {
+  Cart,
+  PaymentDialog,
+  ProductSearch,
+} from "@/modules/pos/components";
+import {
+  useHeldCarts,
+  usePosCheckout,
+  usePosKeyboard,
+  usePosPricing,
+  usePosWebSocket,
+} from "@/modules/pos/hooks";
 import type { Payment } from "@/modules/pos/types";
-
-const wsBase = getWsBaseUrl();
-const HELD_CARTS_KEY = "pos-held-carts-v1";
-const MAX_HELD_CARTS = 20;
-
-type HeldCart = {
-  id: string;
-  label: string;
-  created_at: string;
-  customer_id: number | null;
-  promo_id: number | null;
-  discount: number;
-  tax: number;
-  items: CartItem[];
-};
 
 const makeSessionId = () => {
   const cryptoAny = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
   if (cryptoAny?.randomUUID) return cryptoAny.randomUUID();
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
-
-const getSuggestedHeldCartLabel = () =>
-  `Pedido ${new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}`;
 
 const POS: React.FC = () => {
   const cart = useCartStore();
@@ -96,8 +86,6 @@ const POS: React.FC = () => {
 
 
   const [sessionId] = useState(() => makeSessionId());
-  const wsRef = useRef<WebSocket | null>(null);
-  const latestDisplayPayloadRef = useRef<string>("");
   const navigate = useNavigate();
 
   const cashQuery = useQuery({ queryKey: ["cash-current"], queryFn: getCurrentCash, staleTime: 10_000 });
@@ -139,6 +127,15 @@ const POS: React.FC = () => {
     setCartDiscount: cart.setDiscount,
   });
 
+  const { wsRef } = usePosWebSocket({
+    sessionId,
+    cartItems: cart.items,
+    subtotal,
+    tax,
+    totalDiscount: totalsSummary.totalDiscount,
+    total,
+  });
+
   const { payOpen, setPayOpen, lastSale, clearLastSale, handlePayment, handlePrint, handleEscpos } = usePosCheckout({
     cart,
     cashIsOpen: !!cash?.is_open,
@@ -159,140 +156,39 @@ const POS: React.FC = () => {
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const [heldOpen, setHeldOpen] = useState(false);
-  const [holdDialogOpen, setHoldDialogOpen] = useState(false);
-  const [holdLabel, setHoldLabel] = useState("");
-  const [heldCarts, setHeldCarts] = useState<HeldCart[]>([]);
   const [cashierOptionsOpen, setCashierOptionsOpen] = useState(false);
   const prevItemCountRef = useRef(0);
 
-  const persistHeldCarts = (next: HeldCart[]) => {
-    setHeldCarts(next);
-    try {
-      window.localStorage.setItem(HELD_CARTS_KEY, JSON.stringify(next));
-    } catch {
-      // ignore storage failures on restricted browsers
-    }
-  };
+  const {
+    heldOpen,
+    setHeldOpen,
+    holdDialogOpen,
+    setHoldDialogOpen,
+    holdLabel,
+    setHoldLabel,
+    heldCarts,
+    holdCurrentCart,
+    handleConfirmHoldCurrentCart,
+    restoreHeldCart,
+    deleteHeldCart,
+  } = useHeldCarts({
+    cartItems: cart.items,
+    cartDiscount: cart.discount,
+    cartTax: cart.tax,
+    customerId,
+    promoId,
+    clearCart: cart.clear,
+    setCustomerId: setCustomerId as (id: string | number | "") => void,
+    setPromoId: setPromoId as (id: string | number | "") => void,
+    replaceCart: cart.replaceCart,
+    searchRef,
+  });
 
-  const loadHeldCarts = () => {
-    try {
-      const raw = window.localStorage.getItem(HELD_CARTS_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as HeldCart[];
-      if (Array.isArray(parsed)) {
-        setHeldCarts(parsed.filter((cartItem) => cartItem && typeof cartItem.id === "string" && Array.isArray(cartItem.items)));
-      }
-    } catch {
-      // ignore malformed data
-    }
-  };
-
-  const holdCurrentCart = () => {
-    if (!cart.items.length) {
-      showToast({ message: "No hay items para guardar en espera", severity: "warning" });
-      return;
-    }
-    setHoldLabel(getSuggestedHeldCartLabel());
-    setHoldDialogOpen(true);
-  };
-
-  const handleConfirmHoldCurrentCart = () => {
-    if (!cart.items.length) {
-      setHoldDialogOpen(false);
-      setHoldLabel("");
-      showToast({ message: "No hay items para guardar en espera", severity: "warning" });
-      return;
-    }
-    const label = holdLabel.trim() || getSuggestedHeldCartLabel();
-    const nextHold: HeldCart = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      label,
-      created_at: new Date().toISOString(),
-      customer_id: customerId ? Number(customerId) : null,
-      promo_id: promoId ? Number(promoId) : null,
-      discount: Number(cart.discount || 0),
-      tax: Number(cart.tax || 0),
-      items: cart.items.map((item) => ({ ...item })),
-    };
-    persistHeldCarts([nextHold, ...heldCarts].slice(0, MAX_HELD_CARTS));
-    cart.clear();
-    setCustomerId("");
-    setPromoId("");
-    setHoldDialogOpen(false);
-    setHoldLabel("");
-    showToast({ message: `Venta guardada en espera: ${label}`, severity: "success" });
-  };
-
-  const restoreHeldCart = (held: HeldCart) => {
-    cart.replaceCart({ items: held.items, discount: held.discount, tax: held.tax });
-    setCustomerId(held.customer_id ?? "");
-    setPromoId(held.promo_id ?? "");
-    persistHeldCarts(heldCarts.filter((item) => item.id !== held.id));
-    setHeldOpen(false);
-    showToast({ message: `Venta recuperada: ${held.label}`, severity: "success" });
-    window.setTimeout(() => searchRef.current?.focus(), 0);
-  };
-
-  const deleteHeldCart = (heldId: string) => {
-    persistHeldCarts(heldCarts.filter((item) => item.id !== heldId));
-  };
-  useEffect(() => {
-    let active = true;
-    const timer = window.setTimeout(() => {
-      if (!active) return;
-      const ws = new WebSocket(`${wsBase}/ws/display/${sessionId}`);
-      wsRef.current = ws;
-      ws.onopen = () => {
-        if (latestDisplayPayloadRef.current && ws.readyState === WebSocket.OPEN) {
-          ws.send(latestDisplayPayloadRef.current);
-        }
-      };
-      ws.onclose = () => {
-        if (wsRef.current === ws) {
-          wsRef.current = null;
-        }
-      };
-    }, 0);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-      const ws = wsRef.current;
-      wsRef.current = null;
-      if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
-        ws.close(1000, "cleanup");
-      }
-    };
-  }, [sessionId]);
-
-  useEffect(() => {
-    const payload = JSON.stringify({
-      type: "CART_UPDATE",
-      items: cart.items,
-      totals: { subtotal, tax, discount: totalsSummary.totalDiscount, total },
-    });
-    latestDisplayPayloadRef.current = payload;
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(payload);
-    }
-  }, [cart.items, subtotal, tax, total, totalsSummary.totalDiscount]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "F2") {
-        event.preventDefault();
-        searchRef.current?.focus();
-      }
-      if (event.key === "F4") {
-        event.preventDefault();
-        if (itemCount > 0) setPayOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [itemCount, setPayOpen]);
+  usePosKeyboard({
+    itemCount,
+    searchRef,
+    setPayOpen,
+  });
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -311,9 +207,7 @@ const POS: React.FC = () => {
     prevItemCountRef.current = itemCount;
   }, [itemCount, isCompact, isCashierMode]);
 
-  useEffect(() => {
-    loadHeldCarts();
-  }, []);
+
 
   const selectedCustomerName = selectCustomerLabel(customers, customerId);
   const selectedPromo = promos?.find((promo) => promo.id === promoId);
@@ -485,9 +379,9 @@ const POS: React.FC = () => {
 
   const lastSaleTimeLabel = lastSale
     ? new Date(lastSale.createdAt).toLocaleTimeString("es-PE", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+      hour: "2-digit",
+      minute: "2-digit",
+    })
     : "";
   if (isCashierMode) {
     return (
@@ -650,7 +544,7 @@ const POS: React.FC = () => {
                   <ListItemButton key={held.id} onClick={() => restoreHeldCart(held)}>
                     <ListItemText
                       primary={held.label}
-                      secondary={`${new Date(held.created_at).toLocaleString("es-PE")} - ${held.items.length} items - ${formatMoney(
+                      secondary={`${new Date(held.created_at || held.create_at || "").toLocaleString("es-PE")} - ${held.items.length} items - ${formatMoney(
                         held.items.reduce((acc, item) => acc + item.price * item.qty, 0)
                       )}`}
                     />
@@ -845,7 +739,7 @@ const POS: React.FC = () => {
                 <ListItemButton key={held.id} onClick={() => restoreHeldCart(held)}>
                   <ListItemText
                     primary={held.label}
-                    secondary={`${new Date(held.created_at).toLocaleString("es-PE")} - ${held.items.length} items - ${formatMoney(
+                    secondary={`${new Date(held.created_at || held.create_at || "").toLocaleString("es-PE")} - ${held.items.length} items - ${formatMoney(
                       held.items.reduce((acc, item) => acc + item.price * item.qty, 0)
                     )}`}
                   />
