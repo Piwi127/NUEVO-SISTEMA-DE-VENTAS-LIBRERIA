@@ -1,0 +1,9 @@
+{
+  "source_directories": [
+    "bookstore-pos/backend"
+  ],
+  "search_path": [
+    "bookstore-pos/backend/.venv/Lib/site-packages",
+    "bookstore-pos/backend"
+  ]
+}

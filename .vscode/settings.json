@@ -3,6 +3,7 @@
     "${workspaceFolder}/bookstore-pos/backend"
   ],
   "python.defaultInterpreterPath": "${workspaceFolder}/bookstore-pos/backend/.venv/Scripts/python.exe",
+  "python.envFile": "${workspaceFolder}/.env",
   "python.analysis.diagnosticSeverityOverrides": {
     "reportMissingTypeStubs": "none",
     "reportMissingImports": "none"
