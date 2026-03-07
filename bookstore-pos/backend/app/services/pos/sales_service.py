@@ -182,12 +182,19 @@ class SalesService:
                 total = subtotal + tax - promotion_discount
             total = max(0.0, total)
 
-            if any(p.amount <= 0 for p in data.payments):
+            normalized_payments: list[tuple[str, float]] = []
+            for p in data.payments:
+                method = (p.method or "").strip().upper()
+                if not method:
+                    raise HTTPException(status_code=400, detail="Metodo de pago invalido")
+                normalized_payments.append((method, float(p.amount)))
+
+            if any(amount <= 0 for _, amount in normalized_payments):
                 raise HTTPException(status_code=400, detail="Monto de pago invalido")
-            payment_total = sum(p.amount for p in data.payments)
+            payment_total = sum(amount for _, amount in normalized_payments)
             if payment_total + 1e-6 < total:
                 raise HTTPException(status_code=409, detail="Pago insuficiente")
-            has_cash = any(p.method.upper() == "CASH" for p in data.payments)
+            has_cash = any(method == "CASH" for method, _ in normalized_payments)
             if not has_cash and abs(payment_total - total) > 0.01:
                 raise HTTPException(status_code=409, detail="Pago no coincide con total")
 
@@ -238,8 +245,8 @@ class SalesService:
                 )
                 self.db.add(movement)
 
-            for p in data.payments:
-                payment = Payment(sale_id=sale.id, method=p.method, amount=p.amount)
+            for method, amount in normalized_payments:
+                payment = Payment(sale_id=sale.id, method=method, amount=amount)
                 self.db.add(payment)
 
             sales_total.inc()

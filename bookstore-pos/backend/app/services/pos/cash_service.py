@@ -64,7 +64,7 @@ class CashService:
             .select_from(Payment)
             .join(Sale, Payment.sale_id == Sale.id)
             .where(
-                Payment.method == "CASH",
+                func.upper(Payment.method) == "CASH",
                 Sale.user_id == session.user_id,
                 Sale.status != "VOID",
                 Sale.created_at >= start,
@@ -107,12 +107,18 @@ class CashService:
         session = await self.get_open_session()
         if not session:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta")
+        movement_type = (data.type or "").strip().upper()
+        if movement_type not in {"IN", "OUT"}:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de movimiento invalido")
+        amount = float(data.amount)
+        if amount <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Monto invalido")
         async with self._transaction():
             movement = CashMovement(
                 cash_session_id=session.id,
-                type=data.type,
-                amount=data.amount,
-                reason=data.reason,
+                type=movement_type,
+                amount=amount,
+                reason=(data.reason or "").strip(),
             )
             self.db.add(movement)
             await self.db.flush()
@@ -122,7 +128,7 @@ class CashService:
                 "cash_movement",
                 "cash_movement",
                 str(movement.id),
-                f"{data.type}:{data.amount}",
+                f"{movement_type}:{amount}",
             )
             await self.db.refresh(movement)
             return movement
@@ -137,22 +143,29 @@ class CashService:
         session = await self.get_open_session()
         if not session:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta")
+        audit_type = (data.type or "").strip().upper()
+        if audit_type not in {"X", "Z"}:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de arqueo invalido")
+        counted_amount = float(data.counted_amount)
+        if counted_amount < 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Monto contado invalido")
         summary = await self.compute_summary(session)
-        diff = data.counted_amount - summary.expected_amount
+        diff = counted_amount - summary.expected_amount
         async with self._transaction():
             audit = CashAudit(
                 cash_session_id=session.id,
-                type=data.type.upper(),
+                type=audit_type,
                 expected_amount=summary.expected_amount,
-                counted_amount=data.counted_amount,
+                counted_amount=counted_amount,
                 difference=diff,
                 created_by=self.user.id,
             )
             self.db.add(audit)
-            if data.type.upper() == "Z":
+            if audit_type == "Z":
                 session.is_open = False
                 session.closed_at = datetime.now(timezone.utc)
-            await log_event(self.db, self.user.id, "cash_audit", "cash_audit", str(audit.id), data.type.upper())
+            await self.db.flush()
+            await log_event(self.db, self.user.id, "cash_audit", "cash_audit", str(audit.id), audit_type)
             await self.db.refresh(audit)
             return audit
 

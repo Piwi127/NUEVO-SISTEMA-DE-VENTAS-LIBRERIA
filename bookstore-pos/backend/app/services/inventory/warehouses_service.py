@@ -75,6 +75,7 @@ class WarehousesService:
         async with self._transaction():
             batch = StockBatch(**data.model_dump())
             self.db.add(batch)
+            await self.db.flush()
             await apply_stock_delta(self.db, data.product_id, data.qty, data.warehouse_id)
             if self.user is not None:
                 await log_event(self.db, self.user.id, "warehouse_batch", "stock_batch", str(batch.id), "")

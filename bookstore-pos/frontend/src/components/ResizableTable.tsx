@@ -216,7 +216,7 @@ export const ResizableTable: React.FC<ResizableTableProps> = ({
             borderRight: "none",
           },
           "&::after": {
-            content: '\"\"',
+            content: '""',
             position: "absolute",
             right: 6,
             bottom: 6,

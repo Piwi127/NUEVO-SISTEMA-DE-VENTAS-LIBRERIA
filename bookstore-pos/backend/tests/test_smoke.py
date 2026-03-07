@@ -402,6 +402,152 @@ async def test_cash_session_report_endpoint(client):
 
 
 @pytest.mark.asyncio
+async def test_cash_movement_rejects_invalid_payload(client):
+    headers = await _login_admin(client)
+    open_resp = await client.post("/cash/open", json={"opening_amount": 70.0}, headers=headers)
+    assert open_resp.status_code in {201, 409}
+
+    invalid_type = await client.post(
+        "/cash/movement",
+        json={"type": "BAD", "amount": 10.0, "reason": "Tipo invalido"},
+        headers=headers,
+    )
+    assert invalid_type.status_code == 400
+
+    invalid_amount = await client.post(
+        "/cash/movement",
+        json={"type": "IN", "amount": 0, "reason": "Monto invalido"},
+        headers=headers,
+    )
+    assert invalid_amount.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_sales_cash_summary_counts_lowercase_cash_method(client):
+    headers = await _login_admin(client)
+    open_resp = await client.post("/cash/open", json={"opening_amount": 120.0}, headers=headers)
+    assert open_resp.status_code in {201, 409}
+
+    summary_before_resp = await client.get("/cash/summary", headers=headers)
+    assert summary_before_resp.status_code == 200
+    summary_before = summary_before_resp.json()
+
+    product_resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-CASH-LOWER-001",
+            "name": "Libro cash lower",
+            "category": "Caja",
+            "price": 17.0,
+            "cost": 6.0,
+            "stock": 3,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert product_resp.status_code == 201
+    product = product_resp.json()
+
+    sale_resp = await client.post(
+        "/sales",
+        json={
+            "customer_id": None,
+            "items": [{"product_id": product["id"], "qty": 1}],
+            "payments": [{"method": "cash", "amount": 17.0}],
+            "subtotal": 17.0,
+            "tax": 0.0,
+            "discount": 0.0,
+            "total": 17.0,
+            "promotion_id": None,
+        },
+        headers=headers,
+    )
+    assert sale_resp.status_code == 201
+
+    summary_after_resp = await client.get("/cash/summary", headers=headers)
+    assert summary_after_resp.status_code == 200
+    summary_after = summary_after_resp.json()
+
+    before_sales_cash = float(summary_before["sales_cash"])
+    after_sales_cash = float(summary_after["sales_cash"])
+    assert after_sales_cash - before_sales_cash == pytest.approx(17.0)
+
+
+@pytest.mark.asyncio
+async def test_cash_audit_log_persists_entity_id(client):
+    headers = await _login_admin(client)
+    open_resp = await client.post("/cash/open", json={"opening_amount": 60.0}, headers=headers)
+    assert open_resp.status_code in {201, 409}
+
+    summary_resp = await client.get("/cash/summary", headers=headers)
+    assert summary_resp.status_code == 200
+    expected = summary_resp.json()["expected_amount"]
+
+    audit_resp = await client.post(
+        "/cash/audit",
+        json={"type": "X", "counted_amount": expected},
+        headers=headers,
+    )
+    assert audit_resp.status_code == 201
+    audit_id = audit_resp.json()["id"]
+
+    logs_resp = await client.get("/audit", headers=headers)
+    assert logs_resp.status_code == 200
+    logs = logs_resp.json()
+    row = next((item for item in logs if item["action"] == "cash_audit" and item["entity_id"] == str(audit_id)), None)
+    assert row is not None
+
+
+@pytest.mark.asyncio
+async def test_warehouse_batch_audit_log_persists_entity_id(client):
+    headers = await _login_admin(client)
+
+    product_resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-BATCH-AUDIT-001",
+            "name": "Libro batch audit",
+            "category": "Inventario",
+            "price": 21.0,
+            "cost": 9.0,
+            "stock": 0,
+            "stock_min": 0,
+        },
+        headers=headers,
+    )
+    assert product_resp.status_code == 201
+    product_id = product_resp.json()["id"]
+
+    warehouses_resp = await client.get("/warehouses", headers=headers)
+    assert warehouses_resp.status_code == 200
+    warehouse_id = warehouses_resp.json()[0]["id"]
+
+    batch_resp = await client.post(
+        "/warehouses/batch",
+        json={
+            "product_id": product_id,
+            "warehouse_id": warehouse_id,
+            "lot": "BATCH-AUDIT-001",
+            "expiry_date": "",
+            "qty": 2,
+            "unit_cost": 9.0,
+            "direct_cost_allocated": 0,
+            "source_type": "TEST",
+            "source_ref": "SMOKE",
+        },
+        headers=headers,
+    )
+    assert batch_resp.status_code == 201
+
+    logs_resp = await client.get("/audit", headers=headers)
+    assert logs_resp.status_code == 200
+    logs = logs_resp.json()
+    row = next((item for item in logs if item["action"] == "warehouse_batch"), None)
+    assert row is not None
+    assert row["entity_id"] not in {"", "None"}
+
+
+@pytest.mark.asyncio
 async def test_close_cash_requires_z_audit(client):
     headers = await _login_admin(client)
     open_resp = await client.post("/cash/open", json={"opening_amount": 30.0}, headers=headers)
