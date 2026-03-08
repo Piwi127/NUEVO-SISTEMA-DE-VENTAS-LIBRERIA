@@ -8,6 +8,7 @@ import App from "@/routes/App";
 import { AuthProvider } from "@/auth/AuthProvider";
 import { ToastProvider } from "@/app/components";
 import { theme } from "@/theme";
+import "./index.css";
 
 const queryClient = new QueryClient();
 const PRELOAD_RELOAD_GUARD = "bookstore_preload_reload_guard";
