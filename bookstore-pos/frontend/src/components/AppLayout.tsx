@@ -35,41 +35,41 @@ type SectionVisual = {
 const SECTION_VISUALS: Record<string, SectionVisual> = {
   Operacion: {
     description: "Ventas, caja y flujo rapido de mostrador.",
-    accent: "#14507d",
-    glow: "rgba(20,80,125,0.18)",
-    panel: "linear-gradient(135deg, rgba(240,247,255,0.98) 0%, rgba(233,243,252,0.94) 100%)",
+    accent: "#B45309",
+    glow: "rgba(180,83,9,0.18)",
+    panel: "linear-gradient(135deg, rgba(255,248,239,0.99) 0%, rgba(251,240,224,0.95) 100%)",
   },
   Catalogo: {
     description: "Productos, clientes, proveedores y promociones.",
-    accent: "#1d5d8f",
-    glow: "rgba(29,93,143,0.18)",
-    panel: "linear-gradient(135deg, rgba(242,248,255,0.98) 0%, rgba(235,243,251,0.94) 100%)",
+    accent: "#254B67",
+    glow: "rgba(37,75,103,0.18)",
+    panel: "linear-gradient(135deg, rgba(245,250,255,0.99) 0%, rgba(236,245,251,0.95) 100%)",
   },
   "Inventario y compras": {
     description: "Movimientos, compras, recepcion y kardex.",
-    accent: "#12746b",
-    glow: "rgba(18,116,107,0.18)",
-    panel: "linear-gradient(135deg, rgba(239,250,248,0.98) 0%, rgba(244,250,249,0.94) 100%)",
+    accent: "#0F766E",
+    glow: "rgba(15,118,110,0.18)",
+    panel: "linear-gradient(135deg, rgba(239,250,248,0.99) 0%, rgba(230,246,243,0.95) 100%)",
   },
   Reportes: {
     description: "Indicadores operativos y vistas ejecutivas.",
-    accent: "#34516e",
-    glow: "rgba(52,81,110,0.16)",
-    panel: "linear-gradient(135deg, rgba(243,247,252,0.98) 0%, rgba(237,243,249,0.94) 100%)",
+    accent: "#415A6F",
+    glow: "rgba(65,90,111,0.16)",
+    panel: "linear-gradient(135deg, rgba(245,248,252,0.99) 0%, rgba(236,242,248,0.95) 100%)",
   },
   Administracion: {
     description: "Usuarios, permisos, seguridad y configuracion.",
-    accent: "#476175",
-    glow: "rgba(71,97,117,0.16)",
-    panel: "linear-gradient(135deg, rgba(244,248,252,0.98) 0%, rgba(238,244,248,0.94) 100%)",
+    accent: "#6B4C2F",
+    glow: "rgba(107,76,47,0.16)",
+    panel: "linear-gradient(135deg, rgba(250,247,241,0.99) 0%, rgba(243,236,226,0.95) 100%)",
   },
 };
 
 const DEFAULT_SECTION_VISUAL: SectionVisual = {
   description: "Accesos del sistema.",
-  accent: "#103a5f",
-  glow: "rgba(16,58,95,0.16)",
-  panel: "linear-gradient(135deg, rgba(243,248,255,0.98) 0%, rgba(238,244,251,0.94) 100%)",
+  accent: "#13293D",
+  glow: "rgba(19,41,61,0.16)",
+  panel: "linear-gradient(135deg, rgba(250,248,244,0.99) 0%, rgba(242,236,226,0.95) 100%)",
 };
 
 const getSectionVisual = (title?: string) => (title ? SECTION_VISUALS[title] ?? DEFAULT_SECTION_VISUAL : DEFAULT_SECTION_VISUAL);
@@ -268,8 +268,8 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                 width: "100%",
                 p: dense ? 1 : 1.05,
                 borderRadius: 2.5,
-                border: `1px solid ${selected ? alpha(visual.accent, 0.4) : "rgba(18,53,90,0.08)"}`,
-                bgcolor: selected ? alpha(visual.accent, 0.12) : "rgba(255,255,255,0.78)",
+                border: `1px solid ${selected ? alpha(visual.accent, 0.4) : "rgba(19,41,61,0.12)"}`,
+                bgcolor: selected ? alpha(visual.accent, 0.12) : "rgba(255,255,255,0.92)",
                 boxShadow: selected ? `0 10px 24px ${alpha(visual.accent, 0.16)}` : "none",
                 transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
                 "&:hover": {
@@ -320,7 +320,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
         flexDirection: "column",
         bgcolor: "background.default",
         backgroundImage:
-          "radial-gradient(circle at top left, rgba(16,58,95,0.08) 0%, rgba(16,58,95,0) 24%), radial-gradient(circle at top right, rgba(18,116,107,0.08) 0%, rgba(18,116,107,0) 24%), linear-gradient(180deg, #f7fbff 0%, #edf3f8 100%)",
+          "radial-gradient(circle at top left, rgba(19,41,61,0.1) 0%, rgba(19,41,61,0) 28%), radial-gradient(circle at top right, rgba(15,118,110,0.12) 0%, rgba(15,118,110,0) 32%), linear-gradient(180deg, #fbf8f2 0%, #f4f0e8 54%, #efe6d6 100%)",
       }}
     >
       <Paper
@@ -336,9 +336,9 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           borderRight: 0,
           borderTop: 0,
           overflow: "visible",
-          background: "linear-gradient(180deg, rgba(250,252,255,0.97) 0%, rgba(242,247,253,0.94) 100%)",
-          borderBottom: `1px solid ${alpha("#103a5f", 0.1)}`,
-          boxShadow: "0 18px 40px rgba(13,32,56,0.08)",
+          background: "linear-gradient(180deg, rgba(255,253,248,0.97) 0%, rgba(248,241,230,0.95) 100%)",
+          borderBottom: `1px solid ${alpha("#13293D", 0.12)}`,
+          boxShadow: "0 18px 40px rgba(19,41,61,0.12)",
           backdropFilter: "blur(18px)",
           WebkitBackdropFilter: "blur(18px)",
         }}
@@ -365,8 +365,8 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                     height: { xs: 42, md: 46 },
                     borderRadius: 2.5,
                     objectFit: "cover",
-                    border: `1px solid ${alpha("#12355a", 0.08)}`,
-                    boxShadow: "0 8px 20px rgba(12,31,51,0.08)",
+                    border: `1px solid ${alpha("#17344e", 0.1)}`,
+                    boxShadow: "0 8px 20px rgba(19,41,61,0.12)",
                   }}
                 />
               ) : (
@@ -404,7 +404,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                   {projectLabel}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
-                  {activeSection?.title || "Modulo"} · {activeItem?.label || "Inicio"}
+                  {activeSection?.title || "Modulo"}  -  {activeItem?.label || "Inicio"}
                 </Typography>
               </Box>
             </Stack>
@@ -416,7 +416,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                   onClick={() => setMobileMenuOpen((current) => !current)}
                   aria-label="Abrir menu principal"
                   sx={{
-                    border: `1px solid ${alpha("#12355a", 0.1)}`,
+                    border: `1px solid ${alpha("#17344e", 0.14)}`,
                     bgcolor: alpha(currentVisual.accent, 0.08),
                   }}
                 >
@@ -429,8 +429,8 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                   label={username}
                   size="small"
                   sx={{
-                    bgcolor: alpha("#103a5f", 0.07),
-                    border: `1px solid ${alpha("#103a5f", 0.1)}`,
+                    bgcolor: alpha("#13293D", 0.08),
+                    border: `1px solid ${alpha("#13293D", 0.14)}`,
                     color: "text.primary",
                     fontWeight: 800,
                   }}
@@ -444,8 +444,8 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                 onClick={handleLogout}
                 aria-label="Cerrar sesion"
                 sx={{
-                  border: `1px solid ${alpha("#103a5f", 0.1)}`,
-                  bgcolor: "rgba(245,249,255,0.92)",
+                  border: `1px solid ${alpha("#13293D", 0.14)}`,
+                  bgcolor: "rgba(255,252,246,0.95)",
                 }}
               >
                 <LogoutIcon />
@@ -485,7 +485,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                       px: 1.1,
                       py: 0.9,
                       borderRadius: 2.6,
-                      border: `1px solid ${isExpanded ? alpha(visual.accent, 0.34) : alpha("#12355a", 0.08)}`,
+                      border: `1px solid ${isExpanded ? alpha(visual.accent, 0.34) : alpha("#17344e", 0.12)}`,
                       bgcolor: isExpanded ? alpha(visual.accent, 0.12) : isActiveSection ? alpha(visual.accent, 0.08) : "rgba(255,255,255,0.92)",
                       boxShadow: isExpanded ? `0 12px 28px ${visual.glow}` : "none",
                       transition: "transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease",
@@ -566,7 +566,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                       borderBottom: { xs: `1px solid ${alpha(currentVisual.accent, 0.16)}`, lg: 0 },
                     }}
                   >
-                    <Typography variant="overline" sx={{ letterSpacing: 1.1, color: alpha("#12355a", 0.76) }}>
+                    <Typography variant="overline" sx={{ letterSpacing: 1.1, color: alpha("#17344e", 0.78) }}>
                       Menu principal
                     </Typography>
                     <Typography variant="h6" sx={{ mt: 0.3, fontWeight: 800, lineHeight: 1.05 }}>
@@ -652,12 +652,13 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
         </Collapse>
       </Paper>
 
-      <Box sx={{ width: "100%", maxWidth: { xl: 1680 }, mx: "auto", p: { xs: 1, sm: 1.5, md: 2.2 }, pb: { xs: 1.5, sm: 2, md: 3 }, display: "grid" }}>
-        {children}
+      <Box sx={{ width: "100%", maxWidth: { xl: 1720 }, mx: "auto", p: { xs: 1, sm: 1.5, md: 2.2 }, pb: { xs: 1.5, sm: 2, md: 3 } }}>
+        <Box sx={{ display: "grid", gap: { xs: 1, md: 1.2 } }}>{children}</Box>
       </Box>
     </Box>
   );
 };
+
 
 
 

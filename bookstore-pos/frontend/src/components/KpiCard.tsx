@@ -4,68 +4,96 @@ import { alpha } from "@mui/material/styles";
 
 type Props = {
   label: string;
-  value: string;
+  value: React.ReactNode;
   accent?: string;
+  icon?: React.ReactNode;
 };
 
-export const KpiCard: React.FC<Props> = ({ label, value, accent }) => {
-  const tone = accent || "#103a5f";
+export const KpiCard: React.FC<Props> = ({ label, value, accent, icon }) => {
+  const tone = accent || "#13293D";
 
   return (
     <Paper
+      className="glass-panel hover-lift"
       sx={{
         position: "relative",
         overflow: "hidden",
-        p: { xs: 1.35, sm: 1.6, md: 1.9 },
-        minHeight: "100%",
-        border: `1px solid ${alpha(tone, 0.14)}`,
-        background: `linear-gradient(160deg, rgba(255,255,255,0.99) 0%, ${alpha(tone, 0.06)} 100%)`,
-        boxShadow: `0 16px 32px ${alpha(tone, 0.1)}`,
+        p: { xs: 1.35, sm: 1.6 },
+        minHeight: 132,
+        display: "grid",
+        alignContent: "space-between",
+        gap: 1,
+        borderRadius: 3,
+        border: `1px solid ${alpha(tone, 0.2)}`,
+        background: `linear-gradient(135deg, rgba(255,255,255,0.98) 0%, ${alpha(tone, 0.08)} 100%)`,
+        boxShadow: `0 12px 26px ${alpha(tone, 0.12)}`,
         "&::before": {
           content: '""',
           position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
+          inset: "0 0 auto 0",
           height: 4,
-          background: `linear-gradient(90deg, ${tone} 0%, ${alpha(tone, 0.35)} 100%)`,
+          background: `linear-gradient(90deg, ${tone} 0%, ${alpha(tone, 0.45)} 100%)`,
         },
         "&::after": {
           content: '""',
           position: "absolute",
-          top: -40,
-          right: -28,
-          width: 124,
-          height: 124,
+          bottom: -22,
+          right: -22,
+          width: 120,
+          height: 120,
           borderRadius: "50%",
-          background: alpha(tone, 0.08),
+          background: `radial-gradient(circle, ${alpha(tone, 0.14)} 0%, transparent 70%)`,
+          pointerEvents: "none",
         },
       }}
     >
-      <Typography
-        variant="overline"
-        sx={{
-          color: alpha("#13263a", 0.68),
-          letterSpacing: 1.08,
-          lineHeight: 1,
-        }}
-      >
-        {label}
-      </Typography>
-      <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, flexWrap: "wrap", mt: 0.75, position: "relative", zIndex: 1 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", minWidth: 0, position: "relative", zIndex: 1 }}>
         <Typography
-          variant="h5"
+          variant="overline"
           sx={{
+            color: alpha("#13293D", 0.74),
+            letterSpacing: 1.15,
+            lineHeight: 1.2,
             fontWeight: 800,
-            color: tone,
-            fontSize: "clamp(1.42rem, 1.18rem + 0.78vw, 2.02rem)",
-            lineHeight: 1.02,
             wordBreak: "break-word",
           }}
         >
-          {value}
+          {label}
         </Typography>
+
+        {icon ? (
+          <Box
+            sx={{
+              color: tone,
+              display: "grid",
+              placeItems: "center",
+              width: 36,
+              height: 36,
+              borderRadius: 2,
+              bgcolor: alpha(tone, 0.12),
+              border: `1px solid ${alpha(tone, 0.2)}`,
+              flexShrink: 0,
+            }}
+          >
+            {icon}
+          </Box>
+        ) : null}
       </Box>
+
+      <Typography
+        variant="h4"
+        sx={{
+          fontWeight: 800,
+          color: tone,
+          fontSize: "clamp(1.45rem, 1.2vw + 1rem, 2.1rem)",
+          lineHeight: 1.08,
+          wordBreak: "break-word",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        {value}
+      </Typography>
     </Paper>
   );
 };

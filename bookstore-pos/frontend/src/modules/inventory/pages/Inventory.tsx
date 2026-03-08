@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  Divider,
   MenuItem,
   Paper,
   Stack,
@@ -21,6 +20,7 @@ import {
 } from "@mui/material";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import DownloadIcon from "@mui/icons-material/Download";
+import PublishIcon from "@mui/icons-material/Publish";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -33,19 +33,13 @@ import {
   downloadInventoryTemplate,
   downloadInventoryTemplateXlsx,
   getKardex,
-  uploadInventory,
 } from "@/modules/inventory/api";
-import { createBatch, createCount, createTransfer, createWarehouse, listWarehouses } from "@/modules/inventory/api";
+import { createBatch, createTransfer, createWarehouse, listWarehouses } from "@/modules/inventory/api";
 import { useSettings } from "@/app/store";
-
-const REQUIRED = ["sku", "name", "category", "price", "cost", "stock", "stock_min"];
-const PREVIEW_LIMIT = 15;
-
-type PreviewRow = Record<string, string | number>;
+import { REQUIRED_COLUMNS, PREVIEW_LIMIT, useInventoryUpload } from "@/modules/inventory/hooks/useInventoryUpload";
 
 const requiredSelectSchema = z.number().int().positive("Selecciona una opcion.");
 const positiveIntegerSchema = z.number().int("Ingresa un numero entero.").min(1, "Debe ser al menos 1.");
-const nonNegativeIntegerSchema = z.number().int("Ingresa un numero entero.").min(0, "No puede ser negativo.");
 const nonZeroNumberSchema = z.number().refine((value) => Number.isFinite(value) && value !== 0, "Ingresa una cantidad distinta de 0.");
 
 const warehouseFormSchema = z.object({
@@ -84,77 +78,16 @@ const batchFormSchema = z.object({
   qty: positiveIntegerSchema,
 });
 
-const countFormSchema = z.object({
-  warehouse_id: requiredSelectSchema,
-  product_id: requiredSelectSchema,
-  counted_qty: nonNegativeIntegerSchema,
-});
-
 type WarehouseFormValues = z.infer<typeof warehouseFormSchema>;
 type AdjustmentFormValues = z.infer<typeof adjustmentFormSchema>;
 type TransferFormValues = z.infer<typeof transferFormSchema>;
 type BatchFormValues = z.infer<typeof batchFormSchema>;
-type CountFormValues = z.infer<typeof countFormSchema>;
 
-const defaultWarehouseValues: WarehouseFormValues = {
-  name: "",
-  location: "",
-};
+const defaultWarehouseValues: WarehouseFormValues = { name: "", location: "" };
+const defaultAdjustmentValues: AdjustmentFormValues = { product_id: 0, qty: 0, ref: "ADJ:manual" };
+const defaultTransferValues: TransferFormValues = { from_warehouse_id: 0, to_warehouse_id: 0, product_id: 0, qty: 1 };
+const defaultBatchValues: BatchFormValues = { warehouse_id: 0, product_id: 0, lot: "", expiry_date: "", qty: 1 };
 
-const defaultAdjustmentValues: AdjustmentFormValues = {
-  product_id: 0,
-  qty: 0,
-  ref: "ADJ:manual",
-};
-
-const defaultTransferValues: TransferFormValues = {
-  from_warehouse_id: 0,
-  to_warehouse_id: 0,
-  product_id: 0,
-  qty: 1,
-};
-
-const defaultBatchValues: BatchFormValues = {
-  warehouse_id: 0,
-  product_id: 0,
-  lot: "",
-  expiry_date: "",
-  qty: 1,
-};
-
-const defaultCountValues: CountFormValues = {
-  warehouse_id: 0,
-  product_id: 0,
-  counted_qty: 0,
-};
-
-const parseCsvLine = (line: string) => {
-  const values: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    if (char === '"') {
-      if (inQuotes && line[index + 1] === '"') {
-        current += '"';
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-    if (char === "," && !inQuotes) {
-      values.push(current.trim());
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-
-  values.push(current.trim());
-  return values;
-};
 
 const Inventory: React.FC = () => {
   const qc = useQueryClient();
@@ -164,13 +97,14 @@ const Inventory: React.FC = () => {
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
 
-  const productsQuery = useQuery({ queryKey: ["products"], queryFn: () => listProducts() });
-  const warehousesQuery = useQuery({ queryKey: ["warehouses"], queryFn: () => listWarehouses() });
+  const productsQuery = useQuery({ queryKey: ["products"], queryFn: () => listProducts(), staleTime: 30_000 });
+  const warehousesQuery = useQuery({ queryKey: ["warehouses"], queryFn: () => listWarehouses(), staleTime: 5 * 60_000 });
 
   const products = productsQuery.data || [];
   const warehouses = warehousesQuery.data || [];
   const baseLoading = productsQuery.isLoading || warehousesQuery.isLoading;
   const baseError = productsQuery.isError || warehousesQuery.isError;
+
   const lowStockCount = products.filter((item) => Number(item.stock || 0) <= Number(item.stock_min || 0)).length;
   const criticalStockCount = products.filter((item) => Number(item.stock || 0) <= 0).length;
   const inventoryUnits = products.reduce((acc, item) => acc + Number(item.stock || 0), 0);
@@ -181,12 +115,6 @@ const Inventory: React.FC = () => {
   );
 
   const [tab, setTab] = useState(0);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<PreviewRow[]>([]);
-  const [totalRows, setTotalRows] = useState(0);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [uploadError, setUploadError] = useState("");
   const [kardexProductId, setKardexProductId] = useState(0);
 
   const { data: kardex, isLoading: kardexLoading, isError: kardexError, refetch: refetchKardex } = useQuery({
@@ -196,10 +124,15 @@ const Inventory: React.FC = () => {
   });
 
   const {
+    file, preview, totalRows, confirmOpen, setConfirmOpen, uploadLoading, uploadError,
+    handleFileChange, handleUpload, confirmUpload
+  } = useInventoryUpload();
+
+  const {
     register: registerWarehouse,
     reset: resetWarehouse,
     handleSubmit: handleWarehouseSubmit,
-    formState: { errors: warehouseErrors, isDirty: isWarehouseDirty, isSubmitting: isWarehouseSubmitting, isValid: isWarehouseValid },
+    formState: { errors: warehouseErrors, isSubmitting: isWarehouseSubmitting, isValid: isWarehouseValid },
   } = useForm<WarehouseFormValues>({ resolver: zodResolver(warehouseFormSchema), mode: "onChange", defaultValues: defaultWarehouseValues });
 
   const {
@@ -207,7 +140,7 @@ const Inventory: React.FC = () => {
     register: registerAdjustment,
     reset: resetAdjustment,
     handleSubmit: handleAdjustmentSubmit,
-    formState: { errors: adjustmentErrors, isDirty: isAdjustmentDirty, isSubmitting: isAdjustmentSubmitting, isValid: isAdjustmentValid },
+    formState: { errors: adjustmentErrors, isSubmitting: isAdjustmentSubmitting, isValid: isAdjustmentValid },
   } = useForm<AdjustmentFormValues>({ resolver: zodResolver(adjustmentFormSchema), mode: "onChange", defaultValues: defaultAdjustmentValues });
 
   const {
@@ -215,7 +148,7 @@ const Inventory: React.FC = () => {
     register: registerTransfer,
     reset: resetTransfer,
     handleSubmit: handleTransferSubmit,
-    formState: { errors: transferErrors, isDirty: isTransferDirty, isSubmitting: isTransferSubmitting, isValid: isTransferValid },
+    formState: { errors: transferErrors, isSubmitting: isTransferSubmitting, isValid: isTransferValid },
   } = useForm<TransferFormValues>({ resolver: zodResolver(transferFormSchema), mode: "onChange", defaultValues: defaultTransferValues });
 
   const {
@@ -223,23 +156,13 @@ const Inventory: React.FC = () => {
     register: registerBatch,
     reset: resetBatch,
     handleSubmit: handleBatchSubmit,
-    formState: { errors: batchErrors, isDirty: isBatchDirty, isSubmitting: isBatchSubmitting, isValid: isBatchValid },
+    formState: { errors: batchErrors, isSubmitting: isBatchSubmitting, isValid: isBatchValid },
   } = useForm<BatchFormValues>({ resolver: zodResolver(batchFormSchema), mode: "onChange", defaultValues: defaultBatchValues });
-
-  const {
-    control: countControl,
-    register: registerCount,
-    reset: resetCount,
-    handleSubmit: handleCountSubmit,
-    formState: { errors: countErrors, isDirty: isCountDirty, isSubmitting: isCountSubmitting, isValid: isCountValid },
-  } = useForm<CountFormValues>({ resolver: zodResolver(countFormSchema), mode: "onChange", defaultValues: defaultCountValues });
 
   const [warehouseSubmitError, setWarehouseSubmitError] = useState("");
   const [adjustmentSubmitError, setAdjustmentSubmitError] = useState("");
   const [transferSubmitError, setTransferSubmitError] = useState("");
   const [batchSubmitError, setBatchSubmitError] = useState("");
-  const [countSubmitError, setCountSubmitError] = useState("");
-
 
   const extractErrorDetail = (error: unknown, fallback: string) => {
     const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
@@ -251,126 +174,17 @@ const Inventory: React.FC = () => {
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = filename;
+    document.body.appendChild(anchor);
     anchor.click();
+    document.body.removeChild(anchor);
     window.URL.revokeObjectURL(url);
-  };
-
-  const validateColumns = (header: string[]) => {
-    const missing = REQUIRED.filter((column) => !header.includes(column));
-    if (missing.length > 0) {
-      const message = `Faltan columnas: ${missing.join(", ")}`;
-      setUploadError(message);
-      showToast({ message, severity: "error" });
-      return false;
-    }
-    return true;
-  };
-
-  const buildPreview = (rows: PreviewRow[]) => {
-    setTotalRows(rows.length);
-    setPreview(rows.slice(0, PREVIEW_LIMIT));
-  };
-
-  const parseCsv = async (selectedFile: File) => {
-    const text = await selectedFile.text();
-    const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
-    if (lines.length === 0) {
-      setUploadError("El archivo esta vacio.");
-      return false;
-    }
-    const header = parseCsvLine(lines[0]).map((value) => value.trim());
-    if (!validateColumns(header)) return false;
-    const rows = lines.slice(1).map((line) => {
-      const values = parseCsvLine(line);
-      const row: PreviewRow = {};
-      header.forEach((column, index) => {
-        row[column] = values[index] ?? "";
-      });
-      return row;
-    });
-    buildPreview(rows);
-    return true;
-  };
-
-  const parseXlsx = async (selectedFile: File) => {
-    const XLSX = await import("xlsx");
-    const buffer = await selectedFile.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
-    const header = (rows[0] || []).map((value) => String(value).trim());
-    if (!validateColumns(header)) return false;
-    const dataRows = rows.slice(1).map((rawRow) => {
-      const row: PreviewRow = {};
-      header.forEach((column, index) => {
-        row[column] = rawRow[index] ?? "";
-      });
-      return row;
-    });
-    buildPreview(dataRows);
-    return true;
-  };
-
-  const handleFileChange = async (selectedFile: File | null) => {
-    setUploadError("");
-    setPreview([]);
-    setTotalRows(0);
-    setFile(selectedFile);
-    if (!selectedFile) return;
-
-    const fileName = selectedFile.name.toLowerCase();
-    const isValid = fileName.endsWith(".csv")
-      ? await parseCsv(selectedFile)
-      : fileName.endsWith(".xlsx")
-        ? await parseXlsx(selectedFile)
-        : false;
-
-    if (!fileName.endsWith(".csv") && !fileName.endsWith(".xlsx")) {
-      const message = "Formato no soportado. Usa CSV o XLSX.";
-      setUploadError(message);
-      showToast({ message, severity: "error" });
-    }
-
-    if (!isValid) {
-      setFile(null);
-      setPreview([]);
-      setTotalRows(0);
-    }
-  };
-
-  const handleUpload = () => {
-    if (!file || totalRows === 0) {
-      setUploadError("Selecciona un archivo valido antes de importar.");
-      return;
-    }
-    setConfirmOpen(true);
-  };
-  const confirmUpload = async () => {
-    if (!file) return;
-    setConfirmOpen(false);
-    setUploadLoading(true);
-    try {
-      const result = await uploadInventory(file);
-      showToast({ message: `Carga masiva ok (${result.count})`, severity: "success" });
-      await qc.invalidateQueries({ queryKey: ["products"] });
-      setFile(null);
-      setPreview([]);
-      setTotalRows(0);
-      setUploadError("");
-    } catch (error: unknown) {
-      const message = extractErrorDetail(error, "Error en la carga masiva.");
-      setUploadError(message);
-      showToast({ message, severity: "error" });
-    } finally {
-      setUploadLoading(false);
-    }
   };
 
   const onCreateWarehouse = async (values: WarehouseFormValues) => {
     setWarehouseSubmitError("");
     try {
       await createWarehouse({ name: values.name.trim(), location: values.location.trim() });
-      showToast({ message: "Almacen creado", severity: "success" });
+      showToast({ message: "Almacen creado exitosamente", severity: "success" });
       resetWarehouse(defaultWarehouseValues);
       await qc.invalidateQueries({ queryKey: ["warehouses"] });
     } catch (error: unknown) {
@@ -384,7 +198,7 @@ const Inventory: React.FC = () => {
     setAdjustmentSubmitError("");
     try {
       await createInventoryMovement({ product_id: values.product_id, type: "ADJ", qty: values.qty, ref: values.ref.trim() });
-      showToast({ message: "Movimiento registrado", severity: "success" });
+      showToast({ message: "Movimiento registrado exitosamente", severity: "success" });
       resetAdjustment(defaultAdjustmentValues);
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["products"] }),
@@ -405,7 +219,7 @@ const Inventory: React.FC = () => {
         to_warehouse_id: values.to_warehouse_id,
         items: [{ product_id: values.product_id, qty: values.qty }],
       });
-      showToast({ message: "Transferencia realizada", severity: "success" });
+      showToast({ message: "Transferencia realizada exitosamente", severity: "success" });
       resetTransfer(defaultTransferValues);
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["products"] }),
@@ -428,7 +242,7 @@ const Inventory: React.FC = () => {
         expiry_date: values.expiry_date.trim(),
         qty: values.qty,
       });
-      showToast({ message: "Lote registrado", severity: "success" });
+      showToast({ message: "Lote del producto registrado", severity: "success" });
       resetBatch(defaultBatchValues);
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["products"] }),
@@ -441,40 +255,14 @@ const Inventory: React.FC = () => {
     }
   };
 
-  const onCount = async (values: CountFormValues) => {
-    setCountSubmitError("");
-    try {
-      await createCount({ warehouse_id: values.warehouse_id, product_id: values.product_id, counted_qty: values.counted_qty });
-      showToast({ message: "Conteo registrado", severity: "success" });
-      resetCount(defaultCountValues);
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["products"] }),
-        qc.invalidateQueries({ queryKey: ["kardex"] }),
-      ]);
-    } catch (error: unknown) {
-      const message = extractErrorDetail(error, "No se pudo registrar el conteo.");
-      setCountSubmitError(message);
-      showToast({ message, severity: "error" });
-    }
-  };
-
   if (baseError) {
     return (
-      <Box sx={{ display: "grid", gap: 1.5 }}>
-        <PageHeader
-          title="Inventario"
-          subtitle="Carga masiva, operaciones y kardex."
-          icon={<Inventory2Icon color="primary" />}
-          chips={[`Rol: ${role}`, `Productos: ${products.length}`]}
-          loading={baseLoading}
-        />
-        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
+      <Box sx={{ display: "grid", gap: 1.5 }} className="fade-in">
+        <PageHeader title="Inventario" subtitle="Gestión centralizada de stock" icon={<Inventory2Icon color="primary" />} />
+        <Paper className="glass-panel" sx={{ p: 4 }}>
           <ErrorState
-            title="No se pudo cargar inventario"
-            onRetry={() => {
-              productsQuery.refetch();
-              warehousesQuery.refetch();
-            }}
+            title="Sincronización fallida al cargar inventario"
+            onRetry={() => { productsQuery.refetch(); warehousesQuery.refetch(); }}
           />
         </Paper>
       </Box>
@@ -483,49 +271,43 @@ const Inventory: React.FC = () => {
 
   if (baseLoading) {
     return (
-      <Box sx={{ display: "grid", gap: 1.5 }}>
-        <PageHeader
-          title="Inventario"
-          subtitle="Carga masiva, operaciones y kardex."
-          icon={<Inventory2Icon color="primary" />}
-          chips={[`Rol: ${role}`, `Productos: ${products.length}`]}
-          loading
-        />
-        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-          <LoadingState title="Cargando inventario..." rows={3} />
+      <Box sx={{ display: "grid", gap: 1.5 }} className="fade-in">
+        <PageHeader title="Inventario" subtitle="Gestión centarlizada de stock" icon={<Inventory2Icon color="primary" />} loading />
+        <Paper className="glass-panel" sx={{ p: 4 }}>
+          <LoadingState title="Inicializando inventario..." rows={3} />
         </Paper>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ display: "grid", gap: 1.5 }}>
+    <Box sx={{ display: "grid", gap: 2 }} className="fade-in">
       <PageHeader
-        title="Inventario"
-        subtitle="Carga masiva, operaciones y kardex."
+        title="Gestión de Inventario"
+        subtitle="Carga masiva, operaciones manuales y Kardex."
         icon={<Inventory2Icon color="primary" />}
         chips={[`Rol: ${role}`, `Productos: ${products.length}`, `Almacenes: ${warehouses.length}`]}
       />
 
       <Paper
+        className="glass-panel pulse-subtle"
         sx={{
-          p: { xs: 1.2, md: 1.45 },
-          background: "linear-gradient(135deg, rgba(16,58,95,0.98) 0%, rgba(18,116,107,0.96) 50%, rgba(154,123,47,0.92) 100%)",
+          p: { xs: 2, md: 3 },
+          background: "linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)",
           color: "common.white",
-          border: "1px solid rgba(16,58,95,0.14)",
-          boxShadow: "0 26px 42px rgba(13,32,56,0.14)",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
         }}
       >
-        <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} alignItems={{ xs: "flex-start", lg: "center" }} justifyContent="space-between">
+        <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems={{ xs: "flex-start", lg: "center" }} justifyContent="space-between">
           <Box sx={{ maxWidth: 760 }}>
-            <Typography variant="overline" sx={{ color: "rgba(255,255,255,0.78)", letterSpacing: 1.15 }}>
-              Radar de abastecimiento
+            <Typography variant="overline" sx={{ color: "primary.light", fontWeight: 700, letterSpacing: 1.5 }}>
+              RADAR DE ABASTECIMIENTO
             </Typography>
-            <Typography variant="h5" sx={{ mt: 0.45, fontWeight: 800, letterSpacing: "-0.03em" }}>
-              Control de stock y operaciones en una sola vista
+            <Typography variant="h5" sx={{ mt: 0.5, fontWeight: 800, color: "white" }}>
+              Control de stock integral
             </Typography>
-            <Typography variant="body2" sx={{ mt: 0.65, color: "rgba(255,255,255,0.82)", maxWidth: 700 }}>
-              Este panel resume riesgo de quiebre, volumen actual y accesos operativos para importar, ajustar o revisar kardex.
+            <Typography variant="body2" sx={{ mt: 1, color: "rgba(255,255,255,0.7)", maxWidth: 600 }}>
+              Anticipa quiebres de stock. Configura alertas y revisa el flujo de bienes en toda tu red de almacenes al instante.
             </Typography>
           </Box>
 
@@ -533,569 +315,330 @@ const Inventory: React.FC = () => {
             sx={{
               display: "grid",
               gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-              gap: 0.85,
+              gap: 1.5,
               width: "100%",
               maxWidth: { md: 440 },
-              "& .MuiButton-root": {
-                width: "100%",
-                minWidth: 0,
-                justifyContent: "center",
-              },
             }}
           >
-            <Button variant="contained" startIcon={<DownloadIcon />} onClick={async () => downloadBlob(await downloadInventoryTemplate(), "inventario_template.csv")} sx={{ bgcolor: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)" }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<DownloadIcon />}
+              onClick={async () => downloadBlob(await downloadInventoryTemplate(), "inventario_template.csv")}
+            >
               Plantilla CSV
             </Button>
-            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={async () => downloadBlob(await downloadInventoryTemplateXlsx(), "inventario_template.xlsx")} sx={{ borderColor: "rgba(255,255,255,0.34)", color: "common.white" }}>
+            <Button
+              variant="outlined"
+              sx={{ color: "white", borderColor: "rgba(255,255,255,0.3)", "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" } }}
+              startIcon={<DownloadIcon />}
+              onClick={async () => downloadBlob(await downloadInventoryTemplateXlsx(), "inventario_template.xlsx")}
+            >
               Plantilla XLSX
             </Button>
           </Box>
         </Stack>
 
-        <Box
-          sx={{
-            mt: 2,
-            display: "grid",
-            gap: 1.2,
-            gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(180px, 1fr))" },
-          }}
-        >
-          <KpiCard label="Productos" value={`${products.length}`} accent="#dbeafe" />
-          <KpiCard label="Categorias" value={`${categoryCount}`} accent="#c7d2fe" />
-          <KpiCard label="Stock en alerta" value={`${lowStockCount}`} accent="#f97316" />
-          <KpiCard label="Sin stock" value={`${criticalStockCount}`} accent="#fecaca" />
-          <KpiCard label="Unidades totales" value={`${inventoryUnits}`} accent="#7dd3c7" />
-          <KpiCard label="Faltante minimo" value={`${coverageGap}`} accent="#fbbf24" />
+        <Box sx={{ mt: 3, display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(180px, 1fr))" } }}>
+          <KpiCard label="Productos" value={`${products.length}`} accent="#60A5FA" />
+          <KpiCard label="Categorias" value={`${categoryCount}`} accent="#818CF8" />
+          <KpiCard label="Stock en alerta" value={`${lowStockCount}`} accent="#F59E0B" />
+          <KpiCard label="Sin stock" value={`${criticalStockCount}`} accent="#EF4444" />
+          <KpiCard label="Unidades totales" value={`${inventoryUnits}`} accent="#10B981" />
+          <KpiCard label="Faltante (Estimado)" value={`${coverageGap}`} accent="#FBBF24" />
         </Box>
       </Paper>
 
-      <Box sx={{ display: "grid", gap: 1.2, gridTemplateColumns: { xs: "1fr", xl: "1.2fr 0.95fr" } }}>
-        <Paper sx={{ p: { xs: 1.1, md: 1.25 } }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
-            <Inventory2Icon color="primary" />
-            <Typography variant="h6">Pulso de inventario</Typography>
+      <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "1.2fr 0.95fr" } }}>
+        <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <Inventory2Icon color="primary" fontSize="small" />
+            <Typography variant="h6" fontWeight="700">Notificaciones del Sistema</Typography>
           </Stack>
-          <Stack spacing={1}>
-            {criticalStockCount > 0 ? (
-              <Alert severity="error">Hay {criticalStockCount} productos sin stock. Conviene priorizar compra o reposicion inmediata.</Alert>
-            ) : null}
-            {lowStockCount > 0 ? (
-              <Alert severity="warning">{lowStockCount} productos estan bajo el minimo. El faltante acumulado estimado es de {coverageGap} unidades.</Alert>
-            ) : null}
-            {file && totalRows > 0 ? (
-              <Alert severity="info">Hay un archivo listo para importar: {file.name}. Vista previa cargada con {totalRows} filas.</Alert>
-            ) : null}
-            {criticalStockCount === 0 && lowStockCount === 0 && !file ? (
-              <Alert severity="success">El inventario no presenta alertas criticas y no hay cargas pendientes en esta sesion.</Alert>
-            ) : null}
+          <Stack spacing={1.5}>
+            {criticalStockCount > 0 && (
+              <Alert severity="error" variant="outlined" sx={{ borderRadius: 2 }}>
+                Alerta Crítica: {criticalStockCount} producto(s) sin inventario disponible.
+              </Alert>
+            )}
+            {lowStockCount > 0 && (
+              <Alert severity="warning" variant="outlined" sx={{ borderRadius: 2 }}>
+                Atención: {lowStockCount} producto(s) por debajo del stock mínimo.
+              </Alert>
+            )}
+            {file && totalRows > 0 && (
+              <Alert severity="info" variant="outlined" sx={{ borderRadius: 2 }}>
+                Archivo escaneado: {file.name} - ({totalRows} filas detectadas). Completa la importación.
+              </Alert>
+            )}
+            {criticalStockCount === 0 && lowStockCount === 0 && !file && (
+              <Alert severity="success" variant="outlined" sx={{ borderRadius: 2 }}>
+                Inventario general saludable. Todos los niveles óptimos.
+              </Alert>
+            )}
           </Stack>
         </Paper>
 
-        <Paper sx={{ p: { xs: 1.1, md: 1.25 } }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
-            <DownloadIcon color="primary" />
-            <Typography variant="h6">Atajos operativos</Typography>
+        <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <PublishIcon color="primary" fontSize="small" />
+            <Typography variant="h6" fontWeight="700">Panel de Control</Typography>
           </Stack>
-          <Box sx={{ display: "grid", gap: 0.9, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
-            <Button variant={tab === 0 ? "contained" : "outlined"} onClick={() => setTab(0)}>Carga masiva</Button>
-            <Button variant={tab === 1 ? "contained" : "outlined"} onClick={() => setTab(1)}>Operaciones</Button>
-            <Button variant={tab === 2 ? "contained" : "outlined"} onClick={() => setTab(2)}>Kardex</Button>
-            <Button variant="outlined" onClick={() => setKardexProductId(products[0]?.id ?? 0)} disabled={!products.length}>Primer producto</Button>
-          </Box>
-          <Box sx={{ mt: 1.2, display: "grid", gap: 0.8 }}>
-            <Chip label={`Vista actual: ${tab === 0 ? "Carga masiva" : tab === 1 ? "Operaciones" : "Kardex"}`} />
-            <Chip label={file ? `Archivo: ${file.name}` : "Sin archivo seleccionado"} color={file ? "primary" : "default"} />
-            <Chip label={kardexProductId ? `Kardex activo: producto #${kardexProductId}` : "Kardex sin producto seleccionado"} color={kardexProductId ? "success" : "default"} />
+          <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
+            <Button variant={tab === 0 ? "contained" : "outlined"} onClick={() => setTab(0)}>Carga masiva (CSV/XLSX)</Button>
+            <Button variant={tab === 1 ? "contained" : "outlined"} onClick={() => setTab(1)}>Operaciones Manuales</Button>
+            <Button variant={tab === 2 ? "contained" : "outlined"} onClick={() => setTab(2)}>Reporte Kardex</Button>
+            <Button variant="outlined" color="secondary" onClick={() => setKardexProductId(products[0]?.id ?? 0)} disabled={!products.length}>Autoseleccionar Kardex</Button>
           </Box>
         </Paper>
       </Box>
 
-      <Paper sx={{ p: { xs: 0.8, md: 0.95 } }}>
-        <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" allowScrollButtonsMobile>
-          <Tab label="Carga masiva" />
-          <Tab label="Operaciones" />
-          <Tab label="Kardex" />
+      <Paper className="glass-panel" sx={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, value) => setTab(value)}
+          variant="fullWidth"
+          indicatorColor="primary"
+          textColor="primary"
+          sx={{ '& .MuiTab-root': { py: 2, fontWeight: 600 } }}
+        >
+          <Tab label="Importación Masiva" />
+          <Tab label="Operaciones de Bodega" />
+          <Tab label="Movimientos Kardex" />
         </Tabs>
       </Paper>
 
+      {/* TABS CONTENT */}
       {tab === 0 ? (
         role !== "admin" ? (
-          <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-            <EmptyState title="Sin acceso a carga masiva" description="Solo administradores pueden importar inventario." icon={<Inventory2Icon color="disabled" />} />
+          <Paper className="glass-panel" sx={{ p: 4, textAlign: "center", borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+            <EmptyState title="Permiso Denegado" description="Se requieren privilegios de Administrador para subir inventario." icon={<Inventory2Icon color="disabled" />} />
           </Paper>
         ) : (
-          <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Carga masiva
-            </Typography>
-            {uploadError ? <Alert severity="error" sx={{ mb: 2 }}>{uploadError}</Alert> : null}
-            {file ? (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-                Archivo listo para importar: {file.name}
-              </Typography>
-            ) : null}
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-              <Button type="button" variant="outlined" startIcon={<DownloadIcon />} onClick={async () => downloadBlob(await downloadInventoryTemplate(), "inventario_template.csv")}>
-                Plantilla CSV
-              </Button>
-              <Button type="button" variant="outlined" startIcon={<DownloadIcon />} onClick={async () => downloadBlob(await downloadInventoryTemplateXlsx(), "inventario_template.xlsx")}>
-                Plantilla XLSX
-              </Button>
-              <Button variant="outlined" component="label">
-                Seleccionar archivo
+          <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 }, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Asistente de Importación</Typography>
+            {uploadError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{uploadError}</Alert>}
+
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", p: 3, border: "2px dashed var(--border-subtle)", borderRadius: 3, bgcolor: "var(--bg-app)" }}>
+              <Button variant="outlined" component="label" size="large" sx={{ px: 4 }}>
+                Explorar Archivos locales
                 <input hidden type="file" accept=".csv,.xlsx" onChange={(event) => handleFileChange(event.currentTarget.files?.[0] || null)} />
               </Button>
-              <Button type="button" variant="contained" onClick={handleUpload} disabled={!file || uploadLoading}>
-                {uploadLoading ? "Importando..." : "Subir archivo"}
+              <Button type="button" variant="contained" size="large" color="primary" onClick={handleUpload} disabled={!file || uploadLoading} sx={{ px: 4 }}>
+                {uploadLoading ? "Sincronizando Sistema..." : "Iniciar Carga Datos"}
               </Button>
-              <Chip label={`Columnas: ${REQUIRED.join(", ")}`} size="small" />
+              {file && <Chip label={`Cargado en Ref: ${file.name}`} color="primary" variant="outlined" />}
             </Box>
 
-            {preview.length > 0 ? (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  Vista previa (primeras {PREVIEW_LIMIT} filas)
+            {preview.length > 0 && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5, color: "text.secondary" }}>
+                  Muestra interactiva (Lim. a {PREVIEW_LIMIT} registros)
                 </Typography>
+
                 {isCompact ? (
-                  <Box sx={{ display: "grid", gap: 1 }}>
+                  <Box sx={{ display: "grid", gap: 1.5 }}>
                     {preview.map((row, index) => (
-                      <Paper key={index} sx={{ p: 1.5 }}>
-                        {REQUIRED.map((column) => (
-                          <Box key={column} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-                            <Typography variant="body2" color="text.secondary">{column}</Typography>
-                            <Typography variant="body2">{String(row[column] ?? "")}</Typography>
+                      <Paper key={index} elevation={0} sx={{ p: 2, border: "1px solid var(--border-subtle)", borderRadius: 2 }}>
+                        {REQUIRED_COLUMNS.map((col) => (
+                          <Box key={col} sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">{col.toUpperCase()}</Typography>
+                            <Typography variant="body2" fontWeight={600}>{String(row[col] ?? "—")}</Typography>
                           </Box>
                         ))}
                       </Paper>
                     ))}
                   </Box>
                 ) : (
-                  <ResizableTable minHeight={240}><Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        {REQUIRED.map((column) => (
-                          <TableCell key={column}>{column}</TableCell>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {preview.map((row, index) => (
-                        <TableRow key={index}>
-                          {REQUIRED.map((column) => (
-                            <TableCell key={column}>{String(row[column] ?? "")}</TableCell>
+                  <ResizableTable minHeight={300}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          {REQUIRED_COLUMNS.map((column) => (
+                            <TableCell key={column} sx={{ fontWeight: 800 }}>{column.toUpperCase()}</TableCell>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table></ResizableTable>
+                      </TableHead>
+                      <TableBody>
+                        {preview.map((row, index) => (
+                          <TableRow key={index} hover>
+                            {REQUIRED_COLUMNS.map((column) => (
+                              <TableCell key={column}>{String(row[column] || "—")}</TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ResizableTable>
                 )}
-                <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
-                  Total de filas detectadas: {totalRows}
-                </Typography>
               </Box>
-            ) : null}
+            )}
           </Paper>
         )
       ) : null}
 
       {tab === 1 ? (
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "0.9fr 1.1fr" } }}>
-          <Box sx={{ display: "grid", gap: 1.5 }}>
-            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Almacenes
-              </Typography>
-              <Box component="form" onSubmit={handleWarehouseSubmit(onCreateWarehouse)} sx={{ display: "grid", gap: 2 }}>
-                {warehouseSubmitError ? <Alert severity="error">{warehouseSubmitError}</Alert> : null}
-                {isWarehouseDirty ? <Typography variant="caption" color="text.secondary">Hay cambios pendientes en el almacen.</Typography> : null}
-                <TextField
-                  label="Nombre"
-                  error={!!warehouseErrors.name}
-                  helperText={warehouseErrors.name?.message || "Nombre visible del almacen."}
-                  {...registerWarehouse("name", { onChange: () => setWarehouseSubmitError("") })}
-                />
-                <TextField
-                  label="Ubicacion"
-                  error={!!warehouseErrors.location}
-                  helperText={warehouseErrors.location?.message || "Opcional. Direccion o referencia interna."}
-                  {...registerWarehouse("location", { onChange: () => setWarehouseSubmitError("") })}
-                />
-                <Button type="submit" variant="contained" disabled={!isWarehouseValid || isWarehouseSubmitting}>
-                  {isWarehouseSubmitting ? "Creando..." : "Crear almacen"}
-                </Button>
-              </Box>
-            </Paper>
+        <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", lg: "repeat(2, 1fr)" }, mt: 2 }}>
+          <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Bodegas</Typography>
+            <Box component="form" onSubmit={handleWarehouseSubmit(onCreateWarehouse)} sx={{ display: "grid", gap: 2 }}>
+              {warehouseSubmitError && <Alert severity="error">{warehouseSubmitError}</Alert>}
+              <TextField label="Identificador / Nombre" error={!!warehouseErrors.name} helperText={warehouseErrors.name?.message} fullWidth {...registerWarehouse("name", { onChange: () => setWarehouseSubmitError("") })} />
+              <TextField label="Dirección Física (Opcional)" error={!!warehouseErrors.location} helperText={warehouseErrors.location?.message} fullWidth {...registerWarehouse("location", { onChange: () => setWarehouseSubmitError("") })} />
+              <Button type="submit" variant="contained" disabled={!isWarehouseValid || isWarehouseSubmitting}>
+                {isWarehouseSubmitting ? "Emitiendo..." : "Registrar Bodega"}
+              </Button>
+            </Box>
+          </Paper>
 
-            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Ajuste de inventario
-              </Typography>
-              <Box component="form" onSubmit={handleAdjustmentSubmit(onAdjust)} sx={{ display: "grid", gap: 2 }}>
-                {adjustmentSubmitError ? <Alert severity="error">{adjustmentSubmitError}</Alert> : null}
-                {isAdjustmentDirty ? <Typography variant="caption" color="text.secondary">Hay cambios pendientes en el ajuste.</Typography> : null}
-                <Controller
-                  control={adjustmentControl}
-                  name="product_id"
-                  render={({ field }) => (
-                    <TextField
-                      select
-                      label="Producto"
-                      value={field.value || ""}
-                      error={!!adjustmentErrors.product_id}
-                      helperText={adjustmentErrors.product_id?.message || "Producto al que se aplicara el ajuste."}
-                      onChange={(event) => {
-                        setAdjustmentSubmitError("");
-                        field.onChange(event.target.value === "" ? 0 : Number(event.target.value));
-                      }}
-                    >
-                      <MenuItem value="">Seleccionar producto</MenuItem>
-                      {products.map((product) => (
-                        <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <TextField
-                  label="Cantidad"
-                  type="number"
-                  error={!!adjustmentErrors.qty}
-                  helperText={adjustmentErrors.qty?.message || "Usa positivo o negativo segun el ajuste."}
-                  inputProps={{ step: 1 }}
-                  {...registerAdjustment("qty", {
-                    setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                    onChange: () => setAdjustmentSubmitError(""),
-                  })}
-                />
-                <TextField
-                  label="Referencia"
-                  error={!!adjustmentErrors.ref}
-                  helperText={adjustmentErrors.ref?.message || "Motivo o referencia del ajuste."}
-                  {...registerAdjustment("ref", { onChange: () => setAdjustmentSubmitError("") })}
-                />
-                <Button type="submit" variant="contained" disabled={!isAdjustmentValid || isAdjustmentSubmitting}>
-                  {isAdjustmentSubmitting ? "Registrando..." : "Registrar ajuste"}
-                </Button>
-              </Box>
-            </Paper>
-          </Box>
+          <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Desplazamiento / Transferencias</Typography>
+            <Box component="form" onSubmit={handleTransferSubmit(onTransfer)} sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(2, 1fr)" }}>
+              {transferSubmitError && <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{transferSubmitError}</Alert>}
+              <Controller
+                control={transferControl} name="from_warehouse_id"
+                render={({ field }) => (
+                  <TextField select label="Bodega Origen" value={field.value || ""} error={!!transferErrors.from_warehouse_id} helperText={transferErrors.from_warehouse_id?.message} onChange={(e) => { setTransferSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Seleccione Origen</MenuItem>
+                    {warehouses.map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
+                  </TextField>
+                )} />
+              <Controller
+                control={transferControl} name="to_warehouse_id"
+                render={({ field }) => (
+                  <TextField select label="Bodega Destino" value={field.value || ""} error={!!transferErrors.to_warehouse_id} helperText={transferErrors.to_warehouse_id?.message} onChange={(e) => { setTransferSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Seleccione Destino</MenuItem>
+                    {warehouses.map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
+                  </TextField>
+                )} />
+              <Controller
+                control={transferControl} name="product_id"
+                render={({ field }) => (
+                  <TextField select label="Producto Afectado" sx={{ gridColumn: "1 / -1" }} value={field.value || ""} error={!!transferErrors.product_id} helperText={transferErrors.product_id?.message} onChange={(e) => { setTransferSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Elija el Producto</MenuItem>
+                    {products.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                  </TextField>
+                )} />
+              <TextField label="Cantidad de Item" type="number" sx={{ gridColumn: "1 / -1" }} error={!!transferErrors.qty} helperText={transferErrors.qty?.message} inputProps={{ min: 1, step: 1 }} fullWidth {...registerTransfer("qty", { setValueAs: (v) => Number(v) || "0", onChange: () => setTransferSubmitError("") })} />
+              <Button type="submit" variant="contained" sx={{ gridColumn: "1 / -1" }} disabled={!isTransferValid || isTransferSubmitting}>
+                Confirmar Transferencia
+              </Button>
+            </Box>
+          </Paper>
 
-          <Box sx={{ display: "grid", gap: 1.5 }}>
-            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Transferencias
-              </Typography>
-              <Box component="form" onSubmit={handleTransferSubmit(onTransfer)} sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
-                {transferSubmitError ? <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{transferSubmitError}</Alert> : null}
-                {isTransferDirty ? <Typography variant="caption" color="text.secondary" sx={{ gridColumn: "1 / -1" }}>Hay cambios pendientes en la transferencia.</Typography> : null}
-                <Controller
-                  control={transferControl}
-                  name="from_warehouse_id"
-                  render={({ field }) => (
-                    <TextField
-                      select
-                      label="Almacen origen"
-                      value={field.value || ""}
-                      error={!!transferErrors.from_warehouse_id}
-                      helperText={transferErrors.from_warehouse_id?.message || "Origen del stock."}
-                      onChange={(event) => {
-                        setTransferSubmitError("");
-                        field.onChange(event.target.value === "" ? 0 : Number(event.target.value));
-                      }}
-                    >
-                      <MenuItem value="">Seleccionar origen</MenuItem>
-                      {warehouses.map((warehouse) => (
-                        <MenuItem key={warehouse.id} value={warehouse.id}>{warehouse.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  control={transferControl}
-                  name="to_warehouse_id"
-                  render={({ field }) => (
-                    <TextField
-                      select
-                      label="Almacen destino"
-                      value={field.value || ""}
-                      error={!!transferErrors.to_warehouse_id}
-                      helperText={transferErrors.to_warehouse_id?.message || "Destino del stock."}
-                      onChange={(event) => {
-                        setTransferSubmitError("");
-                        field.onChange(event.target.value === "" ? 0 : Number(event.target.value));
-                      }}
-                    >
-                      <MenuItem value="">Seleccionar destino</MenuItem>
-                      {warehouses.map((warehouse) => (
-                        <MenuItem key={warehouse.id} value={warehouse.id}>{warehouse.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  control={transferControl}
-                  name="product_id"
-                  render={({ field }) => (
-                    <TextField
-                      select
-                      label="Producto"
-                      value={field.value || ""}
-                      error={!!transferErrors.product_id}
-                      helperText={transferErrors.product_id?.message || "Producto a transferir."}
-                      onChange={(event) => {
-                        setTransferSubmitError("");
-                        field.onChange(event.target.value === "" ? 0 : Number(event.target.value));
-                      }}
-                    >
-                      <MenuItem value="">Seleccionar producto</MenuItem>
-                      {products.map((product) => (
-                        <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <TextField
-                  label="Cantidad"
-                  type="number"
-                  error={!!transferErrors.qty}
-                  helperText={transferErrors.qty?.message || "Cantidad total a mover."}
-                  inputProps={{ min: 1, step: 1 }}
-                  {...registerTransfer("qty", {
-                    setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                    onChange: () => setTransferSubmitError(""),
-                  })}
-                />
-                <Button type="submit" variant="contained" disabled={!isTransferValid || isTransferSubmitting} sx={{ gridColumn: isCompact ? "auto" : "1 / -1" }}>
-                  {isTransferSubmitting ? "Transfiriendo..." : "Transferir"}
-                </Button>
-              </Box>
-            </Paper>
+          <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Auditorías y Ajustes de Stock</Typography>
+            <Box component="form" onSubmit={handleAdjustmentSubmit(onAdjust)} sx={{ display: "grid", gap: 2 }}>
+              {adjustmentSubmitError && <Alert severity="error">{adjustmentSubmitError}</Alert>}
+              <Controller
+                control={adjustmentControl} name="product_id"
+                render={({ field }) => (
+                  <TextField select label="Artículo a Auditar" value={field.value || ""} error={!!adjustmentErrors.product_id} helperText={adjustmentErrors.product_id?.message} onChange={(e) => { setAdjustmentSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Seleccione SKU</MenuItem>
+                    {products.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                  </TextField>
+                )} />
+              <TextField label="Diferencial de Ajuste (E.j. -5 o 10)" type="number" error={!!adjustmentErrors.qty} helperText={adjustmentErrors.qty?.message} fullWidth {...registerAdjustment("qty", { setValueAs: (v) => Number(v) || "0", onChange: () => setAdjustmentSubmitError("") })} />
+              <TextField label="Motivo (Ref)" error={!!adjustmentErrors.ref} helperText={adjustmentErrors.ref?.message} fullWidth {...registerAdjustment("ref", { onChange: () => setAdjustmentSubmitError("") })} />
+              <Button type="submit" variant="contained" disabled={!isAdjustmentValid || isAdjustmentSubmitting}>
+                Efectuar Ajuste
+              </Button>
+            </Box>
+          </Paper>
 
-            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Lotes
-              </Typography>
-              <Box component="form" onSubmit={handleBatchSubmit(onBatch)} sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
-                {batchSubmitError ? <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{batchSubmitError}</Alert> : null}
-                {isBatchDirty ? <Typography variant="caption" color="text.secondary" sx={{ gridColumn: "1 / -1" }}>Hay cambios pendientes en el lote.</Typography> : null}
-                <Controller
-                  control={batchControl}
-                  name="warehouse_id"
-                  render={({ field }) => (
-                    <TextField
-                      select
-                      label="Almacen"
-                      value={field.value || ""}
-                      error={!!batchErrors.warehouse_id}
-                      helperText={batchErrors.warehouse_id?.message || "Almacen donde se registra el lote."}
-                      onChange={(event) => {
-                        setBatchSubmitError("");
-                        field.onChange(event.target.value === "" ? 0 : Number(event.target.value));
-                      }}
-                    >
-                      <MenuItem value="">Seleccionar almacen</MenuItem>
-                      {warehouses.map((warehouse) => (
-                        <MenuItem key={warehouse.id} value={warehouse.id}>{warehouse.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  control={batchControl}
-                  name="product_id"
-                  render={({ field }) => (
-                    <TextField
-                      select
-                      label="Producto"
-                      value={field.value || ""}
-                      error={!!batchErrors.product_id}
-                      helperText={batchErrors.product_id?.message || "Producto asociado al lote."}
-                      onChange={(event) => {
-                        setBatchSubmitError("");
-                        field.onChange(event.target.value === "" ? 0 : Number(event.target.value));
-                      }}
-                    >
-                      <MenuItem value="">Seleccionar producto</MenuItem>
-                      {products.map((product) => (
-                        <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <TextField
-                  label="Lote"
-                  error={!!batchErrors.lot}
-                  helperText={batchErrors.lot?.message || "Codigo interno del lote."}
-                  {...registerBatch("lot", { onChange: () => setBatchSubmitError("") })}
-                />
-                <TextField
-                  label="Vencimiento"
-                  type="date"
-                  error={!!batchErrors.expiry_date}
-                  helperText={batchErrors.expiry_date?.message || "Opcional. Fecha de vencimiento."}
-                  InputLabelProps={{ shrink: true }}
-                  {...registerBatch("expiry_date", { onChange: () => setBatchSubmitError("") })}
-                />
-                <TextField
-                  label="Cantidad"
-                  type="number"
-                  error={!!batchErrors.qty}
-                  helperText={batchErrors.qty?.message || "Cantidad inicial del lote."}
-                  inputProps={{ min: 1, step: 1 }}
-                  {...registerBatch("qty", {
-                    setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                    onChange: () => setBatchSubmitError(""),
-                  })}
-                />
-                <Button type="submit" variant="contained" disabled={!isBatchValid || isBatchSubmitting} sx={{ gridColumn: isCompact ? "auto" : "1 / -1" }}>
-                  {isBatchSubmitting ? "Registrando..." : "Registrar lote"}
-                </Button>
-              </Box>
-            </Paper>
-
-            <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Conteo ciclico
-              </Typography>
-              <Box component="form" onSubmit={handleCountSubmit(onCount)} sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))" }}>
-                {countSubmitError ? <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{countSubmitError}</Alert> : null}
-                {isCountDirty ? <Typography variant="caption" color="text.secondary" sx={{ gridColumn: "1 / -1" }}>Hay cambios pendientes en el conteo.</Typography> : null}
-                <Controller
-                  control={countControl}
-                  name="warehouse_id"
-                  render={({ field }) => (
-                    <TextField
-                      select
-                      label="Almacen"
-                      value={field.value || ""}
-                      error={!!countErrors.warehouse_id}
-                      helperText={countErrors.warehouse_id?.message || "Almacen donde se realiza el conteo."}
-                      onChange={(event) => {
-                        setCountSubmitError("");
-                        field.onChange(event.target.value === "" ? 0 : Number(event.target.value));
-                      }}
-                    >
-                      <MenuItem value="">Seleccionar almacen</MenuItem>
-                      {warehouses.map((warehouse) => (
-                        <MenuItem key={warehouse.id} value={warehouse.id}>{warehouse.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <Controller
-                  control={countControl}
-                  name="product_id"
-                  render={({ field }) => (
-                    <TextField
-                      select
-                      label="Producto"
-                      value={field.value || ""}
-                      error={!!countErrors.product_id}
-                      helperText={countErrors.product_id?.message || "Producto que se esta contando."}
-                      onChange={(event) => {
-                        setCountSubmitError("");
-                        field.onChange(event.target.value === "" ? 0 : Number(event.target.value));
-                      }}
-                    >
-                      <MenuItem value="">Seleccionar producto</MenuItem>
-                      {products.map((product) => (
-                        <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-                <TextField
-                  label="Cantidad contada"
-                  type="number"
-                  error={!!countErrors.counted_qty}
-                  helperText={countErrors.counted_qty?.message || "Puede ser 0 si no hay unidades fisicas."}
-                  inputProps={{ min: 0, step: 1 }}
-                  {...registerCount("counted_qty", {
-                    setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                    onChange: () => setCountSubmitError(""),
-                  })}
-                />
-                <Button type="submit" variant="contained" disabled={!isCountValid || isCountSubmitting} sx={{ gridColumn: isCompact ? "auto" : "1 / -1" }}>
-                  {isCountSubmitting ? "Registrando..." : "Registrar conteo"}
-                </Button>
-              </Box>
-            </Paper>
-          </Box>
+          <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Lotes del Proveedor</Typography>
+            <Box component="form" onSubmit={handleBatchSubmit(onBatch)} sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(2, 1fr)" }}>
+              {batchSubmitError && <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{batchSubmitError}</Alert>}
+              <Controller
+                control={batchControl} name="warehouse_id"
+                render={({ field }) => (
+                  <TextField select label="Recepción Bodega" value={field.value || ""} error={!!batchErrors.warehouse_id} helperText={batchErrors.warehouse_id?.message} onChange={(e) => { setBatchSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Seleccione</MenuItem>
+                    {warehouses.map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
+                  </TextField>
+                )} />
+              <Controller
+                control={batchControl} name="product_id"
+                render={({ field }) => (
+                  <TextField select label="Lote de Producción" value={field.value || ""} error={!!batchErrors.product_id} helperText={batchErrors.product_id?.message} onChange={(e) => { setBatchSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Asignar a Item</MenuItem>
+                    {products.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                  </TextField>
+                )} />
+              <TextField label="Serial / Lote Code" sx={{ gridColumn: "1 / -1" }} error={!!batchErrors.lot} helperText={batchErrors.lot?.message} fullWidth {...registerBatch("lot", { onChange: () => setBatchSubmitError("") })} />
+              <TextField label="Vencimiento Comercial" type="date" InputLabelProps={{ shrink: true }} error={!!batchErrors.expiry_date} helperText={batchErrors.expiry_date?.message} fullWidth {...registerBatch("expiry_date", { onChange: () => setBatchSubmitError("") })} />
+              <TextField label="Unidades Iniciales" type="number" error={!!batchErrors.qty} helperText={batchErrors.qty?.message} inputProps={{ min: 1, step: 1 }} fullWidth {...registerBatch("qty", { setValueAs: (v) => Number(v) || "0", onChange: () => setBatchSubmitError("") })} />
+              <Button type="submit" variant="contained" sx={{ gridColumn: "1 / -1" }} disabled={!isBatchValid || isBatchSubmitting}>
+                Grabar Datos de Recepción
+              </Button>
+            </Box>
+          </Paper>
         </Box>
       ) : null}
 
       {tab === 2 ? (
-        <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-          <Typography variant="h6">Kardex</Typography>
-          <Divider sx={{ my: 2 }} />
+        <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 }, mt: 2 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>Auditoría Histórica Multitemporal</Typography>
           <TextField
             select
-            label="Producto"
+            label="Inspeccionar Producto Específico"
             value={kardexProductId || ""}
             onChange={(event) => setKardexProductId(event.target.value === "" ? 0 : Number(event.target.value))}
-            helperText="Selecciona un producto para ver su historial de movimientos."
-            sx={{ minWidth: isCompact ? undefined : 320, mb: 2 }}
+            helperText="Selecciona un ítem de tu base de datos para recuperar de forma contínua sus eventos en el balance de inventario."
+            sx={{ minWidth: isCompact ? undefined : 400, mb: 4 }}
             fullWidth={isCompact}
           >
-            <MenuItem value="">Seleccionar producto</MenuItem>
+            <MenuItem value="">[ NO ESPECIFICADO ]</MenuItem>
             {products.map((product) => (
               <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
             ))}
           </TextField>
 
           {kardexProductId === 0 ? (
-            <EmptyState title="Sin producto seleccionado" description="Elige un producto para cargar su kardex." icon={<Inventory2Icon color="disabled" />} />
+            <EmptyState title="Esperando Selección" description="La auditoría requiere que establezcas el artículo de interés antes de realizar consultas persistentes en el log." icon={<Inventory2Icon color="disabled" sx={{ fontSize: 40 }} />} />
           ) : kardexLoading ? (
-            <LoadingState title="Cargando kardex..." />
+            <LoadingState title="Desempaquetando Eventos..." rows={4} />
           ) : kardexError ? (
-            <ErrorState title="No se pudo cargar el kardex" onRetry={() => refetchKardex()} />
+            <ErrorState title="Interrupción del Repositorio de Auditoría" onRetry={() => refetchKardex()} />
           ) : (kardex || []).length === 0 ? (
-            <EmptyState title="Sin movimientos" description="Este producto no tiene movimientos registrados." icon={<Inventory2Icon color="disabled" />} />
-          ) : isCompact ? (
-            <Box sx={{ display: "grid", gap: 1, maxHeight: 360, overflow: "auto" }}>
-              {(kardex || []).map((movement) => (
-                <Paper key={movement.id} sx={{ p: 1.5 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {movement.type} | {movement.qty}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {movement.created_at}
-                  </Typography>
-                  <Typography variant="body2">{movement.ref}</Typography>
-                </Paper>
-              ))}
-            </Box>
+            <EmptyState title="Vacío Operacional" description="Existen 0 comprobantes. El producto referenciado nunca participó activamente de las dinámicas." icon={<Inventory2Icon color="disabled" sx={{ fontSize: 40 }} />} />
           ) : (
-            <ResizableTable minHeight={240}><Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell>Tipo</TableCell>
-                  <TableCell>Cantidad</TableCell>
-                  <TableCell>Referencia</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(kardex || []).map((movement) => (
-                  <TableRow key={movement.id}>
-                    <TableCell>{movement.created_at}</TableCell>
-                    <TableCell>{movement.type}</TableCell>
-                    <TableCell>{movement.qty}</TableCell>
-                    <TableCell>{movement.ref}</TableCell>
+            <ResizableTable minHeight={400}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 800 }}>Timestamp del Evento</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>Tipo Operación</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>Impacto Neto (Cantidad)</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>Comprobante</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table></ResizableTable>
+                </TableHead>
+                <TableBody>
+                  {(kardex || []).map((movement) => (
+                    <TableRow key={movement.id} hover>
+                      <TableCell>{movement.created_at}</TableCell>
+                      <TableCell>
+                        <Chip size="small" label={movement.type} color={movement.type === "ADJ" ? "warning" : movement.type === "TRF" ? "info" : movement.qty > 0 ? "success" : "error"} variant="outlined" />
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: movement.qty > 0 ? "success.main" : "error.main" }}>{movement.qty > 0 ? `+${movement.qty}` : movement.qty}</TableCell>
+                      <TableCell sx={{ fontFamily: "monospace" }}>{movement.ref || "---"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ResizableTable>
           )}
         </Paper>
       ) : null}
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Confirmar importacion"
-        description={file ? `Se importaran ${totalRows} registros desde ${file.name}.` : undefined}
+        title="Procesar Importación"
+        description={file ? `Se importaran permanentemente ${totalRows} registros del conjunto de datos asociado a ${file.name}. La acción puede generar demoras en base a volumetría.` : undefined}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={confirmUpload}
-        confirmText="Importar"
+        confirmText="Confirmar y Sobrescribir"
         loading={uploadLoading}
       />
     </Box>
@@ -1103,13 +646,3 @@ const Inventory: React.FC = () => {
 };
 
 export default Inventory;
-
-
-
-
-
-
-
-
-
-

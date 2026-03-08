@@ -1,7 +1,12 @@
 import React, { useMemo, useState } from "react";
-import { Box, Button, Link, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
+import { Alert, Box, Button, Chip, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import { CardTable, EmptyState, PageHeader, ResizableTable, TableToolbar, useToast } from "@/app/components";
+import FilterListIcon from '@mui/icons-material/FilterList';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import SearchIcon from '@mui/icons-material/Search';
+
+import { CardTable, EmptyState, PageHeader, ResizableTable, useToast } from "@/app/components";
 import { useQuery } from "@tanstack/react-query";
 import { getReceipt, listSales } from "@/modules/pos/api";
 import { todayISO, detectTimeContext, formatDateTimeRegional, formatMoney } from "@/app/utils";
@@ -12,6 +17,18 @@ const daysAgoISO = (days: number) => {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);
+};
+
+const inputStyles = {
+  "& .MuiOutlinedInput-root": {
+    bgcolor: "rgba(255,255,255,0.7)",
+    borderRadius: 2,
+    backdropFilter: "blur(4px)",
+    "& fieldset": { borderColor: "rgba(18,53,90,0.15)" },
+    "&:hover fieldset": { borderColor: "primary.main" },
+    "&.Mui-focused fieldset": { borderColor: "primary.main", borderWidth: "1px" },
+  },
+  "& .MuiInputLabel-root": { fontWeight: 600, color: "text.secondary" },
 };
 
 const SalesHistory: React.FC = () => {
@@ -49,142 +66,217 @@ const SalesHistory: React.FC = () => {
       const receipt = await getReceipt(saleId);
       const opened = openReceiptWindow(receipt);
       if (!opened) {
-        showToast({ message: "Permite ventanas emergentes para ver el comprobante", severity: "warning" });
+        showToast({ message: "Permite ventanas emergentes en tu navegador para visualizar el ticket.", severity: "warning" });
       }
     } catch (err: unknown) {
       const message =
         typeof err === "object" &&
-        err !== null &&
-        "response" in err &&
-        typeof (err as { response?: { data?: { detail?: string } } }).response?.data?.detail === "string"
+          err !== null &&
+          "response" in err &&
+          typeof (err as { response?: { data?: { detail?: string } } }).response?.data?.detail === "string"
           ? (err as { response?: { data?: { detail?: string } } }).response!.data!.detail!
-          : "No se pudo abrir el comprobante";
+          : "Fallo al generar la representación visual del comprobante.";
       showToast({ message, severity: "error" });
     }
   };
 
   const cardRows = rows.map((sale) => ({
     key: sale.id,
-    title: `#${sale.id}`,
+    title: `Documento de Venta #${sale.id}`,
     subtitle: formatDateTimeRegional(sale.created_at),
-    right: <Typography sx={{ fontWeight: 700 }}>{formatMoney(sale.total)}</Typography>,
+    right: <Typography sx={{ fontWeight: 900, color: "primary.main", fontSize: "1.1rem" }}>{formatMoney(sale.total)}</Typography>,
     fields: [
       {
-        label: "Comprobante",
+        label: "Comp. Electrónico",
         value: sale.invoice_number ? (
-          <Link component="button" underline="hover" onClick={() => handleOpenReceipt(sale.id)}>
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => handleOpenReceipt(sale.id)}
+            sx={{ p: 0, minWidth: 0, fontWeight: 700, textTransform: "none", color: "secondary.main" }}
+          >
             {sale.invoice_number}
-          </Link>
-        ) : "-",
+          </Button>
+        ) : <Typography variant="caption" color="text.disabled" fontWeight="600">No Emitido</Typography>,
       },
-      { label: "Usuario", value: sale.user_id },
-      { label: "Cliente", value: sale.customer_id ?? "-" },
-      { label: "Estado", value: sale.status },
+      { label: "Ejecutivo / Cajero", value: sale.user_id },
+      { label: "Identificador Cliente", value: sale.customer_id ?? "-" },
+      {
+        label: "Fase de Documento",
+        value: <Chip size="small" label={sale.status} color={sale.status === 'PAID' ? 'success' : sale.status === 'VOID' ? 'error' : 'default'} sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700 }} />
+      },
     ],
   }));
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 3 }}>
       <PageHeader
-        title="Historial de ventas"
-        subtitle="Filtros por fecha, estado y limites."
-        icon={<ReceiptLongIcon color="primary" />}
-        chips={[`Registros: ${data?.length ?? 0}`, `Hora: ${timeZone}`]}
+        title="Repositorio de Ventas"
+        subtitle="Visualiza, filtra y descarga el registro histórico de todas las transacciones procesadas."
+        icon={<ReceiptLongIcon color="primary" sx={{ fontSize: 32 }} />}
+        chips={[
+          `${data?.length ?? 0} tickets cargados`,
+          `Horario Local: ${timeZone}`
+        ]}
       />
 
-      <TableToolbar title="Filtros" subtitle="Consulta por fechas y estado.">
-        <TextField select label="Estado" value={status} onChange={(e) => setStatus(e.target.value)} sx={{ width: "100%", maxWidth: { sm: 180 } }}>
-          <MenuItem value="">Todos</MenuItem>
-          <MenuItem value="PAID">PAID</MenuItem>
-          <MenuItem value="VOID">VOID</MenuItem>
-        </TextField>
-        <TextField type="date" label="Desde" value={from} onChange={(e) => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
-        <TextField type="date" label="Hasta" value={to} onChange={(e) => setTo(e.target.value)} InputLabelProps={{ shrink: true }} />
-        <TextField type="number" label="Limite" value={limit} onChange={(e) => setLimit(Number(e.target.value))} helperText="Max 500" />
-        <Button variant="outlined" onClick={() => { setFrom(""); setTo(""); }}>
-          Limpiar fechas
-        </Button>
-        <Button variant="outlined" onClick={() => { setFrom(todayISO()); setTo(todayISO()); }}>
-          Hoy
-        </Button>
-        <Button variant="outlined" onClick={() => { setFrom(daysAgoISO(7)); setTo(todayISO()); }}>
-          7 dias
-        </Button>
-        <Button variant="outlined" onClick={() => { setFrom(daysAgoISO(30)); setTo(todayISO()); }}>
-          30 dias
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => {
-            if (invalidDateRange) {
-              showToast({ message: "Rango de fechas invalido: 'Desde' es mayor que 'Hasta'.", severity: "warning" });
-              return;
-            }
-            refetch();
-          }}
-          disabled={isFetching}
-        >
-          Consultar
-        </Button>
-      </TableToolbar>
+      <Paper className="glass-panel" sx={{ p: 2.5, borderRadius: 4 }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ md: "flex-end" }}>
 
-      <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
-        {invalidDateRange ? (
-          <Typography variant="body2" color="warning.main" sx={{ mb: 1 }}>
-            Corrige el rango de fechas para consultar el historial.
-          </Typography>
-        ) : null}
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="overline" color="primary" fontWeight="800" sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+              <FilterListIcon fontSize="small" /> Opciones de Búsqueda
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} flexWrap="wrap" useFlexGap>
+              <TextField
+                select
+                label="Fase"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                size="small"
+                sx={{ ...inputStyles, minWidth: 160 }}
+              >
+                <MenuItem value="">Todos los Estados</MenuItem>
+                <MenuItem value="PAID">Cobrado (PAID)</MenuItem>
+                <MenuItem value="VOID">Anulado (VOID)</MenuItem>
+              </TextField>
+              <TextField
+                type="date"
+                label="Fecha de Inicio"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+                sx={{ ...inputStyles, width: { xs: "100%", sm: 160 } }}
+              />
+              <TextField
+                type="date"
+                label="Fecha de Corte"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+                sx={{ ...inputStyles, width: { xs: "100%", sm: 160 } }}
+              />
+              <TextField
+                type="number"
+                label="Límite"
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+                size="small"
+                sx={{ ...inputStyles, width: { xs: "100%", sm: 140 } }}
+              />
+            </Stack>
+          </Box>
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: { xs: 2, md: 0 } }}>
+            <Button variant="text" color="inherit" onClick={() => { setFrom(""); setTo(""); setStatus(""); }} startIcon={<RestartAltIcon />} sx={{ fontWeight: 700 }}>
+              Resetear
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              startIcon={<SearchIcon />}
+              onClick={() => {
+                if (invalidDateRange) {
+                  showToast({ message: "La fecha de inicio no puede ser posterior a la fecha de corte.", severity: "warning" });
+                  return;
+                }
+                refetch();
+              }}
+              disabled={isFetching}
+              sx={{ fontWeight: 800, borderRadius: 2 }}
+            >
+              Auditar
+            </Button>
+          </Stack>
+        </Stack>
+
+        <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap", rowGap: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center", mr: 1, fontWeight: 700 }}>Presets Rápidos:</Typography>
+          <Chip label="Hoy" onClick={() => { setFrom(todayISO()); setTo(todayISO()); }} size="small" icon={<CalendarTodayIcon fontSize="small" />} sx={{ fontWeight: 600 }} />
+          <Chip label="Últimos 7 días" onClick={() => { setFrom(daysAgoISO(7)); setTo(todayISO()); }} size="small" icon={<CalendarTodayIcon fontSize="small" />} sx={{ fontWeight: 600 }} />
+          <Chip label="Últimos 30 días" onClick={() => { setFrom(daysAgoISO(30)); setTo(todayISO()); }} size="small" icon={<CalendarTodayIcon fontSize="small" />} sx={{ fontWeight: 600 }} />
+        </Stack>
+
+        {invalidDateRange && (
+          <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
+            El rango de fechas ingresado presenta una incoherencia temporal. Modifíquelo para iniciar la extracción.
+          </Alert>
+        )}
+      </Paper>
+
+      <Paper className="glass-panel" sx={{ border: "1px solid var(--border-subtle)", borderRadius: 4, overflow: "hidden" }}>
         {isFetching ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Cargando ventas...
-          </Typography>
+          <Box sx={{ p: 4, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+            <Typography variant="body1" color="primary" fontWeight="700">
+              Desplegando historial transaccional...
+            </Typography>
+          </Box>
         ) : null}
+
         {!isFetching && !hasRows ? (
-          <EmptyState
-            title="Sin ventas"
-            description="No hay ventas en el rango seleccionado."
-            actionLabel="Reintentar"
-            onAction={() => refetch()}
-            icon={<ReceiptLongIcon color="disabled" />}
-          />
-        ) : isCompact ? (
+          <Box sx={{ py: 6 }}>
+            <EmptyState
+              title="Repositorio Vacío"
+              description="El motor de búsqueda no encontró tickets bajo las directrices de filtro proporcionadas."
+              actionLabel="Recargar Datos"
+              onAction={() => refetch()}
+              icon={<ReceiptLongIcon sx={{ fontSize: 48, color: "text.disabled" }} />}
+            />
+          </Box>
+        ) : isCompact && !isFetching ? (
           <CardTable rows={cardRows} />
-        ) : (
-          <ResizableTable minHeight={240}>
-            <Table size="small" stickyHeader>
+        ) : !isFetching ? (
+          <ResizableTable minHeight={400} sx={{ background: "transparent", boxShadow: "none" }}>
+            <Table size="medium" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell>Comprobante</TableCell>
-                  <TableCell>Usuario</TableCell>
-                  <TableCell>Cliente</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell align="right">Total</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: "text.primary", bgcolor: "rgba(248,250,252,0.9)" }}>ID Interno</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: "text.primary", bgcolor: "rgba(248,250,252,0.9)" }}>Procesamiento (TZ)</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: "text.primary", bgcolor: "rgba(248,250,252,0.9)" }}>Ticket Físico</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: "text.primary", bgcolor: "rgba(248,250,252,0.9)" }}>Operador</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: "text.primary", bgcolor: "rgba(248,250,252,0.9)" }}>Cod. Cliente</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: "text.primary", bgcolor: "rgba(248,250,252,0.9)" }}>Fase</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800, color: "text.primary", bgcolor: "rgba(248,250,252,0.9)" }}>Facturado</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {rows.map((sale) => (
-                  <TableRow key={sale.id}>
-                    <TableCell>{sale.id}</TableCell>
-                    <TableCell>{formatDateTimeRegional(sale.created_at)}</TableCell>
+                  <TableRow key={sale.id} hover sx={{ "&:hover": { bgcolor: "rgba(18,53,90,0.02)" } }}>
+                    <TableCell sx={{ fontWeight: 700, color: "text.secondary" }}>#{sale.id}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{formatDateTimeRegional(sale.created_at)}</TableCell>
                     <TableCell>
                       {sale.invoice_number ? (
-                        <Link component="button" underline="hover" onClick={() => handleOpenReceipt(sale.id)}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleOpenReceipt(sale.id)}
+                          sx={{ borderRadius: 4, fontWeight: 700, textTransform: "none", fontSize: "0.75rem", px: 2 }}
+                        >
                           {sale.invoice_number}
-                        </Link>
-                      ) : "-"}
+                        </Button>
+                      ) : <Typography variant="caption" color="text.disabled" fontWeight="600">N/A</Typography>}
                     </TableCell>
                     <TableCell>{sale.user_id}</TableCell>
-                    <TableCell>{sale.customer_id ?? "-"}</TableCell>
-                    <TableCell>{sale.status}</TableCell>
-                    <TableCell align="right">{formatMoney(sale.total)}</TableCell>
+                    <TableCell>{sale.customer_id ?? <Typography variant="caption" color="text.secondary">Cliente Genérico</Typography>}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={sale.status}
+                        color={sale.status === 'PAID' ? 'success' : sale.status === 'VOID' ? 'error' : 'default'}
+                        variant="filled"
+                        sx={{ height: 22, fontSize: "0.7rem", fontWeight: 800 }}
+                      />
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 900, color: "primary.dark", fontSize: "1.05rem" }}>{formatMoney(sale.total)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </ResizableTable>
-        )}
+        ) : null}
       </Paper>
     </Box>
   );

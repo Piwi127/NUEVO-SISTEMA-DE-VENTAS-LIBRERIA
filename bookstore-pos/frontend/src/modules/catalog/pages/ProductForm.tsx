@@ -1,534 +1,102 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import { Alert, Box, Button, MenuItem, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
 import CategoryIcon from "@mui/icons-material/Category";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import PriceCheckIcon from "@mui/icons-material/PriceCheck";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { useNavigate, useParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ErrorState, LoadingState, PageHeader, useToast } from "@/app/components";
-import {
-  applyProductPricing,
-  createProduct,
-  getProduct,
-  listProductCategories,
-  previewProductPricing,
-  updateProduct,
-  type PricingPreviewPayload,
-  type PricingPreviewResponse,
-} from "@/modules/catalog/api";
-import type { Product } from "@/modules/shared/types";
+import { ErrorState, LoadingState, PageHeader } from "@/app/components";
+import { useProductForm, UseProductFormProps } from "@/modules/catalog/hooks/useProductForm";
 
-type CategoryTab = "existing" | "new";
-
-const nonNegativeNumberSchema = z.number().min(0, "Debe ser mayor o igual a 0.");
-const nonNegativeIntegerSchema = z.number().int("Ingresa un numero entero.").min(0, "Debe ser mayor o igual a 0.");
-const positiveIntegerSchema = z.number().int("Ingresa un numero entero.").min(1, "Debe ser al menos 1.");
-
-const decimalInputSchema = z
-  .string()
-  .trim()
-  .min(1, "Ingresa un valor.")
-  .refine((value) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed >= 0;
-  }, "Ingresa un monto valido.");
-
-const marginPercentSchema = z
-  .string()
-  .trim()
-  .min(1, "Ingresa el margen deseado.")
-  .refine((value) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed >= 0 && parsed < 100;
-  }, "Usa un porcentaje entre 0 y 99.99.");
-
-const productFormSchema = z.object({
-  sku: z.string().trim().min(1, "Ingresa el SKU.").max(60, "El SKU es demasiado largo."),
-  name: z.string().trim().min(2, "Ingresa al menos 2 caracteres.").max(180, "El nombre es demasiado largo."),
-  author: z.string().trim().max(160, "El autor es demasiado largo."),
-  publisher: z.string().trim().max(160, "La editorial es demasiado larga."),
-  isbn: z.string().trim().max(32, "El ISBN es demasiado largo."),
-  barcode: z.string().trim().max(80, "El codigo de barras es demasiado largo."),
-  shelf_location: z.string().trim().max(80, "La ubicacion es demasiado larga."),
-  category: z.string().trim().max(80, "La categoria es demasiado larga."),
-  tags: z.string().trim().max(200, "Las etiquetas son demasiado largas."),
-  price: nonNegativeNumberSchema,
-  cost: nonNegativeNumberSchema,
-  sale_price: nonNegativeNumberSchema,
-  cost_total: nonNegativeNumberSchema,
-  cost_qty: positiveIntegerSchema,
-  direct_costs_breakdown: z.string(),
-  direct_costs_total: nonNegativeNumberSchema,
-  desired_margin: z.number().min(0, "El margen no puede ser negativo.").max(0.9999, "El margen debe ser menor a 100%."),
-  unit_cost: nonNegativeNumberSchema,
-  stock: nonNegativeIntegerSchema,
-  stock_min: nonNegativeIntegerSchema,
-});
-
-const pricingFormSchema = z.object({
-  qty: positiveIntegerSchema,
-  cost_total: decimalInputSchema,
-  transport: decimalInputSchema,
-  pack: decimalInputSchema,
-  other: decimalInputSchema,
-  delivery: decimalInputSchema,
-  desired_margin_percent: marginPercentSchema,
-});
-
-type ProductFormValues = z.infer<typeof productFormSchema>;
-type MarginInputs = z.infer<typeof pricingFormSchema>;
-type PricingBackedProductFields = Pick<
-  ProductFormValues,
-  "price" | "sale_price" | "cost" | "unit_cost" | "cost_total" | "cost_qty" | "direct_costs_breakdown" | "direct_costs_total" | "desired_margin"
->;
-
-const emptyForm: ProductFormValues = {
-  sku: "",
-  name: "",
-  author: "",
-  publisher: "",
-  isbn: "",
-  barcode: "",
-  shelf_location: "",
-  category: "",
-  tags: "",
-  price: 0,
-  cost: 0,
-  sale_price: 0,
-  cost_total: 0,
-  cost_qty: 1,
-  direct_costs_breakdown: "{}",
-  direct_costs_total: 0,
-  desired_margin: 0,
-  unit_cost: 0,
-  stock: 0,
-  stock_min: 0,
+export type ProductFormProps = UseProductFormProps & {
+  isModal?: boolean;
 };
 
-const emptyMarginInputs: MarginInputs = {
-  qty: 1,
-  cost_total: "0",
-  transport: "0",
-  pack: "0",
-  other: "0",
-  delivery: "0",
-  desired_margin_percent: "35",
-};
-
-const pricingBackedFields = new Set<keyof ProductFormValues>([
-  "price",
-  "sale_price",
-  "cost",
-  "unit_cost",
-  "cost_total",
-  "cost_qty",
-  "direct_costs_breakdown",
-  "direct_costs_total",
-  "desired_margin",
-]);
-
-const parseBreakdown = (raw: string): Record<string, number> => {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return {};
-    return Object.fromEntries(Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [key, Number(value || 0)]));
-  } catch {
-    return {};
-  }
-};
-
-const toDecimalString = (value: string): string => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return "0";
-  return parsed.toString();
-};
-
-const errorMessage = (err: any, fallback: string) => err?.response?.data?.detail || fallback;
-
-const ProductForm: React.FC = () => {
-  const navigate = useNavigate();
-  const qc = useQueryClient();
-  const { showToast } = useToast();
-  const { productId } = useParams();
-  const parsedId = Number(productId);
-  const isEditing = Number.isFinite(parsedId) && parsedId > 0;
-
-  const [saving, setSaving] = useState(false);
-  const [categoryTab, setCategoryTab] = useState<CategoryTab>("existing");
-  const [newCategory, setNewCategory] = useState("");
-  const [preview, setPreview] = useState<PricingPreviewResponse | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [applyLoading, setApplyLoading] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const [pricingError, setPricingError] = useState("");
-
-  const productQuery = useQuery({
-    queryKey: ["product", parsedId],
-    queryFn: () => getProduct(parsedId),
-    enabled: isEditing,
-    staleTime: 30_000,
-  });
-  const categoriesQuery = useQuery({
-    queryKey: ["product-categories"],
-    queryFn: listProductCategories,
-    staleTime: 5 * 60_000,
-  });
+const ProductForm: React.FC<ProductFormProps> = ({ productId, onComplete }) => {
+  const {
+    isEditing,
+    parsedId,
+    saving,
+    categoryTab,
+    setCategoryTab,
+    newCategory,
+    setNewCategory,
+    preview,
+    previewLoading,
+    applyLoading,
+    submitError,
+    setSubmitError,
+    pricingError,
+    setPricingError,
+    productQuery,
+    categoriesQuery,
+    productForm,
+    pricingForm,
+    categoryOptions,
+    syncedValues,
+    handleCreateCategory,
+    closeTabOrGoBack,
+    handlePreviewPricing,
+    handleApplyPricing,
+    handleSave,
+  } = useProductForm({ productId, onComplete });
 
   const {
     register: registerProduct,
-    reset: resetProduct,
-    setValue: setProductValue,
-    getValues: getProductValues,
-    watch: watchProduct,
-    trigger: triggerProduct,
-    formState: { errors: productErrors, isDirty: isProductDirty, dirtyFields: productDirtyFields, isValid: isProductValid },
-  } = useForm<ProductFormValues>({
-    resolver: zodResolver(productFormSchema),
-    mode: "onChange",
-    defaultValues: emptyForm,
-  });
+    formState: { errors: productErrors, isDirty: isProductDirty, isValid: isProductValid },
+  } = productForm;
 
   const {
     register: registerPricing,
-    reset: resetPricing,
-    getValues: getPricingValues,
-    trigger: triggerPricing,
     formState: { errors: pricingErrors, isDirty: isPricingDirty, isValid: isPricingValid },
-  } = useForm<MarginInputs>({
-    resolver: zodResolver(pricingFormSchema),
-    mode: "onChange",
-    defaultValues: emptyMarginInputs,
-  });
+  } = pricingForm;
 
-  useEffect(() => {
-    if (!productQuery.data) return;
-    const source = productQuery.data;
-    const breakdown = parseBreakdown(source.direct_costs_breakdown || "{}");
-    resetProduct({
-      sku: source.sku || "",
-      name: source.name || "",
-      author: source.author || "",
-      publisher: source.publisher || "",
-      isbn: source.isbn || "",
-      barcode: source.barcode || "",
-      shelf_location: source.shelf_location || "",
-      category: source.category || "",
-      tags: source.tags || "",
-      price: Number(source.price || 0),
-      cost: Number(source.cost || 0),
-      sale_price: Number(source.sale_price ?? source.price ?? 0),
-      cost_total: Number(source.cost_total || 0),
-      cost_qty: Number(source.cost_qty || 1),
-      direct_costs_breakdown: source.direct_costs_breakdown || "{}",
-      direct_costs_total: Number(source.direct_costs_total || 0),
-      desired_margin: Number(source.desired_margin || 0),
-      unit_cost: Number(source.unit_cost || source.cost || 0),
-      stock: Number(source.stock || 0),
-      stock_min: Number(source.stock_min || 0),
-    });
-    resetPricing({
-      qty: Number(source.cost_qty || 1),
-      cost_total: String(Number(source.cost_total || source.cost || 0)),
-      transport: String(Number(breakdown.transport || 0)),
-      pack: String(Number(breakdown.pack || 0)),
-      other: String(Number(breakdown.other || 0)),
-      delivery: String(Number(breakdown.delivery || 0)),
-      desired_margin_percent: String((Number(source.desired_margin || 0) * 100).toFixed(2)),
-    });
-    setPreview(null);
-    setSubmitError("");
-    setPricingError("");
-  }, [productQuery.data, resetPricing, resetProduct]);
-
-  const selectedCategory = watchProduct("category");
-  const [syncedPrice, syncedCost, syncedCostTotal, syncedCostQty, syncedDirectCostsTotal, syncedDesiredMargin] = watchProduct([
-    "price",
-    "cost",
-    "cost_total",
-    "cost_qty",
-    "direct_costs_total",
-    "desired_margin",
-  ]);
-
-  const categoryOptions = useMemo(() => {
-    const values = new Set((categoriesQuery.data || []).map((item) => item.trim()).filter(Boolean));
-    const selected = selectedCategory.trim();
-    if (selected) values.add(selected);
-    return Array.from(values).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-  }, [categoriesQuery.data, selectedCategory]);
-
-  const handleCreateCategory = () => {
-    const value = newCategory.trim();
-    if (!value) {
-      showToast({ message: "Escribe un nombre de categoria", severity: "warning" });
-      return;
-    }
-    setSubmitError("");
-    setProductValue("category", value, { shouldDirty: true, shouldValidate: true });
-    setNewCategory("");
-    setCategoryTab("existing");
-    showToast({ message: "Categoria agregada al producto", severity: "success" });
-  };
-
-  const closeTabOrGoBack = () => {
-    if (typeof window !== "undefined" && window.opener && !window.opener.closed) {
-      window.close();
-      return;
-    }
-    navigate("/products");
-  };
-
-  const pricingPayload = (values: MarginInputs): PricingPreviewPayload => {
-    const desiredMargin = Number(values.desired_margin_percent);
-    return {
-      qty: Number(values.qty || 0),
-      cost_total: toDecimalString(values.cost_total),
-      direct_costs_breakdown: {
-        transport: toDecimalString(values.transport),
-        pack: toDecimalString(values.pack),
-        other: toDecimalString(values.other),
-        delivery: toDecimalString(values.delivery),
-      },
-      desired_margin: (desiredMargin / 100).toString(),
-    };
-  };
-
-  const buildProductPricingFields = (
-    payload: PricingPreviewPayload,
-    calculated: { unit_cost: number; sale_price: number; direct_costs_total: number }
-  ): PricingBackedProductFields => ({
-    price: calculated.sale_price,
-    sale_price: calculated.sale_price,
-    cost: calculated.unit_cost,
-    unit_cost: calculated.unit_cost,
-    cost_total: Number(payload.cost_total),
-    cost_qty: payload.qty,
-    direct_costs_breakdown: JSON.stringify(payload.direct_costs_breakdown),
-    direct_costs_total: calculated.direct_costs_total,
-    desired_margin: Number(payload.desired_margin),
-  });
-
-  const syncProductPricingFields = (fields: PricingBackedProductFields, shouldDirty = true) => {
-    setProductValue("price", fields.price, { shouldDirty, shouldValidate: true });
-    setProductValue("sale_price", fields.sale_price, { shouldDirty, shouldValidate: true });
-    setProductValue("cost", fields.cost, { shouldDirty, shouldValidate: true });
-    setProductValue("unit_cost", fields.unit_cost, { shouldDirty, shouldValidate: true });
-    setProductValue("cost_total", fields.cost_total, { shouldDirty, shouldValidate: true });
-    setProductValue("cost_qty", fields.cost_qty, { shouldDirty, shouldValidate: true });
-    setProductValue("direct_costs_breakdown", fields.direct_costs_breakdown, { shouldDirty, shouldValidate: true });
-    setProductValue("direct_costs_total", fields.direct_costs_total, { shouldDirty, shouldValidate: true });
-    setProductValue("desired_margin", fields.desired_margin, { shouldDirty, shouldValidate: true });
-  };
-
-  const handlePreviewPricing = async () => {
-    setPricingError("");
-    const valid = await triggerPricing();
-    if (!valid) {
-      showToast({ message: "Revisa los campos del pricing antes de calcular.", severity: "warning" });
-      return;
-    }
-    try {
-      setPreviewLoading(true);
-      const pricingValues = getPricingValues();
-      const payload = pricingPayload(pricingValues);
-      const response = await previewProductPricing(payload);
-      syncProductPricingFields(
-        buildProductPricingFields(payload, {
-          unit_cost: response.unit_cost,
-          sale_price: response.sale_price_unit,
-          direct_costs_total: response.direct_costs_total,
-        })
-      );
-      setPreview(response);
-      resetPricing(pricingValues);
-      showToast({ message: "Costo y precio actualizados en el formulario.", severity: "success" });
-    } catch (err: any) {
-      const message = errorMessage(err, "No se pudo calcular.");
-      setPricingError(message);
-      showToast({ message, severity: "error" });
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  const handleApplyPricing = async () => {
-    if (!isEditing) {
-      showToast({ message: "Primero guarda el producto para aplicar pricing", severity: "warning" });
-      return;
-    }
-    setPricingError("");
-    const valid = await triggerPricing();
-    if (!valid) {
-      showToast({ message: "Revisa los campos del pricing antes de aplicar.", severity: "warning" });
-      return;
-    }
-    try {
-      setApplyLoading(true);
-      const pricingValues = getPricingValues();
-      const payload = pricingPayload(pricingValues);
-      const result = await applyProductPricing(parsedId, payload);
-      const nextPricingFields = buildProductPricingFields(payload, {
-        unit_cost: result.unit_cost,
-        sale_price: result.sale_price,
-        direct_costs_total: result.direct_costs_total,
-      });
-      const currentProduct = getProductValues();
-      const nextProduct: ProductFormValues = {
-        ...currentProduct,
-        ...nextPricingFields,
-      };
-      const hasNonPricingDirtyFields = Object.keys(productDirtyFields).some(
-        (field) => !pricingBackedFields.has(field as keyof ProductFormValues)
-      );
-
-      if (hasNonPricingDirtyFields) {
-        syncProductPricingFields(nextPricingFields);
-      } else {
-        resetProduct(nextProduct);
-      }
-
-      resetPricing(pricingValues);
-      setPreview({
-        qty: payload.qty,
-        desired_margin: Number(payload.desired_margin),
-        direct_costs_total: result.direct_costs_total,
-        cost_total_all: result.cost_total_all,
-        unit_cost: result.unit_cost,
-        sale_price_unit: result.sale_price,
-        profit_unit: result.profit_unit,
-      });
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["product", parsedId] }),
-        qc.invalidateQueries({ queryKey: ["products"] }),
-        qc.invalidateQueries({ queryKey: ["products-smart-search"] }),
-        qc.invalidateQueries({ queryKey: ["products-smart-search-corrected"] }),
-      ]);
-      showToast({
-        message: hasNonPricingDirtyFields ? "Pricing aplicado. Aun hay cambios pendientes en datos del producto." : "Pricing aplicado y sincronizado en el producto.",
-        severity: "success",
-      });
-    } catch (err: any) {
-      const message = errorMessage(err, "No se pudo aplicar pricing.");
-      setPricingError(message);
-      showToast({ message, severity: "error" });
-    } finally {
-      setApplyLoading(false);
-    }
-  };
-
-  const handleSave = async (closeAfterSave: boolean) => {
-    setSubmitError("");
-    const valid = await triggerProduct();
-    if (!valid) {
-      showToast({ message: "Revisa los campos del producto antes de guardar.", severity: "warning" });
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const values = getProductValues();
-      const payload: Omit<Product, "id"> = {
-        ...values,
-        sku: values.sku.trim(),
-        name: values.name.trim(),
-        author: values.author.trim(),
-        publisher: values.publisher.trim(),
-        isbn: values.isbn.trim(),
-        barcode: values.barcode.trim(),
-        shelf_location: values.shelf_location.trim(),
-        category: values.category.trim(),
-        tags: values.tags.trim(),
-        sale_price: Number(values.price || 0),
-        price: Number(values.price || 0),
-        unit_cost: Number(values.cost || 0),
-        cost: Number(values.cost || 0),
-        cost_qty: Number(values.cost_qty || 1),
-        direct_costs_breakdown: values.direct_costs_breakdown || "{}",
-      };
-      if (isEditing) {
-        await updateProduct(parsedId, payload);
-        showToast({ message: "Producto actualizado", severity: "success" });
-        resetProduct(payload);
-      } else {
-        await createProduct(payload);
-        showToast({ message: "Producto creado", severity: "success" });
-      }
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["products"] }),
-        qc.invalidateQueries({ queryKey: ["product-categories"] }),
-        qc.invalidateQueries({ queryKey: ["products-smart-search"] }),
-        qc.invalidateQueries({ queryKey: ["products-smart-search-corrected"] }),
-      ]);
-      if (closeAfterSave) {
-        closeTabOrGoBack();
-        return;
-      }
-      if (!isEditing) {
-        resetProduct(emptyForm);
-        resetPricing(emptyMarginInputs);
-        setCategoryTab("existing");
-        setNewCategory("");
-        setPreview(null);
-      }
-    } catch (err: any) {
-      const message = errorMessage(err, "No se pudo guardar.");
-      setSubmitError(message);
-      showToast({ message, severity: "error" });
-    } finally {
-      setSaving(false);
-    }
-  };
+  const [syncedPrice, syncedCost, syncedCostTotal, syncedCostQty, syncedDirectCostsTotal, syncedDesiredMargin] = syncedValues;
 
   const pricingCards = preview
     ? [
-        { label: "Precio venta", value: Number(syncedPrice || 0).toFixed(2) },
-        { label: "Costo unitario", value: Number(syncedCost || 0).toFixed(2) },
-        { label: "Costo total compra", value: Number(syncedCostTotal || 0).toFixed(2) },
-        { label: "Cantidad", value: `${Number(syncedCostQty || 0)}` },
-        { label: "Costos directos", value: Number(syncedDirectCostsTotal || 0).toFixed(2) },
-        { label: "Margen guardado", value: `${(Number(syncedDesiredMargin || 0) * 100).toFixed(2)}%` },
-        { label: "Costo total calculado", value: preview.cost_total_all.toFixed(2) },
-        { label: "Utilidad unitaria", value: preview.profit_unit.toFixed(2) },
-      ]
+      { label: "Precio venta", value: Number(syncedPrice || 0).toFixed(2) },
+      { label: "Costo unitario", value: Number(syncedCost || 0).toFixed(2) },
+      { label: "Costo total compra", value: Number(syncedCostTotal || 0).toFixed(2) },
+      { label: "Cantidad", value: `${Number(syncedCostQty || 0)}` },
+      { label: "Costos directos", value: Number(syncedDirectCostsTotal || 0).toFixed(2) },
+      { label: "Margen guardado", value: `${(Number(syncedDesiredMargin || 0) * 100).toFixed(2)}%` },
+      { label: "Costo total calculado", value: preview.cost_total_all.toFixed(2) },
+      { label: "Utilidad unitaria", value: preview.profit_unit.toFixed(2) },
+    ]
     : [];
 
   const pricingPanel = (
     <Box
       sx={{
         display: "grid",
-        gap: 1.2,
-        p: { xs: 1, md: 1.2 },
-        borderRadius: 3,
-        border: "1px solid rgba(18,53,90,0.08)",
-        bgcolor: "rgba(18,53,90,0.035)",
+        gap: 2,
+        p: 2.5,
+        borderRadius: "16px",
+        border: "1px solid var(--border-subtle)",
+        background: "linear-gradient(135deg, rgba(59,130,246,0.03) 0%, rgba(59,130,246,0.01) 100%)",
       }}
     >
-      <Box sx={{ display: "grid", gap: 0.45 }}>
-        <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: 1 }}>
-          Asistente de margen
+      <Box sx={{ display: "grid", gap: 0.5 }}>
+        <Typography variant="overline" sx={{ color: "primary.main", letterSpacing: 1.2, fontWeight: 700 }}>
+          Asistente de Precios Inteligente
         </Typography>
-        <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-          Calcula costo y precio sin salir del formulario
+        <Typography variant="h6" sx={{ fontWeight: 800, color: "text.primary" }}>
+          Calcula costos y precios al instante
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Formula: ((costo total + costos directos) / (1 - margen)) / cantidad
+          Fórmula: ((costo total + costos directos) / (1 - margen)) / cantidad
         </Typography>
       </Box>
 
-      {pricingError ? <Alert severity="error">{pricingError}</Alert> : null}
+      {pricingError ? <Alert severity="error" sx={{ borderRadius: 2 }}>{pricingError}</Alert> : null}
       {isPricingDirty ? (
-        <Typography variant="caption" color="text.secondary">
-          El calculo puede estar desactualizado. Vuelve a calcular despues de cambiar cualquier valor.
-        </Typography>
+        <Alert severity="info" variant="outlined" sx={{ borderRadius: 2, py: 0 }}>
+          El cálculo debe ser actualizado después de realizar cambios.
+        </Alert>
       ) : null}
 
-      <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+      <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         <TextField
           label="Cantidad"
           type="number"
@@ -539,7 +107,6 @@ const ProductForm: React.FC = () => {
             setValueAs: (value) => (value === "" ? 0 : Number(value)),
             onChange: () => {
               setPricingError("");
-              setPreview(null);
             },
           })}
         />
@@ -552,7 +119,6 @@ const ProductForm: React.FC = () => {
           {...registerPricing("cost_total", {
             onChange: () => {
               setPricingError("");
-              setPreview(null);
             },
           })}
         />
@@ -565,7 +131,6 @@ const ProductForm: React.FC = () => {
           {...registerPricing("transport", {
             onChange: () => {
               setPricingError("");
-              setPreview(null);
             },
           })}
         />
@@ -578,12 +143,11 @@ const ProductForm: React.FC = () => {
           {...registerPricing("pack", {
             onChange: () => {
               setPricingError("");
-              setPreview(null);
             },
           })}
         />
         <TextField
-          label="Otros"
+          label="Otros Costos"
           type="number"
           error={!!pricingErrors.other}
           helperText={pricingErrors.other?.message}
@@ -591,7 +155,6 @@ const ProductForm: React.FC = () => {
           {...registerPricing("other", {
             onChange: () => {
               setPricingError("");
-              setPreview(null);
             },
           })}
         />
@@ -604,7 +167,6 @@ const ProductForm: React.FC = () => {
           {...registerPricing("delivery", {
             onChange: () => {
               setPricingError("");
-              setPreview(null);
             },
           })}
         />
@@ -617,58 +179,55 @@ const ProductForm: React.FC = () => {
           {...registerPricing("desired_margin_percent", {
             onChange: () => {
               setPricingError("");
-              setPreview(null);
             },
           })}
         />
       </Box>
 
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+      <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mt: 1 }}>
         <Button
           type="button"
           variant="contained"
+          color="primary"
           startIcon={<CalculateIcon />}
           onClick={handlePreviewPricing}
           disabled={previewLoading || applyLoading || !isPricingValid}
         >
-          {previewLoading ? "Calculando..." : "Calcular y llenar"}
+          {previewLoading ? "Calculando..." : "Calcular Precios"}
         </Button>
         <Button
           type="button"
           variant="outlined"
+          color="secondary"
           startIcon={<PriceCheckIcon />}
           onClick={handleApplyPricing}
           disabled={applyLoading || previewLoading || !isEditing || !isPricingValid}
         >
-          {applyLoading ? "Aplicando..." : "Aplicar directo"}
+          {applyLoading ? "Aplicando..." : "Aplicar al Inventario"}
         </Button>
       </Box>
 
-      <Typography variant="caption" color={!isEditing ? "warning.main" : "text.secondary"}>
-        {!isEditing
-          ? "Puedes calcular antes de guardar. La aplicacion directa se habilita cuando el producto ya existe."
-          : "Si el producto ya existe, tambien puedes aplicar el pricing directo sin esperar al guardado general."}
-      </Typography>
-
       {preview ? (
-        <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(160px, 1fr))" } }}>
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(160px, 1fr))" }, mt: 2 }}>
           {pricingCards.map((item) => (
-            <Box
+            <Paper
               key={item.label}
+              elevation={0}
               sx={{
-                p: 0.85,
-                borderRadius: 2,
-                border: "1px solid rgba(18,53,90,0.08)",
-                bgcolor: "rgba(255,255,255,0.74)",
+                p: 1.5,
+                borderRadius: 3,
+                border: "1px solid var(--border-subtle)",
+                bgcolor: "var(--bg-surface-glass)",
+                backdropFilter: "blur(10px)",
               }}
             >
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 700 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 600 }}>
                 {item.label}
               </Typography>
-              <Typography variant="body2" sx={{ mt: 0.35, fontWeight: 800 }}>
+              <Typography variant="body1" sx={{ mt: 0.5, fontWeight: 800, color: "text.primary" }}>
                 {item.value}
               </Typography>
-            </Box>
+            </Paper>
           ))}
         </Box>
       ) : null}
@@ -677,10 +236,10 @@ const ProductForm: React.FC = () => {
 
   if (isEditing && productQuery.isLoading) {
     return (
-      <Box sx={{ display: "grid", gap: 1.5 }}>
+      <Box sx={{ display: "grid", gap: 2 }} className="fade-in">
         <PageHeader title="Editar producto" subtitle="Cargando datos..." icon={<CategoryIcon color="primary" />} loading />
-        <Paper sx={{ p: 2 }}>
-          <LoadingState title="Cargando producto..." />
+        <Paper className="glass-panel" sx={{ p: 4, textAlign: "center" }}>
+          <LoadingState title="Cargando información del producto..." />
         </Paper>
       </Box>
     );
@@ -688,48 +247,49 @@ const ProductForm: React.FC = () => {
 
   if (isEditing && productQuery.isError) {
     return (
-      <Box sx={{ display: "grid", gap: 1.5 }}>
+      <Box sx={{ display: "grid", gap: 2 }} className="fade-in">
         <PageHeader title="Editar producto" subtitle="No se pudo cargar el producto." icon={<CategoryIcon color="primary" />} />
-        <Paper sx={{ p: 2 }}>
-          <ErrorState title="No se pudo cargar el producto" onRetry={() => productQuery.refetch()} />
+        <Paper className="glass-panel" sx={{ p: 4 }}>
+          <ErrorState title="Error de conexión" onRetry={() => productQuery.refetch()} />
         </Paper>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ display: "grid", gap: 1.5 }}>
+    <Box sx={{ display: "grid", gap: 2 }} className="fade-in">
       <PageHeader
-        title={isEditing ? `Editar producto #${parsedId}` : "Agregar nuevo producto"}
-        subtitle={isEditing ? "Edita datos y pricing del producto." : "Crea el producto y define su pricing."}
+        title={isEditing ? `Editar Producto #${parsedId}` : "Nuevo Producto"}
+        subtitle={isEditing ? "Modifica los detalles y el pricing." : "Ingresa los datos para registrar un nuevo artículo en el catálogo."}
         icon={<CategoryIcon color="primary" />}
       />
 
-      <Paper sx={{ p: { xs: 0.9, md: 1.1 }, display: "grid", gap: 1.75 }}>
-        {submitError ? <Alert severity="error">{submitError}</Alert> : null}
+      <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 }, display: "grid", gap: 3 }}>
+        {submitError ? <Alert severity="error" sx={{ borderRadius: 2 }}>{submitError}</Alert> : null}
         {isProductDirty ? (
-          <Typography variant="caption" color="text.secondary">
-            Hay cambios pendientes por guardar en el producto.
-          </Typography>
+          <Alert severity="warning" variant="outlined" sx={{ borderRadius: 2, py: 0 }}>
+            Tienes cambios sin guardar.
+          </Alert>
         ) : null}
 
-        <Box sx={{ display: "grid", gap: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-            Operacion principal
+        <Box sx={{ display: "grid", gap: 2.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: "text.primary", borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>
+            Información Principal
           </Typography>
+
           <Box
             sx={{
               display: "grid",
-              gap: 1,
+              gap: 2,
               gridTemplateColumns: {
                 xs: "1fr",
                 sm: "repeat(2, minmax(0, 1fr))",
-                xl: "1.05fr 1.6fr repeat(4, minmax(140px, 1fr))",
+                xl: "1fr 2fr repeat(2, minmax(140px, 1fr))",
               },
             }}
           >
             <TextField
-              label="SKU"
+              label="SKU (Código Interno)"
               error={!!productErrors.sku}
               helperText={productErrors.sku?.message}
               fullWidth
@@ -738,7 +298,7 @@ const ProductForm: React.FC = () => {
               })}
             />
             <TextField
-              label="Nombre"
+              label="Nombre del Producto"
               error={!!productErrors.name}
               helperText={productErrors.name?.message}
               fullWidth
@@ -747,7 +307,7 @@ const ProductForm: React.FC = () => {
               })}
             />
             <TextField
-              label="Precio venta"
+              label="Precio Venta Final"
               type="number"
               error={!!productErrors.price}
               helperText={productErrors.price?.message}
@@ -758,12 +318,12 @@ const ProductForm: React.FC = () => {
                 onChange: (event) => {
                   setSubmitError("");
                   const next = event.target.value === "" ? 0 : Number(event.target.value);
-                  setProductValue("sale_price", next, { shouldDirty: true, shouldValidate: true });
+                  productForm.setValue("sale_price", next, { shouldDirty: true, shouldValidate: true });
                 },
               })}
             />
             <TextField
-              label="Costo unitario"
+              label="Costo Unitario (Base)"
               type="number"
               error={!!productErrors.cost}
               helperText={productErrors.cost?.message}
@@ -774,32 +334,8 @@ const ProductForm: React.FC = () => {
                 onChange: (event) => {
                   setSubmitError("");
                   const next = event.target.value === "" ? 0 : Number(event.target.value);
-                  setProductValue("unit_cost", next, { shouldDirty: true, shouldValidate: true });
+                  productForm.setValue("unit_cost", next, { shouldDirty: true, shouldValidate: true });
                 },
-              })}
-            />
-            <TextField
-              label="Stock"
-              type="number"
-              error={!!productErrors.stock}
-              helperText={productErrors.stock?.message}
-              inputProps={{ min: 0, step: 1 }}
-              fullWidth
-              {...registerProduct("stock", {
-                setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                onChange: () => setSubmitError(""),
-              })}
-            />
-            <TextField
-              label="Stock min"
-              type="number"
-              error={!!productErrors.stock_min}
-              helperText={productErrors.stock_min?.message}
-              inputProps={{ min: 0, step: 1 }}
-              fullWidth
-              {...registerProduct("stock_min", {
-                setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                onChange: () => setSubmitError(""),
               })}
             />
           </Box>
@@ -807,12 +343,12 @@ const ProductForm: React.FC = () => {
           <Box
             sx={{
               display: "grid",
-              gap: 1,
-              gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(5, minmax(0, 1fr))" },
+              gap: 2,
+              gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" },
             }}
           >
             <TextField
-              label="Autor"
+              label="Autor / Creador"
               error={!!productErrors.author}
               helperText={productErrors.author?.message}
               fullWidth
@@ -821,7 +357,7 @@ const ProductForm: React.FC = () => {
               })}
             />
             <TextField
-              label="Editorial"
+              label="Editorial / Marca"
               error={!!productErrors.publisher}
               helperText={productErrors.publisher?.message}
               fullWidth
@@ -830,7 +366,7 @@ const ProductForm: React.FC = () => {
               })}
             />
             <TextField
-              label="ISBN"
+              label="ISBN / Código Universal"
               error={!!productErrors.isbn}
               helperText={productErrors.isbn?.message}
               fullWidth
@@ -839,20 +375,11 @@ const ProductForm: React.FC = () => {
               })}
             />
             <TextField
-              label="Codigo barras"
+              label="Código de Barras Físico"
               error={!!productErrors.barcode}
               helperText={productErrors.barcode?.message}
               fullWidth
               {...registerProduct("barcode", {
-                onChange: () => setSubmitError(""),
-              })}
-            />
-            <TextField
-              label="Ubicacion"
-              error={!!productErrors.shelf_location}
-              helperText={productErrors.shelf_location?.message}
-              fullWidth
-              {...registerProduct("shelf_location", {
                 onChange: () => setSubmitError(""),
               })}
             />
@@ -861,19 +388,24 @@ const ProductForm: React.FC = () => {
           <Box
             sx={{
               display: "grid",
-              gap: 1,
-              gridTemplateColumns: { xs: "1fr", lg: "minmax(260px, 0.9fr) minmax(0, 1fr)" },
+              gap: 2,
+              gridTemplateColumns: { xs: "1fr", lg: "minmax(300px, 1fr) minmax(0, 1fr) repeat(2, minmax(120px, 0.5fr))" },
             }}
           >
-            <Box sx={{ display: "grid", gap: 0.8, p: 0.95, borderRadius: 2.25, border: "1px solid rgba(18,53,90,0.08)", bgcolor: "rgba(18,53,90,0.03)" }}>
-              <Tabs value={categoryTab} onChange={(_event, value) => setCategoryTab(value)} variant="fullWidth">
-                <Tab value="existing" label="Categoria" />
-                <Tab value="new" label="Nueva" />
+            <Paper elevation={0} sx={{ display: "grid", gap: 1, p: 1.5, borderRadius: 3, border: "1px solid var(--border-subtle)", bgcolor: "var(--bg-app)" }}>
+              <Tabs
+                value={categoryTab}
+                onChange={(_event, value) => setCategoryTab(value)}
+                variant="fullWidth"
+                sx={{ minHeight: 40 }}
+              >
+                <Tab value="existing" label="Seleccionar Categoría" sx={{ minHeight: 40 }} />
+                <Tab value="new" label="Crear Nueva" sx={{ minHeight: 40 }} />
               </Tabs>
               {categoryTab === "existing" ? (
                 <TextField
                   select
-                  label="Categoria"
+                  label="Categoría Actual"
                   error={!!productErrors.category}
                   helperText={productErrors.category?.message || (categoriesQuery.isLoading ? "Cargando..." : undefined)}
                   fullWidth
@@ -881,7 +413,7 @@ const ProductForm: React.FC = () => {
                     onChange: () => setSubmitError(""),
                   })}
                 >
-                  <MenuItem value="">Sin categoria</MenuItem>
+                  <MenuItem value="">Sin categoría</MenuItem>
                   {categoryOptions.map((item) => (
                     <MenuItem key={item} value={item}>
                       {item}
@@ -889,72 +421,105 @@ const ProductForm: React.FC = () => {
                   ))}
                 </TextField>
               ) : (
-                <Box sx={{ display: "grid", gap: 0.8 }}>
-                  <TextField label="Nueva categoria" value={newCategory} onChange={(event) => setNewCategory(event.target.value)} fullWidth />
-                  <Button type="button" variant="outlined" onClick={handleCreateCategory} disabled={!newCategory.trim()}>
-                    Crear categoria
+                <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                  <TextField label="Nombre Categoría" value={newCategory} onChange={(event) => setNewCategory(event.target.value)} fullWidth />
+                  <Button type="button" variant="contained" onClick={handleCreateCategory} disabled={!newCategory.trim()}>
+                    Crear
                   </Button>
                 </Box>
               )}
-            </Box>
+            </Paper>
 
             <TextField
-              label="Tags"
-              error={!!productErrors.tags}
-              helperText={productErrors.tags?.message}
+              label="Ubicación Física (Estante/Fila)"
+              error={!!productErrors.shelf_location}
+              helperText={productErrors.shelf_location?.message}
               fullWidth
-              {...registerProduct("tags", {
+              sx={{ mt: { xs: 0, lg: 1.5 } }}
+              {...registerProduct("shelf_location", {
+                onChange: () => setSubmitError(""),
+              })}
+            />
+
+            <TextField
+              label="Stock Actual"
+              type="number"
+              error={!!productErrors.stock}
+              helperText={productErrors.stock?.message}
+              inputProps={{ min: 0, step: 1 }}
+              fullWidth
+              sx={{ mt: { xs: 0, lg: 1.5 } }}
+              {...registerProduct("stock", {
+                setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                onChange: () => setSubmitError(""),
+              })}
+            />
+            <TextField
+              label="Stock Mínimo"
+              type="number"
+              error={!!productErrors.stock_min}
+              helperText={productErrors.stock_min?.message}
+              inputProps={{ min: 0, step: 1 }}
+              fullWidth
+              sx={{ mt: { xs: 0, lg: 1.5 } }}
+              {...registerProduct("stock_min", {
+                setValueAs: (value) => (value === "" ? 0 : Number(value)),
                 onChange: () => setSubmitError(""),
               })}
             />
           </Box>
 
-          <Box sx={{ display: "grid", gap: 0.8, gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" } }}>
-            {[
-              { label: "Compra", value: Number(syncedCostTotal || 0).toFixed(2) },
-              { label: "Cantidad", value: String(Number(syncedCostQty || 0)) },
-              { label: "Directos", value: Number(syncedDirectCostsTotal || 0).toFixed(2) },
-              { label: "Margen", value: `${(Number(syncedDesiredMargin || 0) * 100).toFixed(2)}%` },
-            ].map((item) => (
-              <Box
-                key={item.label}
-                sx={{
-                  p: 0.8,
-                  borderRadius: 2,
-                  border: "1px solid rgba(18,53,90,0.08)",
-                  bgcolor: "rgba(18,53,90,0.035)",
-                }}
-              >
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 700, lineHeight: 1.1 }}>
-                  {item.label}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.25, fontWeight: 800, lineHeight: 1.15 }}>
-                  {item.value}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
+          <TextField
+            label="Etiquetas (separadas por coma)"
+            error={!!productErrors.tags}
+            helperText={productErrors.tags?.message}
+            fullWidth
+            {...registerProduct("tags", {
+              onChange: () => setSubmitError(""),
+            })}
+          />
         </Box>
 
-        <Box sx={{ display: "grid", gap: 1, pt: 1.1, borderTop: "1px solid rgba(18,53,90,0.08)" }}>
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: "text.primary", borderBottom: "1px solid var(--border-subtle)", pb: 1, mb: 2 }}>
+            Cálculo de Precios y Márgenes
+          </Typography>
           {pricingPanel}
         </Box>
 
-        <Box sx={{ display: "flex", gap: 0.85, flexWrap: "wrap", pt: 1.1, borderTop: "1px solid rgba(18,53,90,0.08)" }}>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", pt: 3, borderTop: "1px solid var(--border-subtle)" }}>
           <Button
             type="button"
             variant="contained"
+            color="primary"
+            size="large"
             startIcon={<SaveIcon />}
             onClick={() => handleSave(false)}
             disabled={saving || applyLoading || !isProductValid}
+            sx={{ px: 4 }}
           >
-            {saving ? "Guardando..." : "Guardar"}
+            {saving ? "Guardando..." : "Guardar Producto"}
           </Button>
-          <Button type="button" variant="outlined" onClick={() => handleSave(true)} disabled={saving || applyLoading || !isProductValid}>
-            Guardar y cerrar
+          <Button
+            type="button"
+            variant="contained"
+            color="secondary"
+            size="large"
+            onClick={() => handleSave(true)}
+            disabled={saving || applyLoading || !isProductValid}
+            sx={{ px: 4 }}
+          >
+            Guardar y Regresar
           </Button>
-          <Button type="button" variant="text" color="inherit" startIcon={<ArrowBackIcon />} onClick={closeTabOrGoBack} disabled={saving || applyLoading}>
-            Volver
+          <Button
+            type="button"
+            variant="outlined"
+            size="large"
+            startIcon={<ArrowBackIcon />}
+            onClick={closeTabOrGoBack}
+            disabled={saving || applyLoading}
+          >
+            Cancelar
           </Button>
         </Box>
       </Paper>
@@ -963,20 +528,3 @@ const ProductForm: React.FC = () => {
 };
 
 export default ProductForm;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

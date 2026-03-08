@@ -29,7 +29,7 @@ import TuneIcon from "@mui/icons-material/Tune";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
-import { ConfirmDialog, PageHeader, useToast } from "@/app/components";
+import { ConfirmDialog, PageHeader } from "@/app/components";
 import { formatMoney } from "@/app/utils";
 import {
   selectCanCharge,
@@ -67,23 +67,9 @@ const POS: React.FC = () => {
   const cart = useCartStore();
   const { role } = useAuth();
   const { taxRate, taxIncluded, paymentMethods, compactMode } = useSettings();
-  const { showToast } = useToast();
   const compact = useMediaQuery("(max-width:900px)");
   const isCompact = compactMode || compact;
   const isCashierMode = role === "cashier";
-  const panelCardSx = {
-    p: { xs: 1.4, md: 1.75 },
-    background: "rgba(255,255,255,0.82)",
-    border: "1px solid rgba(18,53,90,0.08)",
-    boxShadow: "0 10px 24px rgba(12,31,51,0.05)",
-    backdropFilter: "blur(16px)",
-    WebkitBackdropFilter: "blur(16px)",
-  };
-  const compactPanelCardSx = {
-    ...panelCardSx,
-    p: { xs: 1.25, md: 1.5 },
-  };
-
 
   const [sessionId] = useState(() => makeSessionId());
   const navigate = useNavigate();
@@ -207,14 +193,11 @@ const POS: React.FC = () => {
     prevItemCountRef.current = itemCount;
   }, [itemCount, isCompact, isCashierMode]);
 
-
-
   const selectedCustomerName = selectCustomerLabel(customers, customerId);
   const selectedPromo = promos?.find((promo) => promo.id === promoId);
   const promoSummaryLabel = selectedPromo?.name || (totalsSummary.promotionDiscount > 0 ? "Manual" : "Sin promo");
-  const primaryActionLabel = cash?.is_open ? "Cobrar" : "Abrir caja";
+  const primaryActionLabel = cash?.is_open ? "Cobrar / Facturar" : "Abrir Cajón";
   const primaryActionDisabled = cash?.is_open ? !canCharge : cashQuery.isLoading || cashQuery.isError;
-
 
   const handleCustomerChange = (value: string) => {
     setCustomerId(value === "" ? "" : Number(value));
@@ -248,7 +231,7 @@ const POS: React.FC = () => {
         <TextField
           fullWidth
           select
-          label="Cliente"
+          label="Cliente Asociado"
           value={customerId}
           onChange={(event) => handleCustomerChange(String(event.target.value))}
           size={isCashierMode ? "small" : "medium"}
@@ -256,7 +239,7 @@ const POS: React.FC = () => {
             "& .MuiInputLabel-root": { color: surface === "dark" ? "rgba(255,255,255,0.85)" : undefined },
           }}
         >
-          <MenuItem value="">Sin cliente</MenuItem>
+          <MenuItem value="">Sin Identificar</MenuItem>
           {(customers || []).map((customer) => (
             <MenuItem key={customer.id} value={customer.id}>
               {customer.name}
@@ -268,7 +251,7 @@ const POS: React.FC = () => {
         <TextField
           fullWidth
           select
-          label="Promocion"
+          label="Aplicar Promo"
           value={promoId}
           onChange={(event) => handlePromoChange(String(event.target.value))}
           size={isCashierMode ? "small" : "medium"}
@@ -276,7 +259,7 @@ const POS: React.FC = () => {
             "& .MuiInputLabel-root": { color: surface === "dark" ? "rgba(255,255,255,0.85)" : undefined },
           }}
         >
-          <MenuItem value="">Sin promo</MenuItem>
+          <MenuItem value="">Sin Descuentos Extra</MenuItem>
           {(promos || []).map((promo) => (
             <MenuItem key={promo.id} value={promo.id}>
               {promo.name}
@@ -289,16 +272,32 @@ const POS: React.FC = () => {
 
   const renderCheckoutActions = () => (
     <Box sx={{ display: "grid", gap: 1 }}>
-      <Button fullWidth variant="contained" size="medium" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ py: 1.1, fontWeight: 800 }}>
+      <Button
+        fullWidth
+        variant="contained"
+        size="large"
+        disabled={primaryActionDisabled}
+        onClick={handlePrimaryAction}
+        sx={{
+          py: 1.5,
+          fontWeight: 800,
+          background: "linear-gradient(45deg, #10B981, #059669)",
+          boxShadow: primaryActionDisabled ? "none" : "0 8px 16px rgba(16, 185, 129, 0.2)",
+          "&:hover": {
+            background: "linear-gradient(45deg, #059669, #047857)",
+          }
+        }}
+      >
         {primaryActionLabel}
       </Button>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-        <Button fullWidth variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart}>
-          Guardar
+        <Button fullWidth variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart} color="secondary">
+          Guardar Venta
         </Button>
         <Button
           fullWidth
           variant="outlined"
+          color="secondary"
           startIcon={<PlaylistAddCheckIcon />}
           disabled={heldCarts.length === 0}
           onClick={() => setHeldOpen(true)}
@@ -307,11 +306,11 @@ const POS: React.FC = () => {
         </Button>
       </Stack>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-        <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handlePrint}>
-          Ticket
+        <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handlePrint} color="inherit">
+          Ticket Físico
         </Button>
-        <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handleEscpos}>
-          ESC/POS
+        <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handleEscpos} color="inherit">
+          Protocolo ESC/POS
         </Button>
       </Stack>
     </Box>
@@ -321,23 +320,23 @@ const POS: React.FC = () => {
     const isDark = surface === "dark";
 
     return (
-      <Stack spacing={1.5}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "flex-start" }}>
+      <Stack spacing={2}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "center" }}>
           <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              Carrito
+            <Typography variant="overline" sx={{ color: isDark ? "rgba(255,255,255,0.7)" : "primary.main", fontWeight: 700, letterSpacing: 1.2 }}>
+              BOLETA EN CURSO
             </Typography>
-            <Typography variant="body2" color={isDark ? "rgba(255,255,255,0.82)" : "text.secondary"} sx={{ mt: 0.6 }}>
-              {itemCount > 0 ? `${itemCount} items en carrito` : "Sin productos agregados"}
+            <Typography variant="body2" color={isDark ? "rgba(255,255,255,0.9)" : "text.secondary"}>
+              {itemCount > 0 ? `${itemCount} items agregados` : "No hay productos listados"}
               {customerId ? ` | ${selectedCustomerName}` : ""}
               {(promoId || totalsSummary.promotionDiscount > 0) ? ` | ${promoSummaryLabel}` : ""}
             </Typography>
           </Box>
           <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
-            <Typography variant="caption" color={isDark ? "rgba(255,255,255,0.82)" : "text.secondary"}>
-              {cash?.is_open ? "Total" : "Pendiente"}
+            <Typography variant="caption" color={isDark ? "rgba(255,255,255,0.7)" : "text.secondary"}>
+              {cash?.is_open ? "A Pagar (Total)" : "Pendiente"}
             </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 900 }}>
+            <Typography variant="h4" sx={{ fontWeight: 900, color: isDark ? "white" : "success.main" }}>
               {formatMoney(total)}
             </Typography>
           </Box>
@@ -350,27 +349,27 @@ const POS: React.FC = () => {
         {!cashQuery.isLoading && !cash?.is_open ? (
           <Alert
             severity="warning"
-            sx={{ mb: 0.25, py: 0 }}
+            sx={{ mb: 0.25, py: 0.5, borderRadius: 2 }}
             action={
               <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
-                Ir a caja
+                Ir a Caja
               </Button>
             }
           >
-            Caja cerrada. Debes abrir caja para poder cobrar.
+            La caja registradora está cerrada. Inicializa el cajón para emitir cobros.
           </Alert>
         ) : null}
 
         {renderCheckoutActions()}
 
         {!canCharge && cash?.is_open ? (
-          <Typography variant="caption" color={isDark ? "rgba(255,255,255,0.82)" : "text.secondary"}>
-            Agrega al menos un producto al carrito para habilitar el cobro.
+          <Typography variant="caption" color={isDark ? "rgba(255,255,255,0.7)" : "text.secondary"} sx={{ display: 'block', textAlign: 'center' }}>
+            Añade productos para habilitar la pasarela de pago.
           </Typography>
         ) : null}
         {canCharge ? (
-          <Typography variant="caption" color={isDark ? "#b8f7d4" : "success.main"}>
-            Listo para cobrar. Atajo rapido: F4
+          <Typography variant="caption" color={isDark ? "#b8f7d4" : "success.main"} fontWeight="600" sx={{ display: 'block', textAlign: 'center' }}>
+            ✓ Cajón listo. Presiona [ F4 ] para pagar.
           </Typography>
         ) : null}
       </Stack>
@@ -378,237 +377,145 @@ const POS: React.FC = () => {
   };
 
   const lastSaleTimeLabel = lastSale
-    ? new Date(lastSale.createdAt).toLocaleTimeString("es-PE", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+    ? new Date(lastSale.createdAt).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })
     : "";
+
+
+  // ============================================
+  // LAYOUT DE CAJERO (MODO ESTRECHO / FOCUS ROW)
+  // ============================================
   if (isCashierMode) {
     return (
-      <>
-        <Box sx={{ display: "grid", gap: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} lg={7}>
-              <Paper sx={compactPanelCardSx}>
-                <Stack spacing={1.25}>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                      Buscar productos
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55 }}>
-                      Escanea o escribe codigo, SKU o nombre.
+      <Box sx={{ display: "grid", gap: 2 }} className="fade-in">
+        <Grid container spacing={2}>
+          <Grid item xs={12} lg={7}>
+            <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="h6" fontWeight="800">Búsqueda Global</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Utilice el lector de código de barras o ingrese el identificador a mano.
+                  </Typography>
+                </Box>
+                <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal splitTabs />
+              </Stack>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} lg={5}>
+            <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 }, position: { lg: "sticky" }, top: { lg: 12 } }}>
+              <Stack spacing={2}>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "flex-start" }}>
+                  <Box>
+                    <Typography variant="overline" sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 1 }}>RESUMEN CHECKOUT</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {itemCount > 0 ? `${itemCount} items en progreso` : "Esperando artículos"}
+                      {lastSale && itemCount === 0 ? ` | Previa: ${lastSale.invoiceNumber}` : ""}
                     </Typography>
                   </Box>
-                  <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal splitTabs />
+                  <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight="700">SUBTOTAL ESTIMATIVO</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 900, lineHeight: 1 }}>{formatMoney(total)}</Typography>
+                  </Box>
                 </Stack>
-              </Paper>
-            </Grid>
 
-            <Grid item xs={12} lg={5}>
-              <Paper sx={{ ...compactPanelCardSx, position: { lg: "sticky" }, top: { lg: 12 } }}>
-                <Stack spacing={1.25}>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "flex-start" }}>
-                    <Box>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                        Carrito
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55 }}>
-                        {itemCount > 0 ? `${itemCount} items en carrito` : "Sin productos agregados"}
-                        {lastSale && itemCount === 0 ? ` | Ultima ${lastSale.invoiceNumber}` : ""}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {cash?.is_open ? "Total" : "Pendiente"}
-                      </Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
-                        {formatMoney(total)}
-                      </Typography>
-                    </Box>
-                  </Stack>
+                {!cashQuery.isLoading && !cash?.is_open ? (
+                  <Alert severity="warning" variant="outlined" sx={{ py: 0.5, borderRadius: 2 }} action={<Button color="inherit" size="small" onClick={() => navigate("/cash")}>Abrir Turno</Button>}>
+                    Sesión de caja desactivada.
+                  </Alert>
+                ) : null}
 
-                  {!cashQuery.isLoading && !cash?.is_open ? (
-                    <Alert
-                      severity="warning"
-                      sx={{ py: 0 }}
-                      action={
-                        <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
-                          Abrir caja
-                        </Button>
-                      }
-                    >
-                      Caja cerrada. Puedes seguir cargando el carrito.
-                    </Alert>
-                  ) : null}
+                <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} tone="light" minimal />
 
-                  <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} tone="light" minimal />
-
-                  <Stack spacing={1}>
-                    <Button fullWidth variant="contained" size="medium" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ py: 1.1, fontWeight: 800 }}>
-                      {primaryActionLabel}
+                <Stack spacing={1.5} mt={2}>
+                  <Button fullWidth variant="contained" size="large" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ py: 1.5, fontWeight: 800 }}>
+                    {primaryActionLabel}
+                  </Button>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                    <Button fullWidth variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart}>
+                      Hold
                     </Button>
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                      <Button fullWidth variant="outlined" startIcon={<PauseCircleIcon />} disabled={itemCount === 0} onClick={holdCurrentCart}>
-                        Guardar
-                      </Button>
-                      <Button
-                        fullWidth
-                        variant="outlined"
-                        startIcon={<PlaylistAddCheckIcon />}
-                        disabled={heldCarts.length === 0}
-                        onClick={() => setHeldOpen(true)}
-                      >
-                        Recuperar
-                      </Button>
-                    </Stack>
-                    <Button variant="text" size="small" startIcon={<TuneIcon />} onClick={() => setCashierOptionsOpen((prev) => !prev)}>
-                      {cashierOptionsOpen ? "Ocultar opciones" : "Mas opciones"}
+                    <Button fullWidth variant="outlined" startIcon={<PlaylistAddCheckIcon />} disabled={heldCarts.length === 0} onClick={() => setHeldOpen(true)}>
+                      Recargar
                     </Button>
                   </Stack>
+                  <Button variant="text" size="small" color="secondary" startIcon={<TuneIcon />} onClick={() => setCashierOptionsOpen((prev) => !prev)}>
+                    {cashierOptionsOpen ? "Cerrar Panel Avanzado" : "Ver Panel Avanzado (Descuentos)"}
+                  </Button>
+                </Stack>
 
-                  {cashierOptionsOpen ? (
-                    <Stack spacing={1.25} sx={{ pt: 0.5 }}>
+                {cashierOptionsOpen ? (
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: 2 }}>
+                    <Stack spacing={2}>
                       {renderCheckoutSelectors("light")}
                       {lastSale ? (
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                          <Button fullWidth variant="outlined" startIcon={<RestartAltIcon />} onClick={handleStartFreshSale}>
-                            Nueva venta
+                          <Button fullWidth variant="outlined" color="primary" startIcon={<RestartAltIcon />} onClick={handleStartFreshSale}>
+                            Finalizar Op.
                           </Button>
-                          <Button fullWidth variant="outlined" onClick={handlePrint}>
-                            Imprimir
-                          </Button>
-                          <Button fullWidth variant="outlined" onClick={handleEscpos}>
-                            ESC/POS
-                          </Button>
+                          <Button fullWidth variant="outlined" color="secondary" onClick={handlePrint}>Re-Imprimir</Button>
+                          <Button fullWidth variant="outlined" color="secondary" onClick={handleEscpos}>POS DLL</Button>
                         </Stack>
                       ) : null}
                       {lastSale ? (
-                        <Button variant="text" startIcon={<HistoryIcon />} onClick={() => navigate("/sales-history")}>
-                          Ver ventas
+                        <Button variant="contained" color="secondary" startIcon={<HistoryIcon />} onClick={() => navigate("/sales-history")}>
+                          Historial de Turno
                         </Button>
                       ) : null}
                     </Stack>
-                  ) : null}
+                  </Paper>
+                ) : null}
 
-                  {lastSale && itemCount === 0 ? (
-                    <Typography variant="caption" color="success.main">
-                      Ultima venta {lastSale.invoiceNumber} registrada a las {lastSaleTimeLabel}. Usa "Nueva venta" para limpiar el cierre.
-                    </Typography>
-                  ) : null}
-                </Stack>
-              </Paper>
-            </Grid>
+                {lastSale && itemCount === 0 ? (
+                  <Typography variant="caption" color="success.main" textAlign="center" sx={{ display: 'block', mt: 1 }}>
+                    Operación {lastSale.invoiceNumber} exitosa ({lastSaleTimeLabel}).  Inicia un nuevo escaneo para facturar.
+                  </Typography>
+                ) : null}
+              </Stack>
+            </Paper>
           </Grid>
-        </Box>
-
-        <PaymentDialog
-          open={payOpen}
-          total={total}
-          methods={selectPaymentMethods(paymentMethods)}
-          onClose={() => setPayOpen(false)}
-          onConfirm={(payments: Payment[]) => handlePayment(payments)}
-        />
-
-        <ConfirmDialog
-          open={holdDialogOpen}
-          title="Guardar venta en espera"
-          description="Asigna un nombre corto para recuperar esta venta rapidamente."
-          content={
-            <TextField
-              autoFocus
-              fullWidth
-              label="Nombre de la venta"
-              value={holdLabel}
-              onChange={(event) => setHoldLabel(event.target.value)}
-              placeholder="Pedido mostrador"
-            />
-          }
-          onCancel={() => {
-            setHoldDialogOpen(false);
-            setHoldLabel("");
-          }}
-          onConfirm={handleConfirmHoldCurrentCart}
-          confirmText="Guardar en espera"
-        />
-
-        <Dialog open={heldOpen} onClose={() => setHeldOpen(false)} fullWidth maxWidth="sm">
-          <DialogTitle>Ventas en espera</DialogTitle>
-          <DialogContent>
-            {heldCarts.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                No hay ventas guardadas.
-              </Typography>
-            ) : (
-              <List>
-                {heldCarts.map((held) => (
-                  <ListItemButton key={held.id} onClick={() => restoreHeldCart(held)}>
-                    <ListItemText
-                      primary={held.label}
-                      secondary={`${new Date(held.created_at || held.create_at || "").toLocaleString("es-PE")} - ${held.items.length} items - ${formatMoney(
-                        held.items.reduce((acc, item) => acc + item.price * item.qty, 0)
-                      )}`}
-                    />
-                    <Button
-                      size="small"
-                      color="error"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        deleteHeldCart(held.id);
-                      }}
-                    >
-                      Eliminar
-                    </Button>
-                  </ListItemButton>
-                ))}
-              </List>
-            )}
-          </DialogContent>
-        </Dialog>
-      </>
+        </Grid>
+      </Box>
     );
   }
 
+  // ============================================
+  // LAYOUT ADMINISTRATIVO (COMPLETO)
+  // ============================================
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    <Box sx={{ display: "grid", gap: 2 }} className="fade-in">
       <PageHeader
-        title="Punto de venta"
-        subtitle="Venta y cobro desde una sola vista."
+        title="Terminal Point of Sale"
+        subtitle="Módulo de recaudación y facturación simultánea."
         loading={isLoading}
       />
 
-
       {lastSale && itemCount === 0 ? (
-        <Paper
-          sx={{
-            ...panelCardSx,
-            border: "1px solid rgba(82,183,136,0.24)",
-            background: "linear-gradient(180deg, rgba(247,252,249,0.98) 0%, rgba(240,249,244,0.96) 100%)",
-          }}
-        >
-          <Stack spacing={1}>
+        <Paper className="glass-panel" sx={{ background: "linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)", borderColor: "rgba(16, 185, 129, 0.2)" }}>
+          <Stack spacing={2}>
             <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ md: "center" }}>
               <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                  Venta {lastSale.invoiceNumber} registrada correctamente
+                <Typography variant="h6" fontWeight="800" color="success.main">
+                  Venta Confirmada — Ticket Nro. {lastSale.invoiceNumber}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Total {formatMoney(lastSale.total)} | {lastSaleTimeLabel}
+                <Typography variant="body2" color="text.secondary">
+                  Valor Recaudado: {formatMoney(lastSale.total)} | Marca temporal: {lastSaleTimeLabel}
                 </Typography>
               </Box>
             </Stack>
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-              <Button variant="contained" startIcon={<RestartAltIcon />} onClick={handleStartFreshSale}>
-                Nueva venta
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+              <Button variant="contained" color="success" size="large" startIcon={<RestartAltIcon />} onClick={handleStartFreshSale}>
+                Limpiar Buffer & Continuar
               </Button>
-              <Button variant="outlined" onClick={handlePrint}>
-                Imprimir ticket
+              <Button variant="outlined" color="success" onClick={handlePrint}>
+                Emitir Duplicado
               </Button>
-              <Button variant="outlined" onClick={handleEscpos}>
-                Descargar ESC/POS
+              <Button variant="outlined" color="success" onClick={handleEscpos}>
+                Exportar Binario ESC/POS
               </Button>
-              <Button variant="text" startIcon={<HistoryIcon />} onClick={() => navigate("/sales-history")}>
-                Ver ventas
+              <Button variant="text" color="success" startIcon={<HistoryIcon />} onClick={() => navigate("/sales-history")}>
+                Explorar Trazabilidad
               </Button>
             </Stack>
           </Stack>
@@ -617,14 +524,12 @@ const POS: React.FC = () => {
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={7}>
-          <Paper sx={panelCardSx}>
-            <Stack spacing={1.25}>
-              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                  Buscar productos
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55 }}>
-                  Escanea o escribe codigo, SKU o nombre.
+          <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="h6" fontWeight="800">Terminal de Ingreso de Ítems</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Utilice el lector infrarrojo directamente o busque digitando la referencia en el espacio inferior.
                 </Typography>
               </Box>
               <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal />
@@ -634,7 +539,7 @@ const POS: React.FC = () => {
 
         {!isCompact ? (
           <Grid item xs={12} lg={5}>
-            <Paper sx={{ ...panelCardSx, position: "sticky", top: 12 }}>
+            <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 }, position: "sticky", top: 12 }}>
               {renderCheckoutPanelContent("light")}
             </Paper>
           </Grid>
@@ -651,24 +556,20 @@ const POS: React.FC = () => {
 
       <ConfirmDialog
         open={holdDialogOpen}
-        title="Guardar venta en espera"
-        description="Asigna un nombre corto para recuperar esta venta rapidamente."
+        title="Suspender Venta (Hold)"
+        description="El documento quedará guardado temporalmente en la memoria del navegador. Asígnele un nombre para facilitar su posterior identificación."
         content={
           <TextField
-            autoFocus
-            fullWidth
-            label="Nombre de la venta"
+            autoFocus fullWidth variant="outlined"
+            label="Identificador de la suspensión"
             value={holdLabel}
             onChange={(event) => setHoldLabel(event.target.value)}
-            placeholder="Pedido mostrador"
+            placeholder="E.j. Cliente Juan P."
           />
         }
-        onCancel={() => {
-          setHoldDialogOpen(false);
-          setHoldLabel("");
-        }}
+        onCancel={() => { setHoldDialogOpen(false); setHoldLabel(""); }}
         onConfirm={handleConfirmHoldCurrentCart}
-        confirmText="Guardar en espera"
+        confirmText="Confirmar Suspensión"
       />
 
       {!isCashierMode && isCompact ? (
@@ -676,12 +577,12 @@ const POS: React.FC = () => {
           color="primary"
           variant="extended"
           onClick={() => setCartOpen(true)}
-          sx={{ position: "fixed", right: 20, bottom: 20, zIndex: (theme) => theme.zIndex.drawer + 1 }}
+          sx={{ position: "fixed", right: 24, bottom: 24, zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: 6 }}
         >
-          <Badge badgeContent={itemCount} color="error" sx={{ mr: 1 }}>
+          <Badge badgeContent={itemCount} color="error" sx={{ mr: 1.5 }}>
             <ReceiptLongIcon />
           </Badge>
-          Carrito
+          Completar ({formatMoney(total)})
         </Fab>
       ) : null}
 
@@ -692,33 +593,26 @@ const POS: React.FC = () => {
           onClose={() => setCartOpen(false)}
           PaperProps={{
             sx: {
-              bgcolor: "rgba(11, 42, 74, 0.72)",
+              bgcolor: "rgba(15, 23, 42, 0.95)",
               color: "#ffffff",
-              borderLeft: "1px solid rgba(255,255,255,0.18)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              backgroundImage: "linear-gradient(180deg, rgba(7,31,56,0.78) 0%, rgba(11,42,74,0.68) 100%)",
+              borderLeft: "1px solid rgba(255,255,255,0.1)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
             },
           }}
         >
           <Box
             sx={{
-              width: { xs: "100vw", sm: 470 },
+              width: { xs: "100vw", sm: 500 },
               maxWidth: "100vw",
-              p: 2,
-              color: "#ffffff",
-              "& .MuiTypography-root": { color: "#ffffff", fontWeight: 700 },
-              "& .MuiTableCell-root": { color: "#ffffff", borderColor: "rgba(255,255,255,0.22)", fontWeight: 700 },
-              "& .MuiInputBase-input": { color: "#ffffff", fontWeight: 700 },
-              "& .MuiInputLabel-root": { color: "rgba(255,255,255,0.85)", fontWeight: 700 },
+              p: 3,
+              "& .MuiTypography-root": { color: "#ffffff" },
+              "& .MuiTableCell-root": { color: "#ffffff", borderColor: "rgba(255,255,255,0.1)" },
+              "& .MuiInputBase-input": { color: "#ffffff" },
+              "& .MuiInputLabel-root": { color: "rgba(255,255,255,0.7)" },
               "& .MuiSvgIcon-root": { color: "#ffffff" },
-              "& .MuiButton-text": { color: "#ffffff", fontWeight: 700 },
-              "& .MuiButton-outlined": { borderColor: "rgba(255,255,255,0.5)", color: "#ffffff", fontWeight: 700 },
-              "& .MuiChip-label": { color: "#ffffff", fontWeight: 700 },
-              "& .MuiFormLabel-root": { color: "rgba(255,255,255,0.85)", fontWeight: 700 },
-              "& .MuiTypography-colorTextSecondary": { color: "rgba(255,255,255,0.9)" },
-              "& .MuiButton-contained.Mui-disabled": { bgcolor: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.72)" },
-              "& .MuiButton-outlined.Mui-disabled": { borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.62)" },
+              "& .MuiButton-text": { color: "#ffffff" },
+              "& .MuiButton-outlined": { borderColor: "rgba(255,255,255,0.3)", color: "white" },
             }}
           >
             {renderCheckoutPanelContent("dark")}
@@ -726,32 +620,23 @@ const POS: React.FC = () => {
         </Drawer>
       ) : null}
 
-      <Dialog open={heldOpen} onClose={() => setHeldOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Ventas en espera</DialogTitle>
+      <Dialog open={heldOpen} onClose={() => setHeldOpen(false)} fullWidth maxWidth="sm" PaperProps={{ className: "glass-panel" }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Manejo de Operaciones Suspendidas</DialogTitle>
         <DialogContent>
           {heldCarts.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              No hay ventas guardadas.
+              La cola se encuentra vacía.
             </Typography>
           ) : (
             <List>
               {heldCarts.map((held) => (
-                <ListItemButton key={held.id} onClick={() => restoreHeldCart(held)}>
+                <ListItemButton key={held.id} onClick={() => restoreHeldCart(held)} sx={{ border: "1px solid var(--border-subtle)", borderRadius: 2, mb: 1 }}>
                   <ListItemText
-                    primary={held.label}
-                    secondary={`${new Date(held.created_at || held.create_at || "").toLocaleString("es-PE")} - ${held.items.length} items - ${formatMoney(
-                      held.items.reduce((acc, item) => acc + item.price * item.qty, 0)
-                    )}`}
+                    primary={<Typography fontWeight="700">{held.label}</Typography>}
+                    secondary={<Typography variant="caption" color="text.secondary">{`${new Date(held.created_at || held.create_at || "").toLocaleString("es-PE")} | ${held.items.length} articulos | Neto: ${formatMoney(held.items.reduce((acc, item) => acc + item.price * item.qty, 0))}`}</Typography>}
                   />
-                  <Button
-                    size="small"
-                    color="error"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      deleteHeldCart(held.id);
-                    }}
-                  >
-                    Eliminar
+                  <Button size="small" variant="outlined" color="error" onClick={(event) => { event.stopPropagation(); deleteHeldCart(held.id); }}>
+                    Descartar
                   </Button>
                 </ListItemButton>
               ))}
@@ -764,7 +649,3 @@ const POS: React.FC = () => {
 };
 
 export default POS;
-
-
-
-

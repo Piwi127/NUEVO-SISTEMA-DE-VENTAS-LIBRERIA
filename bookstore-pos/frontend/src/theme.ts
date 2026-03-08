@@ -13,65 +13,82 @@ let theme = createTheme({
   palette: {
     mode: "light",
     primary: {
-      main: "#103a5f",
-      dark: "#0a2742",
-      light: "#dbe9f7",
+      main: "#13293D",
+      dark: "#0D1F2F",
+      light: "#254B67",
       contrastText: "#ffffff",
     },
     secondary: {
-      main: "#12746b",
-      dark: "#0b564f",
-      light: "#d7f1ee",
+      main: "#0F766E",
+      dark: "#0B5E58",
+      light: "#1F9D94",
       contrastText: "#ffffff",
     },
-    info: { main: "#2b6cb0" },
-    success: { main: "#1b7f5b" },
-    warning: { main: "#b7791f" },
-    error: { main: "#c05666" },
+    info: { main: "#2563EB" },
+    success: { main: "#16A34A" },
+    warning: { main: "#D97706" },
+    error: { main: "#DC2626" },
     background: {
-      default: "#edf3f8",
-      paper: "#f8fbff",
+      default: "#F4F0E8",
+      paper: "#FFFFFF",
     },
     text: {
-      primary: "#13263a",
-      secondary: "#617387",
+      primary: "#13293D",
+      secondary: "#4B5F73",
     },
-    divider: "rgba(19, 38, 58, 0.12)",
+    divider: "rgba(19, 41, 61, 0.12)",
   },
-  shape: { borderRadius: 14 },
+  shape: { borderRadius: 18 },
   typography: {
-    fontFamily: "'Plus Jakarta Sans', 'Segoe UI', sans-serif",
-    h4: {
-      fontWeight: 800,
+    fontFamily: "var(--font-ui), 'Segoe UI', sans-serif",
+    h1: {
+      fontFamily: "var(--font-display), var(--font-ui), sans-serif",
+      fontWeight: 700,
+      letterSpacing: "-0.04em",
+    },
+    h2: {
+      fontFamily: "var(--font-display), var(--font-ui), sans-serif",
+      fontWeight: 700,
       letterSpacing: "-0.035em",
-      fontSize: "clamp(1.9rem, 1.45rem + 1.2vw, 2.55rem)",
+    },
+    h3: {
+      fontFamily: "var(--font-display), var(--font-ui), sans-serif",
+      fontWeight: 700,
+      letterSpacing: "-0.03em",
+    },
+    h4: {
+      fontFamily: "var(--font-display), var(--font-ui), sans-serif",
+      fontWeight: 700,
+      letterSpacing: "-0.03em",
+      fontSize: "clamp(1.65rem, 1.3rem + 1vw, 2.3rem)",
     },
     h5: {
-      fontWeight: 800,
-      letterSpacing: "-0.03em",
-      fontSize: "clamp(1.34rem, 1.12rem + 0.82vw, 1.88rem)",
+      fontFamily: "var(--font-display), var(--font-ui), sans-serif",
+      fontWeight: 700,
+      letterSpacing: "-0.02em",
     },
     h6: {
-      fontWeight: 800,
+      fontFamily: "var(--font-display), var(--font-ui), sans-serif",
+      fontWeight: 700,
       letterSpacing: "-0.02em",
-      fontSize: "clamp(1.02rem, 0.95rem + 0.4vw, 1.28rem)",
     },
     subtitle1: { fontWeight: 700 },
     subtitle2: { fontWeight: 700 },
-    body1: { lineHeight: 1.58 },
-    body2: { lineHeight: 1.5 },
-    button: { textTransform: "none", fontWeight: 800, letterSpacing: 0.08 },
+    body1: { lineHeight: 1.6 },
+    body2: { lineHeight: 1.55 },
+    button: { textTransform: "none", fontWeight: 700, letterSpacing: "0.01em" },
+    overline: { letterSpacing: "0.12em", fontWeight: 700 },
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
         ":root": {
-          "--surface-border": "rgba(19,38,58,0.12)",
-          "--surface-highlight": "rgba(255,255,255,0.88)",
-          "--surface-shadow": "0 18px 42px rgba(13, 32, 56, 0.08)",
-          "--bank-navy": "#103a5f",
-          "--bank-teal": "#12746b",
-          "--bank-ice": "#edf3f8",
+          "--surface-border": "rgba(19, 41, 61, 0.12)",
+          "--surface-highlight": "rgba(255,255,255,0.84)",
+          "--surface-shadow": "0 14px 34px rgba(19, 41, 61, 0.1)",
+          "--ui-primary": "#13293D",
+          "--ui-accent": "#0F766E",
+          "--ui-bg": "#F4F0E8",
         },
         "*": {
           boxSizing: "border-box",
@@ -79,16 +96,16 @@ let theme = createTheme({
         html: {
           height: "100%",
           WebkitTextSizeAdjust: "100%",
-          backgroundColor: "#edf3f8",
+          backgroundColor: "#F4F0E8",
         },
         body: {
           minWidth: 320,
           minHeight: "100vh",
           overflowX: "hidden",
-          backgroundColor: "#edf3f8",
+          backgroundColor: "#F4F0E8",
           backgroundImage:
-            "radial-gradient(circle at top left, rgba(16,58,95,0.08) 0%, rgba(16,58,95,0) 24%), radial-gradient(circle at top right, rgba(18,116,107,0.08) 0%, rgba(18,116,107,0) 28%), linear-gradient(180deg, #f7fbff 0%, #edf3f8 48%, #e5edf6 100%)",
-          color: "#13263a",
+            "radial-gradient(circle at top left, rgba(19,41,61,0.08) 0%, rgba(19,41,61,0) 28%), radial-gradient(circle at top right, rgba(15,118,110,0.1) 0%, rgba(15,118,110,0) 34%), linear-gradient(180deg, #FBF8F2 0%, #F4F0E8 52%, #EDE4D4 100%)",
+          color: "#13293D",
         },
         "#root": {
           minHeight: "100vh",
@@ -99,20 +116,8 @@ let theme = createTheme({
           height: "auto",
         },
         "::selection": {
-          backgroundColor: "rgba(43,108,176,0.22)",
-          color: "#13263a",
-        },
-        "*::-webkit-scrollbar": {
-          width: 10,
-          height: 10,
-        },
-        "*::-webkit-scrollbar-thumb": {
-          backgroundColor: "rgba(16,58,95,0.18)",
-          borderRadius: 999,
-          border: "2px solid rgba(255,255,255,0.7)",
-        },
-        "*::-webkit-scrollbar-track": {
-          backgroundColor: "rgba(16,58,95,0.04)",
+          backgroundColor: "rgba(15, 118, 110, 0.24)",
+          color: "#13293D",
         },
       },
     },
@@ -121,9 +126,9 @@ let theme = createTheme({
         root: {
           minWidth: 0,
           borderRadius: 18,
-          background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,250,255,0.95) 100%)",
-          border: "1px solid rgba(19, 38, 58, 0.08)",
-          boxShadow: "0 16px 34px rgba(13, 32, 56, 0.07), 0 2px 6px rgba(13, 32, 56, 0.04)",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(250,247,241,0.96) 100%)",
+          border: "1px solid rgba(19, 41, 61, 0.08)",
+          boxShadow: "var(--shadow-sm)",
         },
       },
     },
@@ -137,13 +142,14 @@ let theme = createTheme({
     MuiButton: {
       defaultProps: {
         size: "medium",
+        disableElevation: true,
       },
       styleOverrides: {
         root: {
           minHeight: 40,
           borderRadius: 12,
           paddingInline: 16,
-          transition: "transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease",
+          transition: "transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease",
           "&:hover": {
             transform: "translateY(-1px)",
           },
@@ -151,30 +157,29 @@ let theme = createTheme({
             transform: "none",
           },
         },
-        contained: {
-          boxShadow: "0 14px 26px rgba(16, 58, 95, 0.16)",
-        },
         containedPrimary: {
-          background: "linear-gradient(135deg, #103a5f 0%, #174d7d 100%)",
+          background: "linear-gradient(135deg, #13293D 0%, #1F3D57 100%)",
           color: "#ffffff",
-        },
-        containedSecondary: {
-          background: "linear-gradient(135deg, #12746b 0%, #159184 100%)",
-          color: "#ffffff",
-        },
-        outlined: {
-          borderColor: "rgba(16, 58, 95, 0.16)",
-          background: "rgba(255,255,255,0.84)",
-          backdropFilter: "blur(10px)",
+          boxShadow: "0 10px 20px rgba(19, 41, 61, 0.24)",
           "&:hover": {
-            background: "rgba(16, 58, 95, 0.05)",
-            borderColor: "rgba(16, 58, 95, 0.28)",
+            boxShadow: "0 14px 26px rgba(19, 41, 61, 0.28)",
           },
         },
-        text: {
-          color: "#103a5f",
+        containedSecondary: {
+          background: "linear-gradient(135deg, #0F766E 0%, #0B5E58 100%)",
+          color: "#ffffff",
+          boxShadow: "0 10px 20px rgba(15, 118, 110, 0.24)",
           "&:hover": {
-            background: "rgba(16,58,95,0.06)",
+            boxShadow: "0 14px 26px rgba(15, 118, 110, 0.28)",
+          },
+        },
+        outlined: {
+          borderColor: "rgba(19, 41, 61, 0.22)",
+          background: "var(--bg-surface-glass)",
+          backdropFilter: "blur(10px)",
+          "&:hover": {
+            background: "rgba(19, 41, 61, 0.04)",
+            borderColor: "rgba(19, 41, 61, 0.34)",
           },
         },
       },
@@ -183,11 +188,11 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           maxWidth: "100%",
-          minHeight: 42,
+          minHeight: 44,
           padding: 4,
-          borderRadius: 999,
-          backgroundColor: "rgba(16,58,95,0.05)",
-          border: "1px solid rgba(16,58,95,0.08)",
+          borderRadius: 12,
+          backgroundColor: "rgba(19, 41, 61, 0.05)",
+          border: "1px solid rgba(19, 41, 61, 0.08)",
         },
         indicator: {
           display: "none",
@@ -199,16 +204,16 @@ let theme = createTheme({
         root: {
           minWidth: 0,
           minHeight: 34,
-          paddingInline: 14,
-          borderRadius: 999,
-          fontWeight: 800,
+          paddingInline: 16,
+          borderRadius: 8,
+          fontWeight: 700,
           textTransform: "none",
-          color: "#617387",
-          transition: "background-color 160ms ease, color 160ms ease, box-shadow 160ms ease",
+          color: "#5B6D7F",
+          transition: "background-color 140ms ease, color 140ms ease, box-shadow 140ms ease",
           "&.Mui-selected": {
-            color: "#103a5f",
-            background: "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.96) 100%)",
-            boxShadow: "0 8px 18px rgba(13,32,56,0.08)",
+            color: "#13293D",
+            backgroundColor: "#FFFFFF",
+            boxShadow: "0 4px 10px rgba(19, 41, 61, 0.1)",
           },
         },
       },
@@ -216,11 +221,11 @@ let theme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
-          fontWeight: 800,
+          fontWeight: 700,
           maxWidth: "100%",
-          borderRadius: 999,
-          border: "1px solid rgba(16,58,95,0.08)",
-          backgroundColor: "rgba(239,246,255,0.86)",
+          borderRadius: 10,
+          border: "1px solid rgba(19, 41, 61, 0.1)",
+          backgroundColor: "rgba(19, 41, 61, 0.04)",
         },
       },
     },
@@ -229,9 +234,9 @@ let theme = createTheme({
         paper: {
           width: "calc(100% - 24px)",
           margin: 12,
-          borderRadius: 22,
-          background: "linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(244,249,255,0.97) 100%)",
-          boxShadow: "0 24px 60px rgba(13,32,56,0.18)",
+          borderRadius: 20,
+          background: "linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(249,246,240,0.98) 100%)",
+          boxShadow: "var(--shadow-lg)",
         },
       },
     },
@@ -270,8 +275,8 @@ let theme = createTheme({
           padding: "9px 12px",
           alignItems: "center",
           borderRadius: 14,
-          border: "1px solid rgba(16,58,95,0.08)",
-          backgroundColor: "rgba(255,255,255,0.82)",
+          border: "1px solid rgba(19, 41, 61, 0.1)",
+          backgroundColor: "rgba(255,255,255,0.88)",
           backdropFilter: "blur(10px)",
         },
       },
@@ -280,16 +285,16 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           fontWeight: 700,
-          color: "#516274",
+          color: "#415668",
         },
       },
     },
     MuiFormHelperText: {
       styleOverrides: {
         root: {
-          marginTop: 5,
-          lineHeight: 1.3,
-          fontSize: "0.72rem",
+          marginTop: 6,
+          lineHeight: 1.4,
+          fontSize: "0.75rem",
         },
       },
     },
@@ -301,25 +306,21 @@ let theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          borderRadius: 14,
-          backgroundColor: "rgba(255,255,255,0.92)",
-          transition: "box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease",
+          borderRadius: 12,
+          backgroundColor: "#FFFFFF",
+          transition: "box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease",
           "& .MuiOutlinedInput-notchedOutline": {
-            borderColor: "rgba(16,58,95,0.14)",
-            transition: "border-color 160ms ease",
-          },
-          "&:hover": {
-            backgroundColor: "#ffffff",
+            borderColor: "rgba(19, 41, 61, 0.18)",
+            transition: "border-color 140ms ease",
           },
           "&:hover .MuiOutlinedInput-notchedOutline": {
-            borderColor: "rgba(16,58,95,0.26)",
+            borderColor: "rgba(19, 41, 61, 0.28)",
           },
           "&.Mui-focused": {
-            backgroundColor: "#ffffff",
-            boxShadow: "0 0 0 4px rgba(43,108,176,0.14)",
+            boxShadow: "0 0 0 3px rgba(15, 118, 110, 0.18)",
           },
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-            borderColor: "rgba(43,108,176,0.7)",
+            borderColor: "#0F766E",
             borderWidth: 1,
           },
         },
@@ -328,9 +329,9 @@ let theme = createTheme({
     MuiCheckbox: {
       styleOverrides: {
         root: {
-          color: "rgba(16,58,95,0.54)",
+          color: "rgba(19, 41, 61, 0.56)",
           "&.Mui-checked": {
-            color: "#103a5f",
+            color: "#13293D",
           },
         },
       },
@@ -341,13 +342,13 @@ let theme = createTheme({
           "&.Mui-checked": {
             color: "#ffffff",
             "& + .MuiSwitch-track": {
-              backgroundColor: "#12746b",
+              backgroundColor: "#0F766E",
               opacity: 1,
             },
           },
         },
         track: {
-          backgroundColor: "rgba(16,58,95,0.22)",
+          backgroundColor: "rgba(19, 41, 61, 0.26)",
           opacity: 1,
         },
       },
@@ -356,9 +357,9 @@ let theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 14,
-          border: "1px solid rgba(16,58,95,0.08)",
-          background: "linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(244,249,255,0.96) 100%)",
-          boxShadow: "0 18px 36px rgba(13,32,56,0.12)",
+          border: "1px solid rgba(19, 41, 61, 0.1)",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(248,243,235,0.96) 100%)",
+          boxShadow: "0 18px 36px rgba(19, 41, 61, 0.14)",
         },
       },
     },
@@ -369,10 +370,10 @@ let theme = createTheme({
           borderRadius: 10,
           minHeight: 36,
           "&.Mui-selected": {
-            backgroundColor: "rgba(16,58,95,0.08)",
+            backgroundColor: "rgba(19, 41, 61, 0.08)",
           },
           "&.Mui-selected:hover": {
-            backgroundColor: "rgba(16,58,95,0.12)",
+            backgroundColor: "rgba(19, 41, 61, 0.12)",
           },
         },
       },
@@ -391,23 +392,24 @@ let theme = createTheme({
     MuiTableHead: {
       styleOverrides: {
         root: {
-          background: "linear-gradient(180deg, rgba(16,58,95,0.08) 0%, rgba(16,58,95,0.04) 100%)",
+          background: "#F8F4EC",
+          borderBottom: "1px solid rgba(19, 41, 61, 0.12)",
         },
       },
     },
     MuiTableCell: {
       styleOverrides: {
         head: {
-          fontWeight: 800,
-          color: "#103a5f",
+          fontWeight: 700,
+          color: "#13293D",
           whiteSpace: "nowrap",
-          paddingTop: 10,
-          paddingBottom: 10,
+          paddingTop: 12,
+          paddingBottom: 12,
         },
         body: {
-          paddingTop: 9,
-          paddingBottom: 9,
-          overflowWrap: "anywhere",
+          paddingTop: 10,
+          paddingBottom: 10,
+          color: "#324B61",
         },
       },
     },
@@ -415,35 +417,37 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           minWidth: 0,
-          border: "1px solid rgba(16, 58, 95, 0.12)",
-          borderRadius: 16,
-          background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(243,248,255,0.94) 100%)",
-          boxShadow: "0 16px 32px rgba(13,32,56,0.06)",
+          border: "1px solid rgba(19, 41, 61, 0.12)",
+          borderRadius: 14,
+          background: "#FFFFFF",
+          boxShadow: "0 8px 18px rgba(19, 41, 61, 0.08)",
         },
         columnHeaders: {
-          background: "linear-gradient(180deg, rgba(16,58,95,0.08) 0%, rgba(16,58,95,0.04) 100%)",
-          fontWeight: 800,
+          background: "#F8F4EC",
+          fontWeight: 700,
+          color: "#13293D",
+          borderBottom: "1px solid rgba(19, 41, 61, 0.12)",
         },
         row: {
           "&:hover": {
-            backgroundColor: "rgba(18,116,107,0.05)",
+            backgroundColor: "#F6F1E8",
           },
         },
         columnSeparator: {
-          color: "rgba(16, 58, 95, 0.18)",
+          color: "rgba(19, 41, 61, 0.12)",
         },
         cell: {
-          borderColor: "rgba(16, 58, 95, 0.08)",
+          borderColor: "rgba(19, 41, 61, 0.08)",
         },
         footerContainer: {
-          backgroundColor: "rgba(16,58,95,0.03)",
-          borderTopColor: "rgba(16,58,95,0.08)",
+          backgroundColor: "#F8F4EC",
+          borderTopColor: "rgba(19, 41, 61, 0.12)",
         },
       },
     },
   } as any,
 });
 
-theme = responsiveFontSizes(theme, { factor: 2.1 });
+theme = responsiveFontSizes(theme, { factor: 2 });
 
 export { theme };
