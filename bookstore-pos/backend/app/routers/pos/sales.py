@@ -3,6 +3,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user, require_permission, require_role
+from app.core.rate_limit import rate_limit
 from app.models.product import Product
 from app.models.customer import Customer
 from app.models.sale import Sale, SaleItem
@@ -39,6 +40,7 @@ async def list_sales(
 
 
 @router.post("", response_model=SaleOut, status_code=201, dependencies=[Depends(require_permission("sales.create"))])
+@rate_limit(limit=30, window_seconds=60, key_prefix="sales_create")
 async def create_sale(data: SaleCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     service = SalesService(db, current_user)
     return await service.create_sale(data)

@@ -1,5 +1,9 @@
 import asyncio
+from functools import wraps
 from time import time
+from typing import Callable
+
+from fastapi import HTTPException, Request, status
 
 from app.core.config import settings
 
@@ -82,3 +86,54 @@ class RateLimiter:
 
 
 rate_limiter = RateLimiter()
+
+
+def rate_limit(limit: int = 60, window_seconds: int = 60, key_prefix: str = "endpoint"):
+    """
+    Decorador para agregar rate limiting a endpoints específicos.
+
+    Args:
+        limit: Número máximo de peticiones permitidas en la ventana
+        window_seconds: Ventana de tiempo en segundos
+        key_prefix: Prefijo para la clave de rate limiting
+
+    Usage:
+        @router.post("/sales")
+        @rate_limit(limit=30, window_seconds=60, key_prefix="sales")
+        async def create_sale(...):
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Obtener request de los argumentos
+            request = None
+            for arg in args:
+                if isinstance(arg, Request):
+                    request = arg
+                    break
+            if request is None:
+                request = kwargs.get("request")
+
+            # Construir clave de rate limiting
+            if request and request.client:
+                ip = request.client.host
+            else:
+                ip = "unknown"
+            rate_key = f"{key_prefix}:{ip}"
+
+            # Verificar rate limit
+            limited = await rate_limiter.is_limited(
+                key=rate_key,
+                limit=limit,
+                window_seconds=window_seconds,
+            )
+            if limited:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Rate limit exceeded. Max {limit} requests per {window_seconds}s",
+                )
+
+            return await func(*args, **kwargs)
+        return wrapper
+    return decorator

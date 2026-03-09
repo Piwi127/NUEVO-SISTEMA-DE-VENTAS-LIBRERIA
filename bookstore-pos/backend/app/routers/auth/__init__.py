@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.core.metrics import rate_limit_blocked_total
-from app.core.rate_limit import rate_limiter
+from app.core.rate_limit import rate_limiter, rate_limit
 from app.models.user import User
 from app.schemas.auth import LoginRequest, LogoutResponse, MeResponse, RefreshResponse, TokenResponse
 from app.services.auth.auth_service import AuthService
@@ -162,12 +162,14 @@ async def logout_all(
 
 
 @router.post("/2fa/setup")
+@rate_limit(limit=5, window_seconds=300, key_prefix="2fa_setup")
 async def setup_2fa(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     return await service.setup_2fa(current_user)
 
 
 @router.post("/2fa/confirm")
+@rate_limit(limit=10, window_seconds=300, key_prefix="2fa_confirm")
 async def confirm_2fa(code: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     return await service.confirm_2fa(current_user, code)

@@ -114,11 +114,7 @@ logger = logging.getLogger("bookstore")
 def _validate_security_settings() -> None:
     env = settings.environment.lower()
     is_prod = env in {"prod", "production"}
-    if not settings.jwt_secret:
-        raise RuntimeError("JWT_SECRET debe configurarse y no usar valores por defecto")
-    weak_jwt_values = {"change_me_super_secret", "dev_local_secret_change_this", "dev", "secret"}
-    if is_prod and settings.jwt_secret in weak_jwt_values:
-        raise RuntimeError("JWT_SECRET usa un valor inseguro para produccion")
+    # JWT_SECRET ya es validado por el field_validator en config.py
     if is_prod and not settings.cookie_secure:
         raise RuntimeError("COOKIE_SECURE debe ser true en produccion")
     samesite = settings.cookie_samesite.lower()
@@ -134,6 +130,14 @@ def _validate_security_settings() -> None:
             raise RuntimeError("CORS_ORIGINS debe definirse en produccion")
         if any("localhost" in o or "127.0.0.1" in o for o in origins):
             raise RuntimeError("CORS_ORIGINS no debe incluir localhost en produccion")
+    # Validar DATABASE_URL
+    if not settings.database_url:
+        raise RuntimeError("DATABASE_URL debe estar configurada")
+    if not settings.database_url.startswith(("sqlite", "postgresql", "mysql")):
+        raise RuntimeError("DATABASE_URL debe usar sqlite, postgresql o mysql")
+    # Validar Redis URL si se proporciona
+    if settings.redis_url and not settings.redis_url.startswith(("redis://", "rediss://")):
+        raise RuntimeError("REDIS_URL debe comenzar con redis:// o rediss://")
 
 _validate_security_settings()
 

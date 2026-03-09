@@ -18,6 +18,7 @@ type AuthContextValue = AuthState & {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const STORAGE_KEY = "bookstore_auth";
+const IS_DEV = import.meta.env.DEV;
 
 export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [state, setState] = useState<AuthState>({ username: null, role: null, csrfToken: null });
@@ -36,7 +37,11 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   }, []);
 
   useEffect(() => {
-    refreshMe().catch(() => {
+    refreshMe().catch((err) => {
+      // Log error in development for debugging
+      if (IS_DEV) {
+        console.warn("Auth refresh failed:", err?.message || err);
+      }
       setState({ username: null, role: null, csrfToken: null });
       localStorage.removeItem(STORAGE_KEY);
     }).finally(() => {
@@ -51,8 +56,11 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   };
 
   const logout = () => {
-    apiLogout().catch(() => {
-      // ignore
+    apiLogout().catch((err) => {
+      // Log logout errors in development
+      if (IS_DEV) {
+        console.warn("Logout error:", err?.message || err);
+      }
     });
     setState({ username: null, role: null, csrfToken: null });
     localStorage.removeItem(STORAGE_KEY);

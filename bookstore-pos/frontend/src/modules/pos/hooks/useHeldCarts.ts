@@ -8,7 +8,6 @@ const MAX_HELD_CARTS = 20;
 export type HeldCart = {
     id: string;
     label: string;
-    create_at?: string; // from previous buggy snakecase
     created_at?: string;
     customer_id: number | null;
     promo_id: number | null;
@@ -66,8 +65,17 @@ export const useHeldCarts = ({
             if (!raw) return;
             const parsed = JSON.parse(raw) as HeldCart[];
             if (Array.isArray(parsed)) {
+                // Migrar campos antiguos create_at a created_at
+                const migrated = parsed.map((cart) => {
+                    const hasCreateAt = (cart as any).create_at;
+                    const hasCreatedAt = cart.created_at;
+                    return {
+                        ...cart,
+                        created_at: hasCreatedAt || hasCreateAt || undefined,
+                    } as HeldCart;
+                });
                 setHeldCarts(
-                    parsed.filter(
+                    migrated.filter(
                         (cartItem) => cartItem && typeof cartItem.id === "string" && Array.isArray(cartItem.items)
                     )
                 );

@@ -682,7 +682,7 @@ const POS: React.FC = () => {
                 <ListItemButton key={held.id} onClick={() => restoreHeldCart(held)} sx={{ border: "1px solid var(--border-subtle)", borderRadius: 2, mb: 1 }}>
                   <ListItemText
                     primary={<Typography fontWeight="700">{held.label}</Typography>}
-                    secondary={<Typography variant="caption" color="text.secondary">{`${new Date(held.created_at || held.create_at || "").toLocaleString("es-PE")} | ${held.items.length} articulos | Neto: ${formatMoney(held.items.reduce((acc, item) => acc + item.price * item.qty, 0))}`}</Typography>}
+                    secondary={<Typography variant="caption" color="text.secondary">{`${new Date(held.created_at || "").toLocaleString("es-PE")} | ${held.items.length} articulos | Neto: ${formatMoney(held.items.reduce((acc, item) => acc + item.price * item.qty, 0))}`}</Typography>}
                   />
                   <Button size="small" variant="outlined" color="error" onClick={(event) => { event.stopPropagation(); deleteHeldCart(held.id); }}>
                     Descartar

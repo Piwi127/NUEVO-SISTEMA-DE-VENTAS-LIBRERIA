@@ -21,9 +21,6 @@ from app.core.security import (
 from app.models.session import RefreshToken, UserSession
 from app.models.user import User
 
-LOCK_THRESHOLD = 5
-LOCK_MINUTES = 15
-
 
 class AuthService:
     def __init__(self, db: AsyncSession):
@@ -133,8 +130,8 @@ class AuthService:
         if not verify_password(data.password, user.password_hash):
             user.failed_attempts += 1
             locked = False
-            if user.failed_attempts >= LOCK_THRESHOLD:
-                user.locked_until = self._now() + timedelta(minutes=LOCK_MINUTES)
+            if user.failed_attempts >= settings.account_lock_threshold:
+                user.locked_until = self._now() + timedelta(minutes=settings.account_lock_minutes)
                 user.failed_attempts = 0
                 locked = True
             await log_event(self.db, user.id, "login_failed", "user", str(user.id), "", ip=ip, user_agent=user_agent)
@@ -150,8 +147,8 @@ class AuthService:
             if not self._verify_totp(secret, data.otp or ""):
                 user.failed_attempts += 1
                 locked = False
-                if user.failed_attempts >= LOCK_THRESHOLD:
-                    user.locked_until = self._now() + timedelta(minutes=LOCK_MINUTES)
+                if user.failed_attempts >= settings.account_lock_threshold:
+                    user.locked_until = self._now() + timedelta(minutes=settings.account_lock_minutes)
                     user.failed_attempts = 0
                     locked = True
                 await log_event(self.db, user.id, "login_otp_failed", "user", str(user.id), "", ip=ip, user_agent=user_agent)

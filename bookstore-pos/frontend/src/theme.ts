@@ -1,5 +1,21 @@
 import { createTheme, responsiveFontSizes } from "@mui/material/styles";
 
+// Declaracion de tipos para MuiDataGrid
+declare module "@mui/material/styles" {
+  interface Components {
+    MuiDataGrid?: {
+      styleOverrides?: {
+        root?: any;
+        columnHeaders?: any;
+        row?: any;
+        columnSeparator?: any;
+        cell?: any;
+        footerContainer?: any;
+      };
+    };
+  }
+}
+
 let theme = createTheme({
   breakpoints: {
     values: {
@@ -445,7 +461,7 @@ let theme = createTheme({
         },
       },
     },
-  } as any,
+  },
 });
 
 theme = responsiveFontSizes(theme, { factor: 2 });
