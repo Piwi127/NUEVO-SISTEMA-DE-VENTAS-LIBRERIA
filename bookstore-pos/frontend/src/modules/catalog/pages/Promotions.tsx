@@ -1,6 +1,7 @@
 ﻿import React, { useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -23,7 +24,7 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CardTable, EmptyState, ErrorState, PageHeader, ResizableTable, TableToolbar, useToast } from "@/app/components";
 import {
-  ProductPromotionRule,
+  PackPromotionRule,
   createProductPromotionRule,
   createPromotion,
   listProductPromotionRules,
@@ -183,7 +184,7 @@ const Promotions: React.FC = () => {
   });
 
   const toggleRuleMutation = useMutation({
-    mutationFn: async (rule: ProductPromotionRule) => updateProductPromotionRule(rule.id, { is_active: !rule.is_active }),
+    mutationFn: async (rule: PackPromotionRule) => updateProductPromotionRule(rule.id, { is_active: !rule.is_active }),
     onSuccess: async (_result, rule) => {
       await qc.invalidateQueries({ queryKey: ["promotion-pack-rules"] });
       await qc.invalidateQueries({ queryKey: ["promotion-pack-rules-active"] });
@@ -207,7 +208,7 @@ const Promotions: React.FC = () => {
     fields: [{ label: "Tipo", value: promotion.type }],
   }));
 
-  const loadRuleForEdit = (rule: ProductPromotionRule) => {
+  const loadRuleForEdit = (rule: PackPromotionRule) => {
     setEditingRuleId(rule.id);
     setPackSubmitError("");
     resetPack({
@@ -389,24 +390,29 @@ const Promotions: React.FC = () => {
               control={packControl}
               name="product_id"
               render={({ field }) => (
-                <TextField
-                  select
-                    label="Producto"
-                    value={field.value || ""}
-                    error={!!packErrors.product_id}
-                    helperText={packErrors.product_id?.message || "Selecciona el producto al que aplica el pack."}
-                    onChange={(event) => {
-                      setPackSubmitError("");
-                      field.onChange(event.target.value === "" ? 0 : Number(event.target.value));
-                    }}
-                >
-                  <MenuItem value="">Seleccionar producto</MenuItem>
-                  {products.map((product) => (
-                    <MenuItem key={product.id} value={product.id}>
-                      {product.sku} - {product.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                <Autocomplete
+                  options={products}
+                  autoHighlight
+                  value={products.find((product) => product.id === field.value) || null}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  getOptionLabel={(option) => `${option.sku} - ${option.name}`}
+                  noOptionsText="No se encontraron productos"
+                  loadingText="Cargando productos..."
+                  onChange={(_event, selectedProduct) => {
+                    setPackSubmitError("");
+                    field.onChange(selectedProduct?.id ?? 0);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Producto"
+                      placeholder="Busca por SKU o nombre"
+                      error={!!packErrors.product_id}
+                      helperText={packErrors.product_id?.message || "Selecciona el producto al que aplica el pack."}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               )}
             />
             <TextField

@@ -1,5 +1,7 @@
+import unicodedata
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db, require_permission
@@ -29,15 +31,24 @@ TERM_GROUPS: list[list[str]] = [
 
 
 def _normalize(value: str) -> str:
-    return (
-        value.lower()
-        .replace("\u00e1", "a")
-        .replace("\u00e9", "e")
-        .replace("\u00ed", "i")
-        .replace("\u00f3", "o")
-        .replace("\u00fa", "u")
-        .strip()
+    normalized = unicodedata.normalize("NFD", value.lower().strip())
+    return "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+
+
+def _normalized_column(column):
+    value = func.lower(func.coalesce(column, ""))
+    replacements = (
+        ("\u00e1", "a"),
+        ("\u00e9", "e"),
+        ("\u00ed", "i"),
+        ("\u00f3", "o"),
+        ("\u00fa", "u"),
+        ("\u00fc", "u"),
+        ("\u00f1", "n"),
     )
+    for source, target in replacements:
+        value = func.replace(value, source, target)
+    return value
 
 
 
@@ -51,16 +62,17 @@ def _expand_tokens(tokens: list[str]) -> list[str]:
 
 
 def _build_search_clause(term: str):
+    normalized_term = f"%{_normalize(term)}%"
     return or_(
-        Product.name.ilike(term),
-        Product.sku.ilike(term),
-        Product.author.ilike(term),
-        Product.publisher.ilike(term),
-        Product.isbn.ilike(term),
-        Product.barcode.ilike(term),
-        Product.shelf_location.ilike(term),
-        Product.category.ilike(term),
-        Product.tags.ilike(term),
+        _normalized_column(Product.name).like(normalized_term),
+        _normalized_column(Product.sku).like(normalized_term),
+        _normalized_column(Product.author).like(normalized_term),
+        _normalized_column(Product.publisher).like(normalized_term),
+        _normalized_column(Product.isbn).like(normalized_term),
+        _normalized_column(Product.barcode).like(normalized_term),
+        _normalized_column(Product.shelf_location).like(normalized_term),
+        _normalized_column(Product.category).like(normalized_term),
+        _normalized_column(Product.tags).like(normalized_term),
     )
 
 
@@ -108,17 +120,15 @@ async def list_products(
             if smart:
                 token_clauses = []
                 for token in _expand_tokens(tokens):
-                    term = f"%{token}%"
-                    token_clauses.append(_build_search_clause(term))
+                    token_clauses.append(_build_search_clause(token))
                 stmt = stmt.where(or_(*token_clauses))
             else:
                 token_clauses = []
                 for token in tokens:
-                    term = f"%{token}%"
-                    token_clauses.append(_build_search_clause(term))
+                    token_clauses.append(_build_search_clause(token))
                 stmt = stmt.where(and_(*token_clauses))
 
-    stmt = stmt.order_by(Product.id).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    stmt = stmt.order_by(Product.id.desc()).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
     result = await db.execute(stmt)
     return result.scalars().all()
 

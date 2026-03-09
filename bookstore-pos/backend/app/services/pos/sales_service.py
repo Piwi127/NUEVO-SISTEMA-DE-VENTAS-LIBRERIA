@@ -18,7 +18,7 @@ from app.models.promotion import Promotion
 from app.models.promotion_rule import PromotionRule
 from app.models.sale import Sale, SaleItem, Payment
 from app.models.settings import SystemSettings
-from app.services.pos.pricing import BundleRuleInput, select_best_bundle_rule
+from app.services.pos.pricing import ProductRuleInput, select_best_product_rule
 
 from app.services._transaction import service_transaction
 
@@ -50,28 +50,30 @@ class SalesService:
             raise HTTPException(status_code=404, detail="Promocion no encontrada")
         return promo
 
-    async def _load_bundle_rules(self, product_ids: set[int]) -> dict[int, list[BundleRuleInput]]:
-        rules_by_product: dict[int, list[BundleRuleInput]] = {}
+    async def _load_product_rules(self, product_ids: set[int]) -> dict[int, list[ProductRuleInput]]:
+        rules_by_product: dict[int, list[ProductRuleInput]] = {}
         if product_ids:
             rules_res = await self.db.execute(
                 select(PromotionRule).where(
                     PromotionRule.is_active == True,  # noqa: E712
-                    PromotionRule.rule_type == "BUNDLE_PRICE",
                     PromotionRule.product_id.in_(product_ids),
                 )
             )
             for rule in rules_res.scalars().all():
                 rules_by_product.setdefault(rule.product_id, []).append(
-                    BundleRuleInput(
+                    ProductRuleInput(
                         id=rule.id,
                         name=rule.name,
+                        rule_type=rule.rule_type,
                         bundle_qty=rule.bundle_qty,
                         bundle_price=rule.bundle_price,
+                        min_qty=rule.min_qty,
+                        unit_price=rule.unit_price,
                     )
                 )
         return rules_by_product
 
-    async def _process_sale_item(self, item, default_warehouse_id: int, price_list_id: int | None, rules_by_product: dict[int, list[BundleRuleInput]]):
+    async def _process_sale_item(self, item, default_warehouse_id: int, price_list_id: int | None, rules_by_product: dict[int, list[ProductRuleInput]]):
         if item.qty <= 0:
             raise HTTPException(status_code=400, detail="Cantidad invalida")
         prod_result = await self.db.execute(select(Product).where(Product.id == item.product_id))
@@ -96,24 +98,37 @@ class SalesService:
                 price = price_item.price
         
         line_total = price * item.qty
-        bundle_result = select_best_bundle_rule(item.qty, price, rules_by_product.get(product.id, []))
-        item_pack_discount = max(0.0, min(line_total, float(bundle_result.discount)))
+        rule_result = select_best_product_rule(item.qty, price, rules_by_product.get(product.id, []))
+        item_pack_discount = max(0.0, min(line_total, float(rule_result.discount)))
         final_line_total = line_total - item_pack_discount
 
         applied_rule_id = None
         applied_rule_meta = None
-        if bundle_result.applied_rule and bundle_result.bundles_applied > 0 and item_pack_discount > 0:
-            applied_rule_id = bundle_result.applied_rule.id
-            applied_rule_meta = json.dumps(
-                {
-                    "rule_type": "BUNDLE_PRICE",
-                    "rule_name": bundle_result.applied_rule.name,
-                    "bundle_qty": bundle_result.applied_rule.bundle_qty,
-                    "bundle_price": bundle_result.applied_rule.bundle_price,
-                    "bundles_applied": bundle_result.bundles_applied,
-                },
-                ensure_ascii=False,
-            )
+        if rule_result.applied_rule and item_pack_discount > 0:
+            applied_rule = rule_result.applied_rule
+            applied_rule_id = applied_rule.id
+            rule_meta: dict[str, int | float | str | None] = {
+                "rule_type": applied_rule.rule_type,
+                "rule_name": applied_rule.name,
+            }
+            if applied_rule.rule_type == "BUNDLE_PRICE":
+                rule_meta.update(
+                    {
+                        "bundle_qty": applied_rule.bundle_qty,
+                        "bundle_price": applied_rule.bundle_price,
+                        "bundles_applied": rule_result.bundles_applied,
+                    }
+                )
+            elif applied_rule.rule_type == "UNIT_PRICE_BY_QTY":
+                rule_meta.update(
+                    {
+                        "min_qty": applied_rule.min_qty,
+                        "promo_unit_price": applied_rule.unit_price,
+                        "regular_unit_price": price,
+                        "units_priced": item.qty,
+                    }
+                )
+            applied_rule_meta = json.dumps(rule_meta, ensure_ascii=False)
 
         return {
             "product": product,
@@ -223,7 +238,7 @@ class SalesService:
             promo = await self._resolve_promotion(data.promotion_id)
 
             product_ids = {item.product_id for item in data.items}
-            rules_by_product = await self._load_bundle_rules(product_ids)
+            rules_by_product = await self._load_product_rules(product_ids)
 
             items_payload = []
             base_total = 0.0

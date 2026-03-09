@@ -1,4 +1,7 @@
 from dataclasses import dataclass
+from typing import Literal
+
+RuleType = Literal["BUNDLE_PRICE", "UNIT_PRICE_BY_QTY"]
 
 
 @dataclass(frozen=True)
@@ -10,10 +13,28 @@ class BundleRuleInput:
 
 
 @dataclass(frozen=True)
+class ProductRuleInput:
+    id: int
+    name: str
+    rule_type: RuleType
+    bundle_qty: int | None = None
+    bundle_price: float | None = None
+    min_qty: int | None = None
+    unit_price: float | None = None
+
+
+@dataclass(frozen=True)
 class BundlePricingResult:
     discount: float
     bundles_applied: int
     applied_rule: BundleRuleInput | None
+
+
+@dataclass(frozen=True)
+class ProductRulePricingResult:
+    discount: float
+    bundles_applied: int
+    applied_rule: ProductRuleInput | None
 
 
 def calculate_bundle_discount(qty: int, unit_price: float, bundle_qty: int, bundle_price: float) -> tuple[float, int]:
@@ -35,6 +56,22 @@ def calculate_bundle_discount(qty: int, unit_price: float, bundle_qty: int, bund
     return float(discount), bundles
 
 
+def calculate_unit_price_by_qty_discount(qty: int, unit_price: float, min_qty: int, promo_unit_price: float) -> float:
+    if qty <= 0 or unit_price <= 0 or min_qty <= 0 or promo_unit_price <= 0:
+        return 0.0
+    if qty < min_qty:
+        return 0.0
+
+    raw_unit_discount = unit_price - promo_unit_price
+    if raw_unit_discount <= 0:
+        return 0.0
+
+    line_total = unit_price * qty
+    discount = qty * raw_unit_discount
+    discount = max(0.0, min(discount, line_total))
+    return float(discount)
+
+
 def select_best_bundle_rule(qty: int, unit_price: float, rules: list[BundleRuleInput]) -> BundlePricingResult:
     best_rule: BundleRuleInput | None = None
     best_discount = 0.0
@@ -48,3 +85,42 @@ def select_best_bundle_rule(qty: int, unit_price: float, rules: list[BundleRuleI
             best_rule = rule
 
     return BundlePricingResult(discount=float(best_discount), bundles_applied=best_bundles, applied_rule=best_rule)
+
+
+def _rule_specificity(rule: ProductRuleInput | None) -> int:
+    if not rule:
+        return -1
+    if rule.rule_type == "UNIT_PRICE_BY_QTY":
+        return int(rule.min_qty or 0)
+    return int(rule.bundle_qty or 0)
+
+
+def _rule_priority(rule: ProductRuleInput | None) -> tuple[int, int]:
+    if not rule:
+        return -1, -1
+    type_priority = 1 if rule.rule_type == "UNIT_PRICE_BY_QTY" else 0
+    return _rule_specificity(rule), type_priority
+
+
+def select_best_product_rule(qty: int, unit_price: float, rules: list[ProductRuleInput]) -> ProductRulePricingResult:
+    best_rule: ProductRuleInput | None = None
+    best_discount = 0.0
+    best_bundles = 0
+
+    for rule in rules:
+        discount = 0.0
+        bundles_applied = 0
+        if rule.rule_type == "BUNDLE_PRICE" and rule.bundle_qty and rule.bundle_price:
+            discount, bundles_applied = calculate_bundle_discount(qty, unit_price, rule.bundle_qty, rule.bundle_price)
+        elif rule.rule_type == "UNIT_PRICE_BY_QTY" and rule.min_qty and rule.unit_price:
+            discount = calculate_unit_price_by_qty_discount(qty, unit_price, rule.min_qty, rule.unit_price)
+
+        if discount > best_discount:
+            best_discount = discount
+            best_bundles = bundles_applied
+            best_rule = rule
+        elif discount == best_discount and discount > 0 and _rule_priority(rule) > _rule_priority(best_rule):
+            best_bundles = bundles_applied
+            best_rule = rule
+
+    return ProductRulePricingResult(discount=float(best_discount), bundles_applied=best_bundles, applied_rule=best_rule)

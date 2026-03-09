@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.core.deps import get_current_user, get_db, require_permission, require_role
 from app.models.inventory import InventoryImportJob, StockMovement
 from app.schemas.inventory import (
+    InventoryImportJobErrorOut,
     InventoryImportJobErrorListOut,
     InventoryImportJobOut,
     InventoryMovementCreate,
@@ -258,7 +259,11 @@ async def get_import_job_errors(
             media_type="text/csv",
             headers={"Content-Disposition": f"attachment; filename=import_job_{job_id}_errors.csv"},
         )
-    return InventoryImportJobErrorListOut(job_id=job.id, total_errors=job.error_rows, items=items)
+    return InventoryImportJobErrorListOut(
+        job_id=job.id,
+        total_errors=job.error_rows,
+        items=[InventoryImportJobErrorOut.model_validate(item) for item in items],
+    )
 
 
 @router.get(

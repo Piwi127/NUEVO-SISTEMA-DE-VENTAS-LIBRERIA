@@ -36,6 +36,60 @@ describe("POS pricing utils", () => {
     expect(result.linesByProductId[1].applied_rule_id).toBe(1);
   });
 
+  it("applies unit price by quantity rule from threshold", () => {
+    const result = calculatePackPricing(
+      [{ product_id: 7, sku: "CUA-1", name: "Cuaderno", price: 6.5, qty: 4 }],
+      [
+        {
+          id: 10,
+          name: "Desde 3 a 6.00",
+          product_id: 7,
+          rule_type: "UNIT_PRICE_BY_QTY",
+          min_qty: 3,
+          unit_price: 6.0,
+          is_active: true,
+          created_at: "2026-01-01T00:00:00Z",
+        },
+      ]
+    );
+
+    expect(result.grossSubtotal).toBe(26);
+    expect(result.packDiscountTotal).toBe(2);
+    expect(result.subtotalAfterPacks).toBe(24);
+    expect(result.linesByProductId[7].applied_rule_type).toBe("UNIT_PRICE_BY_QTY");
+  });
+
+  it("selects the best rule between pack and unit-price promotions", () => {
+    const result = calculatePackPricing(
+      [{ product_id: 8, sku: "CUA-2", name: "Cuaderno", price: 6.5, qty: 3 }],
+      [
+        {
+          id: 11,
+          name: "Pack 3x18.50",
+          product_id: 8,
+          rule_type: "BUNDLE_PRICE",
+          bundle_qty: 3,
+          bundle_price: 18.5,
+          is_active: true,
+          created_at: "2026-01-01T00:00:00Z",
+        },
+        {
+          id: 12,
+          name: "Desde 3 a 6.00",
+          product_id: 8,
+          rule_type: "UNIT_PRICE_BY_QTY",
+          min_qty: 3,
+          unit_price: 6.0,
+          is_active: true,
+          created_at: "2026-01-01T00:00:00Z",
+        },
+      ]
+    );
+
+    expect(result.packDiscountTotal).toBe(1.5);
+    expect(result.linesByProductId[8].applied_rule_id).toBe(12);
+  });
+
   it("calculates totals with tax excluded and discounts", () => {
     const summary = calculatePosTotalsSummary({
       grossSubtotal: 100,

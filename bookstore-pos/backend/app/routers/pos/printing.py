@@ -61,7 +61,7 @@ def _build_receipt_lines(sale, items: list[tuple[SaleItem, str | None]], setting
         line_total = f"{item.qty} x {item.unit_price:.2f} = {charged_line_total:.2f}"
         lines.append(line_total[:width])
         if getattr(item, "discount", 0) > 0:
-            lines.append(f"  Pack: -{item.discount:.2f}"[:width])
+            lines.append(f"  Promo: -{item.discount:.2f}"[:width])
 
     lines.append("-" * width)
     lines.append(f"Subtotal: {sale.subtotal:.2f}")

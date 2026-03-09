@@ -5,6 +5,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import PriceCheckIcon from "@mui/icons-material/PriceCheck";
+import { Controller } from "react-hook-form";
 import { ErrorState, LoadingState, PageHeader } from "@/app/components";
 import { useProductForm, UseProductFormProps } from "@/modules/catalog/hooks/useProductForm";
 
@@ -42,6 +43,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onComplete }) => {
   } = useProductForm({ productId, onComplete });
 
   const {
+    control: productControl,
     register: registerProduct,
     formState: { errors: productErrors, isDirty: isProductDirty, isValid: isProductValid },
   } = productForm;
@@ -403,23 +405,33 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onComplete }) => {
                 <Tab value="new" label="Crear Nueva" sx={{ minHeight: 40 }} />
               </Tabs>
               {categoryTab === "existing" ? (
-                <TextField
-                  select
-                  label="Categoría Actual"
-                  error={!!productErrors.category}
-                  helperText={productErrors.category?.message || (categoriesQuery.isLoading ? "Cargando..." : undefined)}
-                  fullWidth
-                  {...registerProduct("category", {
-                    onChange: () => setSubmitError(""),
-                  })}
-                >
-                  <MenuItem value="">Sin categoría</MenuItem>
-                  {categoryOptions.map((item) => (
-                    <MenuItem key={item} value={item}>
-                      {item}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                <Controller
+                  control={productControl}
+                  name="category"
+                  render={({ field }) => (
+                    <TextField
+                      select
+                      label="Categoría Actual"
+                      error={!!productErrors.category}
+                      helperText={productErrors.category?.message || (categoriesQuery.isLoading ? "Cargando..." : undefined)}
+                      fullWidth
+                      value={field.value ?? ""}
+                      onChange={(event) => {
+                        setSubmitError("");
+                        field.onChange(event.target.value);
+                      }}
+                      onBlur={field.onBlur}
+                      inputRef={field.ref}
+                    >
+                      <MenuItem value="">Sin categoría</MenuItem>
+                      {categoryOptions.map((item) => (
+                        <MenuItem key={item} value={item}>
+                          {item}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
               ) : (
                 <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
                   <TextField label="Nombre Categoría" value={newCategory} onChange={(event) => setNewCategory(event.target.value)} fullWidth />
