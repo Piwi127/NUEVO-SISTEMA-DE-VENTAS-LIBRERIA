@@ -18,6 +18,7 @@ type UsePosCheckoutArgs = {
   cashIsOpen: boolean;
   customerId: number | "";
   promoId: number | "";
+  redeemPoints: number;
   priceMap: Record<number, number>;
   totals: PosTotals;
   wsRef: React.MutableRefObject<WebSocket | null>;
@@ -39,6 +40,9 @@ type ReceiptPayload = {
   discount: number;
   pack_discount?: number;
   promotion_discount?: number;
+  loyalty_discount?: number;
+  loyalty_points_earned?: number;
+  loyalty_points_redeemed?: number;
   total: number;
   created_at: string;
   items: ReceiptItem[];
@@ -63,7 +67,7 @@ type LastSaleSummary = {
   createdAt: string;
 };
 
-export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap, totals, wsRef }: UsePosCheckoutArgs) => {
+export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, redeemPoints, priceMap, totals, wsRef }: UsePosCheckoutArgs) => {
   const [payOpen, setPayOpen] = useState(false);
   const [lastSale, setLastSale] = useState<LastSaleSummary | null>(null);
   const { showToast } = useToast();
@@ -105,6 +109,7 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap
       discount: totals.discount,
       total: totals.total,
       promotion_id: promoId ? Number(promoId) : null,
+      redeem_points: Math.max(0, Math.floor(redeemPoints || 0)),
     });
   };
 
@@ -165,9 +170,12 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, priceMap
         <div>Subtotal: ${receipt.subtotal.toFixed(2)}</div>
         <div>Desc. packs: ${(receipt.pack_discount || 0).toFixed(2)}</div>
         <div>Desc. promo: ${(receipt.promotion_discount || 0).toFixed(2)}</div>
+        <div>Desc. fidelizacion: ${(receipt.loyalty_discount || 0).toFixed(2)}</div>
         <div>Impuesto: ${receipt.tax.toFixed(2)}</div>
         <div>Descuento: ${receipt.discount.toFixed(2)}</div>
         <h4>Total: ${receipt.total.toFixed(2)}</h4>
+        <div>Puntos ganados: ${(receipt.loyalty_points_earned || 0).toFixed(0)}</div>
+        <div>Puntos redimidos: ${(receipt.loyalty_points_redeemed || 0).toFixed(0)}</div>
         <div class="center qr"><img src="${qrDataUrl}" width="120" height="120" /></div>
         <div class="center">${footer}</div>
         </div>

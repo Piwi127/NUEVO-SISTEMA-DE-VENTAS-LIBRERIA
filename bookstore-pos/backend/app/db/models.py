@@ -4,7 +4,7 @@ from app.models.customer import Customer  # noqa: F401
 from app.models.supplier import Supplier  # noqa: F401
 from app.models.sale import Sale, SaleItem, Payment  # noqa: F401
 from app.models.cash import CashSession, CashMovement, CashAudit  # noqa: F401
-from app.models.inventory import StockMovement  # noqa: F401
+from app.models.inventory import InventoryImportJob, InventoryImportJobError, StockMovement  # noqa: F401
 from app.models.purchase import Purchase, PurchaseItem  # noqa: F401
 from app.models.settings import SystemSettings  # noqa: F401
 from app.models.permission import RolePermission  # noqa: F401

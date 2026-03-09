@@ -36,11 +36,14 @@ async def get_current_user(
         payload = decode_token(token)
         username = payload.get("sub")
         jti = payload.get("jti")
+        token_type = payload.get("typ")
     except ValueError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido")
     if not username:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido")
     if not jti:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido")
+    if token_type and token_type != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido")
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()

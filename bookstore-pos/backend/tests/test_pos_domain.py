@@ -1,9 +1,4 @@
 import pytest
-from sqlalchemy import text
-
-# Assuming an existing test fixture setup exists that mirrors test_smoke.py
-# If there are additional imports from test_smoke.py needed, add them here.
-from app.core.config import settings
 
 async def _login_admin(client):
     resp = await client.post("/auth/login", json={"username": "admin", "password": "admin123"})

@@ -73,6 +73,12 @@ async def verify_schema_compatibility() -> None:
             "purchase_items": {"base_unit_cost", "direct_cost_allocated"},
             "stock_batches": {"unit_cost", "direct_cost_allocated", "source_type", "source_ref"},
             "sale_items": {"unit_cost_snapshot"},
+            "customers": {"loyalty_points", "loyalty_total_earned", "loyalty_total_redeemed"},
+            "sales": {"loyalty_discount", "loyalty_points_earned", "loyalty_points_redeemed"},
+            "user_sessions": {"family_id"},
+            "refresh_tokens": {"family_id", "jti", "token_hash", "expires_at", "revoked_at"},
+            "inventory_import_jobs": {"status", "filename", "file_type", "processed_rows", "success_rows", "error_rows"},
+            "inventory_import_job_errors": {"job_id", "row_number", "detail"},
         }
 
         for table_name, required in required_columns.items():
@@ -244,7 +250,10 @@ class CsrfMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             has_auth_header = bool(request.headers.get("authorization"))
-            if not has_auth_header and request.cookies.get(settings.auth_cookie_name):
+            has_session_cookie = bool(
+                request.cookies.get(settings.auth_cookie_name) or request.cookies.get(settings.refresh_cookie_name)
+            )
+            if not has_auth_header and has_session_cookie:
                 csrf_cookie = request.cookies.get(settings.csrf_cookie_name)
                 csrf_header = request.headers.get(settings.csrf_header_name)
                 if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:

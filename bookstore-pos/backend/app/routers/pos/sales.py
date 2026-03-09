@@ -69,6 +69,9 @@ async def get_receipt(sale_id: int, db: AsyncSession = Depends(get_db)):
         "discount": sale.discount,
         "pack_discount": sale.pack_discount,
         "promotion_discount": sale.promotion_discount,
+        "loyalty_discount": sale.loyalty_discount,
+        "loyalty_points_earned": sale.loyalty_points_earned,
+        "loyalty_points_redeemed": sale.loyalty_points_redeemed,
         "total": sale.total,
         "items": [
             {

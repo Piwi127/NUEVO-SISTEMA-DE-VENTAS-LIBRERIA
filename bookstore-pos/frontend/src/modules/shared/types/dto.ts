@@ -37,6 +37,9 @@ export type Customer = {
   name: string;
   phone?: string | null;
   price_list_id?: number | null;
+  loyalty_points?: number;
+  loyalty_total_earned?: number;
+  loyalty_total_redeemed?: number;
 };
 
 export type Supplier = {
@@ -52,6 +55,47 @@ export type StockMovement = {
   qty: number;
   ref: string;
   created_at: string;
+};
+
+export type KardexPage = {
+  items: StockMovement[];
+  limit: number;
+  has_more: boolean;
+  next_cursor?: string | null;
+};
+
+export type InventoryImportJob = {
+  id: number;
+  created_by: number;
+  status: "pending" | "running" | "success" | "failed" | "partial";
+  filename: string;
+  file_type: string;
+  request_id?: string | null;
+  batch_size: number;
+  total_rows: number;
+  processed_rows: number;
+  success_rows: number;
+  error_rows: number;
+  error_message?: string | null;
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  updated_at: string;
+};
+
+export type InventoryImportJobError = {
+  id: number;
+  row_number: number;
+  sku?: string | null;
+  detail: string;
+  raw_data?: string | null;
+  created_at: string;
+};
+
+export type InventoryImportJobErrorList = {
+  job_id: number;
+  total_errors: number;
+  items: InventoryImportJobError[];
 };
 
 export type CashSession = {
@@ -121,6 +165,9 @@ export type SaleResponse = {
   discount: number;
   pack_discount?: number;
   promotion_discount?: number;
+  loyalty_discount?: number;
+  loyalty_points_earned?: number;
+  loyalty_points_redeemed?: number;
   total: number;
   invoice_number: string;
   status: string;
@@ -238,4 +285,13 @@ export type ReplenishmentSuggestionReport = {
   target_stock: number;
   suggested_qty: number;
   urgency: string;
+};
+
+export type OperationalAlert = {
+  code: string;
+  severity: "info" | "warning" | "error" | "success" | string;
+  title: string;
+  message: string;
+  product_id?: number | null;
+  suggested_action?: string | null;
 };

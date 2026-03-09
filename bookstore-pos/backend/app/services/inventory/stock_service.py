@@ -8,8 +8,8 @@ from app.core.audit import log_event
 from app.core.stock import apply_stock_delta, require_default_warehouse_id
 from app.models.inventory import StockMovement
 from app.models.product import Product
-
 from app.services._transaction import service_transaction
+
 
 class StockService:
     def __init__(self, db: AsyncSession, current_user):
@@ -25,20 +25,102 @@ class StockService:
         raw = row.get(field)
         try:
             value = float(raw)
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail=f"Fila {row_number}: '{field}' invalido")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Fila {row_number}: '{field}' invalido") from exc
         if value < min_value:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Fila {row_number}: '{field}' debe ser mayor o igual a {min_value}",
-            )
+            raise ValueError(f"Fila {row_number}: '{field}' debe ser mayor o igual a {min_value}")
         return value
 
     def _parse_int(self, row_number: int, row: dict, field: str, *, min_value: int = 0) -> int:
         number = self._parse_float(row_number, row, field, min_value=float(min_value))
         if not number.is_integer():
-            raise HTTPException(status_code=400, detail=f"Fila {row_number}: '{field}' debe ser entero")
+            raise ValueError(f"Fila {row_number}: '{field}' debe ser entero")
         return int(number)
+
+    def parse_import_row(self, row_number: int, row: dict) -> dict[str, str | int | float] | None:
+        if all(str(value or "").strip() == "" for value in row.values()):
+            return None
+        sku = str(row.get("sku") or "").strip()
+        name = str(row.get("name") or "").strip()
+        if not sku:
+            raise ValueError(f"Fila {row_number}: 'sku' es obligatorio")
+        if not name:
+            raise ValueError(f"Fila {row_number}: 'name' es obligatorio")
+        return {
+            "sku": sku,
+            "name": name,
+            "category": str(row.get("category") or "").strip(),
+            "price": self._parse_float(row_number, row, "price"),
+            "cost": self._parse_float(row_number, row, "cost"),
+            "stock": self._parse_int(row_number, row, "stock"),
+            "stock_min": self._parse_int(row_number, row, "stock_min"),
+        }
+
+    async def upsert_import_row(self, row: dict[str, str | int | float], *, default_warehouse_id: int, ref: str) -> None:
+        sku = str(row["sku"])
+        name = str(row["name"])
+        category = str(row["category"])
+        price = float(row["price"])
+        cost = float(row["cost"])
+        stock = int(row["stock"])
+        stock_min = int(row["stock_min"])
+
+        result = await self.db.execute(select(Product).where(Product.sku == sku))
+        product = result.scalar_one_or_none()
+        if product:
+            diff = stock - int(product.stock or 0)
+            product.name = name
+            product.category = category
+            product.price = price
+            product.sale_price = price
+            product.cost = cost
+            product.unit_cost = cost
+            product.cost_qty = 1
+            product.cost_total = cost
+            product.direct_costs_breakdown = "{}"
+            product.direct_costs_total = 0
+            product.desired_margin = 0
+            product.stock_min = stock_min
+            if diff != 0:
+                await apply_stock_delta(self.db, product.id, diff, default_warehouse_id)
+                self.db.add(
+                    StockMovement(
+                        product_id=product.id,
+                        type="ADJ",
+                        qty=diff,
+                        ref=ref,
+                    )
+                )
+            return
+
+        product = Product(
+            sku=sku,
+            name=name,
+            category=category,
+            price=price,
+            sale_price=price,
+            cost=cost,
+            unit_cost=cost,
+            cost_qty=1,
+            cost_total=cost,
+            direct_costs_breakdown="{}",
+            direct_costs_total=0,
+            desired_margin=0,
+            stock=0,
+            stock_min=stock_min,
+        )
+        self.db.add(product)
+        await self.db.flush()
+        if stock != 0:
+            await apply_stock_delta(self.db, product.id, stock, default_warehouse_id)
+            self.db.add(
+                StockMovement(
+                    product_id=product.id,
+                    type="IN",
+                    qty=stock,
+                    ref=ref,
+                )
+            )
 
     async def create_movement(self, data):
         if data.qty == 0:
@@ -57,8 +139,8 @@ class StockService:
             delta = data.qty if data.type in {"IN", "ADJ"} else -data.qty
             try:
                 await apply_stock_delta(self.db, data.product_id, delta, default_warehouse_id)
-            except ValueError:
-                raise HTTPException(status_code=409, detail="Stock insuficiente")
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail="Stock insuficiente") from exc
             movement = StockMovement(
                 product_id=data.product_id,
                 type=data.type,
@@ -77,96 +159,23 @@ class StockService:
 
         parsed_rows: list[dict[str, str | int | float]] = []
         for row_number, row in enumerate(rows, start=2):
-            # Ignore fully empty rows (common with trailing blank lines in CSV/XLSX exports).
-            if all(str(value or "").strip() == "" for value in row.values()):
-                continue
-            sku = str(row.get("sku") or "").strip()
-            name = str(row.get("name") or "").strip()
-            if not sku:
-                raise HTTPException(status_code=400, detail=f"Fila {row_number}: 'sku' es obligatorio")
-            if not name:
-                raise HTTPException(status_code=400, detail=f"Fila {row_number}: 'name' es obligatorio")
-            parsed_rows.append(
-                {
-                    "sku": sku,
-                    "name": name,
-                    "category": str(row.get("category") or "").strip(),
-                    "price": self._parse_float(row_number, row, "price"),
-                    "cost": self._parse_float(row_number, row, "cost"),
-                    "stock": self._parse_int(row_number, row, "stock"),
-                    "stock_min": self._parse_int(row_number, row, "stock_min"),
-                }
-            )
+            try:
+                parsed = self.parse_import_row(row_number, row)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            if parsed is not None:
+                parsed_rows.append(parsed)
 
         if not parsed_rows:
             return {"ok": True, "count": 0}
 
         default_warehouse_id = await require_default_warehouse_id(self.db)
-
         async with self._transaction():
-            for r in parsed_rows:
-                sku = r["sku"]
-                name = r["name"]
-                category = r["category"]
-                price = r["price"]
-                cost = r["cost"]
-                stock = r["stock"]
-                stock_min = r["stock_min"]
-
-                result = await self.db.execute(select(Product).where(Product.sku == sku))
-                product = result.scalar_one_or_none()
-                if product:
-                    diff = stock - (product.stock or 0)
-                    product.name = name
-                    product.category = category
-                    product.price = price
-                    product.sale_price = price
-                    product.cost = cost
-                    product.unit_cost = cost
-                    product.cost_qty = 1
-                    product.cost_total = cost
-                    product.direct_costs_breakdown = "{}"
-                    product.direct_costs_total = 0
-                    product.desired_margin = 0
-                    product.stock_min = stock_min
-                    if diff != 0:
-                        await apply_stock_delta(self.db, product.id, diff, default_warehouse_id)
-                        movement = StockMovement(
-                            product_id=product.id,
-                            type="ADJ",
-                            qty=diff,
-                            ref="BULK_IMPORT",
-                        )
-                        self.db.add(movement)
-                else:
-                    product = Product(
-                        sku=sku,
-                        name=name,
-                        category=category,
-                        price=price,
-                        sale_price=price,
-                        cost=cost,
-                        unit_cost=cost,
-                        cost_qty=1,
-                        cost_total=cost,
-                        direct_costs_breakdown="{}",
-                        direct_costs_total=0,
-                        desired_margin=0,
-                        stock=0,
-                        stock_min=stock_min,
-                    )
-                    self.db.add(product)
-                    await self.db.flush()
-                    if stock != 0:
-                        await apply_stock_delta(self.db, product.id, stock, default_warehouse_id)
-                        movement = StockMovement(
-                            product_id=product.id,
-                            type="IN",
-                            qty=stock,
-                            ref="BULK_IMPORT",
-                    )
-                        self.db.add(movement)
-
+            for parsed in parsed_rows:
+                try:
+                    await self.upsert_import_row(parsed, default_warehouse_id=default_warehouse_id, ref="BULK_IMPORT")
+                except ValueError as exc:
+                    raise HTTPException(status_code=409, detail=str(exc)) from exc
             await log_event(
                 self.db,
                 self.user.id,

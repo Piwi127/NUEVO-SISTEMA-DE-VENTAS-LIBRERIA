@@ -39,6 +39,24 @@ rate_limit_blocked_total = Counter(
     ["scope"],
 )
 
+inventory_import_jobs_total = Counter(
+    "bookstore_inventory_import_jobs_total",
+    "Total inventory import jobs by final status",
+    ["status"],
+)
+
+inventory_import_rows_total = Counter(
+    "bookstore_inventory_import_rows_total",
+    "Inventory import rows processed grouped by result",
+    ["result"],
+)
+
+inventory_import_job_duration_seconds = Histogram(
+    "bookstore_inventory_import_job_duration_seconds",
+    "Inventory import job processing duration in seconds",
+    buckets=(0.25, 0.5, 1.0, 2.5, 5.0, 15.0, 30.0, 60.0, 120.0, 300.0),
+)
+
 
 def render_metrics() -> bytes:
     return generate_latest()
@@ -53,5 +71,8 @@ __all__ = [
     "purchases_total",
     "purchases_amount_total",
     "rate_limit_blocked_total",
+    "inventory_import_jobs_total",
+    "inventory_import_rows_total",
+    "inventory_import_job_duration_seconds",
     "render_metrics",
 ]

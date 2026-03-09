@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+from hmac import compare_digest
 from typing import Any
 from uuid import uuid4
 
@@ -37,7 +39,32 @@ def generate_jti() -> str:
 
 def create_access_token(subject: str, role: str, jti: str | None = None, expires_minutes: int | None = None) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes or settings.access_token_expire_minutes)
-    to_encode: dict[str, Any] = {"sub": subject, "role": role, "exp": expire, "jti": jti or generate_jti()}
+    to_encode: dict[str, Any] = {
+        "sub": subject,
+        "role": role,
+        "typ": "access",
+        "exp": expire,
+        "jti": jti or generate_jti(),
+    }
+    return jwt.encode(to_encode, settings.jwt_secret, algorithm=ALGORITHM)
+
+
+def create_refresh_token(
+    subject: str,
+    role: str,
+    jti: str | None = None,
+    family_id: str | None = None,
+    expires_minutes: int | None = None,
+) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes or settings.refresh_token_expire_minutes)
+    to_encode: dict[str, Any] = {
+        "sub": subject,
+        "role": role,
+        "typ": "refresh",
+        "exp": expire,
+        "jti": jti or generate_jti(),
+        "family": family_id or generate_jti(),
+    }
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=ALGORITHM)
 
 
@@ -47,6 +74,14 @@ def decode_token(token: str) -> dict[str, Any]:
         return payload
     except JWTError as exc:
         raise ValueError("Invalid token") from exc
+
+
+def token_fingerprint(token: str) -> str:
+    return sha256(token.encode("utf-8")).hexdigest()
+
+
+def verify_token_fingerprint(token: str, fingerprint: str) -> bool:
+    return compare_digest(token_fingerprint(token), fingerprint)
 
 
 def _get_fernet() -> Fernet | None:

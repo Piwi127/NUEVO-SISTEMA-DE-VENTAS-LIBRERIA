@@ -1,9 +1,17 @@
-﻿import axios from "axios";
+import axios from "axios";
 import { getApiBaseUrl, getApiHealthTimeoutMs, getApiTimeoutMs } from "@/modules/shared/api/runtime";
 
 const baseURL = getApiBaseUrl();
 const apiTimeout = getApiTimeoutMs();
 const healthTimeout = getApiHealthTimeoutMs();
+const AUTH_STORAGE_KEY = "bookstore_auth";
+
+type StoredAuth = {
+  username?: string | null;
+  role?: string | null;
+  csrfToken?: string | null;
+  csrf_token?: string | null;
+};
 
 export const api = axios.create({
   baseURL,
@@ -27,17 +35,31 @@ const getCookie = (name: string): string | null => {
   return decodeURIComponent(match.split("=").slice(1).join("="));
 };
 
-api.interceptors.request.use((config) => {
-  const raw = localStorage.getItem("bookstore_auth");
-  let csrf: string | null = null;
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw) as { csrfToken?: string | null; csrf_token?: string | null };
-      csrf = parsed.csrfToken ?? parsed.csrf_token ?? null;
-    } catch {
-      // ignore
-    }
+const readStoredAuth = (): StoredAuth | null => {
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as StoredAuth;
+  } catch {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    return null;
   }
+};
+
+const persistCsrfToken = (csrfToken: string | null) => {
+  const current = readStoredAuth();
+  if (!current) return;
+  const next: StoredAuth = {
+    ...current,
+    csrfToken,
+    csrf_token: csrfToken,
+  };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
+};
+
+api.interceptors.request.use((config) => {
+  const auth = readStoredAuth();
+  let csrf = auth?.csrfToken ?? auth?.csrf_token ?? null;
   if (!csrf) {
     csrf = getCookie("csrf_token");
   }
@@ -48,16 +70,69 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let isRefreshing = false;
+let refreshWaiters: Array<(ok: boolean) => void> = [];
+
+const notifyRefreshWaiters = (ok: boolean) => {
+  refreshWaiters.forEach((resolve) => resolve(ok));
+  refreshWaiters = [];
+};
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const status = error?.response?.status;
-    if (status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("bookstore_auth");
+    const originalRequest = error?.config || {};
+    const requestUrl = String(originalRequest?.url || "");
+
+    if (status !== 401 || typeof window === "undefined") {
+      return Promise.reject(error);
+    }
+
+    if (requestUrl.includes("/auth/login") || requestUrl.includes("/auth/refresh")) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
       }
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+
+    if (originalRequest._retry) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+      return Promise.reject(error);
+    }
+
+    if (isRefreshing) {
+      const refreshed = await new Promise<boolean>((resolve) => {
+        refreshWaiters.push(resolve);
+      });
+      if (!refreshed) {
+        return Promise.reject(error);
+      }
+      originalRequest._retry = true;
+      return api(originalRequest);
+    }
+
+    isRefreshing = true;
+    try {
+      const refreshResponse = await api.post("/auth/refresh", {});
+      const nextCsrf = (refreshResponse?.data?.csrf_token as string | undefined) ?? null;
+      persistCsrfToken(nextCsrf);
+      notifyRefreshWaiters(true);
+      originalRequest._retry = true;
+      return api(originalRequest);
+    } catch (refreshError) {
+      notifyRefreshWaiters(false);
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
   }
 );

@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
+from app.core.config import settings
 from app.core.metrics import sales_amount_total, sales_total
 from app.core.stock import apply_stock_delta, get_stock_level, require_default_warehouse_id
 from app.models.cash import CashSession
@@ -31,14 +32,14 @@ class SalesService:
         async with service_transaction(self.db):
             yield
 
-    async def _resolve_price_list_id(self, customer_id: int | None) -> int | None:
+    async def _resolve_customer(self, customer_id: int | None) -> Customer | None:
         if not customer_id:
             return None
         cust_res = await self.db.execute(select(Customer).where(Customer.id == customer_id))
         customer = cust_res.scalar_one_or_none()
         if not customer:
             raise HTTPException(status_code=404, detail="Cliente no encontrado")
-        return customer.price_list_id
+        return customer
 
     async def _resolve_promotion(self, promotion_id: int | None) -> Promotion | None:
         if not promotion_id:
@@ -137,20 +138,39 @@ class SalesService:
             promotion_discount = base_total
         return promotion_discount
 
-    def _calculate_totals(self, base_total: float, promotion_discount: float, tax_included: bool, tax_rate: float):
+    def _calculate_totals(self, base_total: float, global_discount: float, tax_included: bool, tax_rate: float):
         if tax_included:
             if tax_rate > 0:
                 tax = base_total - (base_total / (1 + (tax_rate / 100.0)))
             else:
                 tax = 0.0
             subtotal = base_total - tax
-            total = base_total - promotion_discount
+            total = base_total - global_discount
         else:
             subtotal = base_total
             tax = subtotal * (tax_rate / 100.0)
-            total = subtotal + tax - promotion_discount
+            total = subtotal + tax - global_discount
         total = max(0.0, total)
         return subtotal, tax, total
+
+    async def _calculate_loyalty_discount(self, customer: Customer | None, redeem_points: int, base_total: float) -> tuple[int, float]:
+        if not customer or redeem_points <= 0:
+            return 0, 0.0
+        safe_points = max(0, int(redeem_points))
+        if safe_points < settings.loyalty_min_redeem_points:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Redencion minima: {settings.loyalty_min_redeem_points} puntos",
+            )
+        if safe_points > int(customer.loyalty_points or 0):
+            raise HTTPException(status_code=409, detail="Puntos insuficientes para redencion")
+        raw_discount = safe_points * float(settings.loyalty_point_value)
+        return safe_points, min(max(raw_discount, 0.0), base_total)
+
+    @staticmethod
+    def _calculate_loyalty_earned(total: float) -> int:
+        points = int(max(total, 0.0) * float(settings.loyalty_points_per_currency_unit))
+        return max(points, 0)
 
     def _validate_payments(self, payments_data, total: float) -> list[tuple[str, float]]:
         normalized_payments: list[tuple[str, float]] = []
@@ -186,19 +206,20 @@ class SalesService:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Caja no abierta")
 
             settings_result = await self.db.execute(select(SystemSettings).limit(1))
-            settings = settings_result.scalar_one_or_none()
+            system_settings = settings_result.scalar_one_or_none()
             invoice_number = ""
-            if settings:
-                invoice_number = f"{settings.invoice_prefix}-{settings.invoice_next:06d}"
-                settings.invoice_next += 1
-                tax_rate = settings.tax_rate
-                tax_included = settings.tax_included
+            if system_settings:
+                invoice_number = f"{system_settings.invoice_prefix}-{system_settings.invoice_next:06d}"
+                system_settings.invoice_next += 1
+                tax_rate = system_settings.tax_rate
+                tax_included = system_settings.tax_included
             else:
                 tax_rate = 0.0
                 tax_included = False
             default_warehouse_id = await require_default_warehouse_id(self.db)
 
-            price_list_id = await self._resolve_price_list_id(data.customer_id)
+            customer = await self._resolve_customer(data.customer_id)
+            price_list_id = customer.price_list_id if customer else None
             promo = await self._resolve_promotion(data.promotion_id)
 
             product_ids = {item.product_id for item in data.items}
@@ -215,8 +236,15 @@ class SalesService:
                 items_payload.append(item_payload)
 
             promotion_discount = await self._calculate_global_promotion_discount(base_total, promo, data.discount)
-            discount = pack_discount_total + promotion_discount
-            subtotal, tax, total = self._calculate_totals(base_total, promotion_discount, tax_included, tax_rate)
+            redeem_points, loyalty_discount = await self._calculate_loyalty_discount(
+                customer,
+                int(getattr(data, "redeem_points", 0) or 0),
+                max(base_total - promotion_discount, 0.0),
+            )
+            global_discount = promotion_discount + loyalty_discount
+            discount = pack_discount_total + global_discount
+            subtotal, tax, total = self._calculate_totals(base_total, global_discount, tax_included, tax_rate)
+            loyalty_points_earned = self._calculate_loyalty_earned(total) if customer else 0
 
             normalized_payments = self._validate_payments(data.payments, total)
 
@@ -230,6 +258,9 @@ class SalesService:
                 discount=discount,
                 pack_discount=pack_discount_total,
                 promotion_discount=promotion_discount,
+                loyalty_discount=loyalty_discount,
+                loyalty_points_earned=loyalty_points_earned,
+                loyalty_points_redeemed=redeem_points,
                 total=total,
                 status="PAID",
                 invoice_number=invoice_number,
@@ -238,6 +269,12 @@ class SalesService:
             )
             self.db.add(sale)
             await self.db.flush()
+
+            if customer:
+                current_points = int(customer.loyalty_points or 0)
+                customer.loyalty_points = max(0, current_points - redeem_points) + loyalty_points_earned
+                customer.loyalty_total_earned = int(customer.loyalty_total_earned or 0) + loyalty_points_earned
+                customer.loyalty_total_redeemed = int(customer.loyalty_total_redeemed or 0) + redeem_points
 
             for item_payload in items_payload:
                 product = item_payload["product"]
@@ -273,6 +310,13 @@ class SalesService:
 
             sales_total.inc()
             sales_amount_total.inc(float(total))
-            await log_event(self.db, self.user.id, "create", "sale", str(sale.id), invoice_number)
+            await log_event(
+                self.db,
+                self.user.id,
+                "create",
+                "sale",
+                str(sale.id),
+                f"{invoice_number};loyalty_earned={loyalty_points_earned};loyalty_redeemed={redeem_points}",
+            )
             await self.db.refresh(sale)
             return sale

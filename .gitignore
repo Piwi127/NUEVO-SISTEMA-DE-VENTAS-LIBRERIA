@@ -2,18 +2,29 @@
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
 # python
 __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+.ruff_cache/
 
 # node
 node_modules/
 dist/
 *.tsbuildinfo
+playwright-report/
+test-results/
+coverage/
 
 # misc
 .DS_Store
 *.db
+*.log
+bookstore-pos/.codex_*.log
+bookstore-pos/frontend/playwright-report/
+bookstore-pos/frontend/test-results/

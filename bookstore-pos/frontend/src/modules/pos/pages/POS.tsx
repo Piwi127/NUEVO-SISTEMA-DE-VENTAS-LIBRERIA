@@ -100,8 +100,8 @@ const POS: React.FC = () => {
       }),
     [packPricing, cart.discount, taxRate, taxIncluded]
   );
+  const [redeemPoints, setRedeemPoints] = useState(0);
   const subtotal = totalsSummary.subtotal;
-  const total = totalsSummary.total;
   const tax = totalsSummary.tax;
 
   const isLoading = cashQuery.isLoading || customersQuery.isLoading || promosQuery.isLoading || packRulesQuery.isLoading;
@@ -113,12 +113,29 @@ const POS: React.FC = () => {
     setCartDiscount: cart.setDiscount,
   });
 
+  const selectedCustomer = customers?.find((customer) => customer.id === customerId);
+  const availableLoyaltyPoints = Math.max(0, Number(selectedCustomer?.loyalty_points || 0));
+  const loyaltyPointValue = 0.05;
+  const loyaltyMinRedeemPoints = 50;
+  const safeRedeemPoints = customerId ? Math.min(Math.max(0, Math.floor(redeemPoints)), availableLoyaltyPoints) : 0;
+  const loyaltyDiscountPreview = safeRedeemPoints >= loyaltyMinRedeemPoints ? safeRedeemPoints * loyaltyPointValue : 0;
+  const adjustedTotalsSummary = React.useMemo(
+    () => ({
+      ...totalsSummary,
+      promotionDiscount: totalsSummary.promotionDiscount + loyaltyDiscountPreview,
+      totalDiscount: totalsSummary.totalDiscount + loyaltyDiscountPreview,
+      total: Math.max(0, totalsSummary.total - loyaltyDiscountPreview),
+    }),
+    [totalsSummary, loyaltyDiscountPreview]
+  );
+  const total = adjustedTotalsSummary.total;
+
   const { wsRef } = usePosWebSocket({
     sessionId,
     cartItems: cart.items,
     subtotal,
     tax,
-    totalDiscount: totalsSummary.totalDiscount,
+    totalDiscount: adjustedTotalsSummary.totalDiscount,
     total,
   });
 
@@ -127,8 +144,9 @@ const POS: React.FC = () => {
     cashIsOpen: !!cash?.is_open,
     customerId,
     promoId,
+    redeemPoints: safeRedeemPoints,
     priceMap,
-    totals: { subtotal, tax, discount: totalsSummary.promotionDiscount, total },
+    totals: { subtotal, tax, discount: adjustedTotalsSummary.promotionDiscount, total },
     wsRef,
   });
 
@@ -195,12 +213,14 @@ const POS: React.FC = () => {
 
   const selectedCustomerName = selectCustomerLabel(customers, customerId);
   const selectedPromo = promos?.find((promo) => promo.id === promoId);
-  const promoSummaryLabel = selectedPromo?.name || (totalsSummary.promotionDiscount > 0 ? "Manual" : "Sin promo");
+  const promoSummaryLabel =
+    selectedPromo?.name || (adjustedTotalsSummary.promotionDiscount > 0 ? "Descuento aplicado" : "Sin promo");
   const primaryActionLabel = cash?.is_open ? "Cobrar / Facturar" : "Abrir Cajón";
   const primaryActionDisabled = cash?.is_open ? !canCharge : cashQuery.isLoading || cashQuery.isError;
 
   const handleCustomerChange = (value: string) => {
     setCustomerId(value === "" ? "" : Number(value));
+    setRedeemPoints(0);
   };
 
   const handlePromoChange = (value: string) => {
@@ -220,6 +240,7 @@ const POS: React.FC = () => {
     cart.clear();
     setCustomerId("");
     setPromoId("");
+    setRedeemPoints(0);
     setCartOpen(false);
     setCashierOptionsOpen(false);
     window.setTimeout(() => searchRef.current?.focus(), 0);
@@ -266,6 +287,26 @@ const POS: React.FC = () => {
             </MenuItem>
           ))}
         </TextField>
+      </Grid>
+      <Grid item xs={12} md={12}>
+        <TextField
+          fullWidth
+          type="number"
+          label="Canjear puntos"
+          value={safeRedeemPoints}
+          onChange={(event) => setRedeemPoints(Math.max(0, Math.floor(Number(event.target.value || 0))))}
+          disabled={!customerId}
+          inputProps={{ min: 0, max: availableLoyaltyPoints, step: 1 }}
+          size={isCashierMode ? "small" : "medium"}
+          helperText={
+            customerId
+              ? `Disponibles: ${availableLoyaltyPoints}. Minimo: ${loyaltyMinRedeemPoints}. Descuento estimado: ${formatMoney(loyaltyDiscountPreview)}`
+              : "Selecciona un cliente para habilitar redención."
+          }
+          sx={{
+            "& .MuiInputLabel-root": { color: surface === "dark" ? "rgba(255,255,255,0.85)" : undefined },
+          }}
+        />
       </Grid>
     </Grid>
   );
@@ -329,7 +370,7 @@ const POS: React.FC = () => {
             <Typography variant="body2" color={isDark ? "rgba(255,255,255,0.9)" : "text.secondary"}>
               {itemCount > 0 ? `${itemCount} items agregados` : "No hay productos listados"}
               {customerId ? ` | ${selectedCustomerName}` : ""}
-              {(promoId || totalsSummary.promotionDiscount > 0) ? ` | ${promoSummaryLabel}` : ""}
+              {(promoId || adjustedTotalsSummary.promotionDiscount > 0) ? ` | ${promoSummaryLabel}` : ""}
             </Typography>
           </Box>
           <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
@@ -344,7 +385,7 @@ const POS: React.FC = () => {
 
         {renderCheckoutSelectors(surface)}
 
-        <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} tone={surface} minimal />
+        <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={adjustedTotalsSummary} tone={surface} minimal />
 
         {!cashQuery.isLoading && !cash?.is_open ? (
           <Alert
@@ -425,7 +466,7 @@ const POS: React.FC = () => {
                   </Alert>
                 ) : null}
 
-                <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={totalsSummary} tone="light" minimal />
+                <Cart packPricingLines={packPricing.linesByProductId} totalsSummary={adjustedTotalsSummary} tone="light" minimal />
 
                 <Stack spacing={1.5} mt={2}>
                   <Button fullWidth variant="contained" size="large" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ py: 1.5, fontWeight: 800 }}>

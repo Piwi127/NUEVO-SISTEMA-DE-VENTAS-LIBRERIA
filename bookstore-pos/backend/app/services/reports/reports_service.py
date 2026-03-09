@@ -1,6 +1,6 @@
 import csv
 import math
-from datetime import date as date_type
+from datetime import date as date_type, datetime, timedelta
 from io import StringIO
 
 from fastapi import HTTPException
@@ -9,9 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
 from app.models.sale import Sale, SaleItem
+from app.models.warehouse import StockBatch
 from app.schemas.report import (
     DailyReport,
     LowStockItem,
+    OperationalAlert,
     ProfitabilityProductReport,
     ProfitabilitySummaryReport,
     ReplenishmentSuggestionReport,
@@ -324,6 +326,78 @@ class ReportsService:
             )
         )
         return rows[:safe_limit]
+
+    async def operational_alerts(
+        self,
+        from_date: str,
+        to: str,
+        *,
+        expiry_days: int = 14,
+        stagnant_days: int = 30,
+        limit: int = 200,
+    ) -> list[OperationalAlert]:
+        safe_limit = self._safe_limit(limit, default=200)
+        alerts: list[OperationalAlert] = []
+
+        low_stock = await self.low_stock()
+        for item in low_stock:
+            alerts.append(
+                OperationalAlert(
+                    code="stock_critical" if item.stock <= 0 else "stock_low",
+                    severity="error" if item.stock <= 0 else "warning",
+                    title=f"Stock bajo: {item.name}",
+                    message=f"SKU {item.sku} en {item.stock}/{item.stock_min}.",
+                    product_id=item.product_id,
+                    suggested_action="Reponer inventario o ajustar stock minimo.",
+                )
+            )
+
+        stagnant_since = datetime.now().date() - timedelta(days=max(stagnant_days, 1))
+        sales_map = await self._sales_aggregate_map(stagnant_since.isoformat(), datetime.now().date().isoformat())
+        product_rows = await self._report_products()
+        for product in product_rows:
+            if len(alerts) >= safe_limit:
+                break
+            qty_sold = int(sales_map.get(product.id, {}).get("qty_sold", 0))
+            if qty_sold <= 0 and int(product.stock or 0) > int(product.stock_min or 0):
+                alerts.append(
+                    OperationalAlert(
+                        code="stagnant_stock",
+                        severity="info",
+                        title=f"Sin movimiento: {product.name}",
+                        message=f"{product.sku} no registra ventas en {max(stagnant_days, 1)} dias.",
+                        product_id=product.id,
+                        suggested_action="Evaluar promocion, descuento o liquidacion.",
+                    )
+                )
+
+        expiry_deadline = datetime.now().date() + timedelta(days=max(expiry_days, 1))
+        batches_result = await self.db.execute(
+            select(StockBatch.product_id, StockBatch.lot, StockBatch.expiry_date, StockBatch.qty).where(
+                StockBatch.qty > 0,
+                StockBatch.expiry_date != "",
+            )
+        )
+        for product_id, lot, expiry_date, qty in batches_result.all():
+            if len(alerts) >= safe_limit:
+                break
+            try:
+                parsed_expiry = datetime.fromisoformat(str(expiry_date)).date()
+            except ValueError:
+                continue
+            if parsed_expiry <= expiry_deadline:
+                alerts.append(
+                    OperationalAlert(
+                        code="near_expiry",
+                        severity="warning",
+                        title=f"Lote proximo a vencer: {lot}",
+                        message=f"Producto {product_id} vence el {parsed_expiry.isoformat()} (qty={qty}).",
+                        product_id=int(product_id),
+                        suggested_action="Priorizar salida por FEFO o crear promocion.",
+                    )
+                )
+
+        return alerts[:safe_limit]
 
     async def export_daily(self, date: str) -> str:
         report = await self.daily_report(date)

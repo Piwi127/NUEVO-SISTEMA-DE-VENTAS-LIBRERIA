@@ -116,16 +116,41 @@ const Inventory: React.FC = () => {
 
   const [tab, setTab] = useState(0);
   const [kardexProductId, setKardexProductId] = useState(0);
+  const [kardexCursor, setKardexCursor] = useState<string | null>(null);
+  const [kardexCursorStack, setKardexCursorStack] = useState<string[]>([]);
+  const [kardexLimit, setKardexLimit] = useState(50);
+  const [kardexType, setKardexType] = useState("");
+  const [kardexFrom, setKardexFrom] = useState("");
+  const [kardexTo, setKardexTo] = useState("");
 
   const { data: kardex, isLoading: kardexLoading, isError: kardexError, refetch: refetchKardex } = useQuery({
-    queryKey: ["kardex", kardexProductId],
-    queryFn: () => getKardex(kardexProductId),
+    queryKey: ["kardex", kardexProductId, kardexCursor, kardexLimit, kardexType, kardexFrom, kardexTo],
+    queryFn: () =>
+      getKardex(kardexProductId, {
+        cursor: kardexCursor,
+        limit: kardexLimit,
+        type: kardexType || null,
+        from: kardexFrom || null,
+        to: kardexTo || null,
+      }),
     enabled: kardexProductId > 0,
   });
 
   const {
-    file, preview, totalRows, confirmOpen, setConfirmOpen, uploadLoading, uploadError,
-    handleFileChange, handleUpload, confirmUpload
+    file,
+    preview,
+    totalRows,
+    confirmOpen,
+    setConfirmOpen,
+    uploadLoading,
+    uploadError,
+    job,
+    jobActive,
+    jobErrors,
+    handleFileChange,
+    handleUpload,
+    confirmUpload,
+    downloadErrors,
   } = useInventoryUpload();
 
   const {
@@ -178,6 +203,32 @@ const Inventory: React.FC = () => {
     anchor.click();
     document.body.removeChild(anchor);
     window.URL.revokeObjectURL(url);
+  };
+
+  const resetKardexPagination = () => {
+    setKardexCursor(null);
+    setKardexCursorStack([]);
+  };
+
+  const handleKardexProductChange = (value: number) => {
+    setKardexProductId(value);
+    resetKardexPagination();
+  };
+
+  const handleKardexNextPage = () => {
+    if (!kardex?.next_cursor) return;
+    setKardexCursorStack((previous) => [...previous, kardexCursor || ""]);
+    setKardexCursor(kardex.next_cursor);
+  };
+
+  const handleKardexPrevPage = () => {
+    if (!kardexCursorStack.length) return;
+    setKardexCursorStack((previous) => {
+      const next = [...previous];
+      const previousCursor = next.pop() ?? "";
+      setKardexCursor(previousCursor || null);
+      return next;
+    });
   };
 
   const onCreateWarehouse = async (values: WarehouseFormValues) => {
@@ -388,7 +439,14 @@ const Inventory: React.FC = () => {
             <Button variant={tab === 0 ? "contained" : "outlined"} onClick={() => setTab(0)}>Carga masiva (CSV/XLSX)</Button>
             <Button variant={tab === 1 ? "contained" : "outlined"} onClick={() => setTab(1)}>Operaciones Manuales</Button>
             <Button variant={tab === 2 ? "contained" : "outlined"} onClick={() => setTab(2)}>Reporte Kardex</Button>
-            <Button variant="outlined" color="secondary" onClick={() => setKardexProductId(products[0]?.id ?? 0)} disabled={!products.length}>Autoseleccionar Kardex</Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => handleKardexProductChange(products[0]?.id ?? 0)}
+              disabled={!products.length}
+            >
+              Autoseleccionar Kardex
+            </Button>
           </Box>
         </Paper>
       </Box>
@@ -418,16 +476,35 @@ const Inventory: React.FC = () => {
           <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 }, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
             <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Asistente de Importación</Typography>
             {uploadError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{uploadError}</Alert>}
+            {job && (
+              <Alert
+                severity={job.status === "success" ? "success" : job.status === "failed" ? "error" : job.status === "partial" ? "warning" : "info"}
+                sx={{ mb: 2, borderRadius: 2 }}
+              >
+                Job #{job.id}: estado {job.status.toUpperCase()} - procesadas {job.processed_rows}/{job.total_rows} - errores {job.error_rows}
+              </Alert>
+            )}
+            {jobErrors && jobErrors.items.length > 0 && (
+              <Box sx={{ mb: 2, display: "grid", gap: 1 }}>
+                <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                  Se detectaron {jobErrors.total_errors} errores en la importación. Puedes descargar el CSV para corregirlos.
+                </Alert>
+                <Button variant="outlined" startIcon={<DownloadIcon />} onClick={downloadErrors} sx={{ justifySelf: "start" }}>
+                  Descargar errores CSV
+                </Button>
+              </Box>
+            )}
 
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", p: 3, border: "2px dashed var(--border-subtle)", borderRadius: 3, bgcolor: "var(--bg-app)" }}>
               <Button variant="outlined" component="label" size="large" sx={{ px: 4 }}>
                 Explorar Archivos locales
                 <input hidden type="file" accept=".csv,.xlsx" onChange={(event) => handleFileChange(event.currentTarget.files?.[0] || null)} />
               </Button>
-              <Button type="button" variant="contained" size="large" color="primary" onClick={handleUpload} disabled={!file || uploadLoading} sx={{ px: 4 }}>
-                {uploadLoading ? "Sincronizando Sistema..." : "Iniciar Carga Datos"}
+              <Button type="button" variant="contained" size="large" color="primary" onClick={handleUpload} disabled={!file || uploadLoading || jobActive} sx={{ px: 4 }}>
+                {jobActive ? "Procesando job..." : uploadLoading ? "Sincronizando Sistema..." : "Iniciar Carga Datos"}
               </Button>
               {file && <Chip label={`Cargado en Ref: ${file.name}`} color="primary" variant="outlined" />}
+              {job && <Chip label={`Job activo: #${job.id}`} color={jobActive ? "warning" : "success"} variant="outlined" />}
             </Box>
 
             {preview.length > 0 && (
@@ -580,54 +657,116 @@ const Inventory: React.FC = () => {
       {tab === 2 ? (
         <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 }, mt: 2 }}>
           <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>Auditoría Histórica Multitemporal</Typography>
-          <TextField
-            select
-            label="Inspeccionar Producto Específico"
-            value={kardexProductId || ""}
-            onChange={(event) => setKardexProductId(event.target.value === "" ? 0 : Number(event.target.value))}
-            helperText="Selecciona un ítem de tu base de datos para recuperar de forma contínua sus eventos en el balance de inventario."
-            sx={{ minWidth: isCompact ? undefined : 400, mb: 4 }}
-            fullWidth={isCompact}
-          >
-            <MenuItem value="">[ NO ESPECIFICADO ]</MenuItem>
-            {products.map((product) => (
-              <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
-            ))}
-          </TextField>
+          <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, mb: 3 }}>
+            <TextField
+              select
+              label="Inspeccionar Producto Específico"
+              value={kardexProductId || ""}
+              onChange={(event) => handleKardexProductChange(event.target.value === "" ? 0 : Number(event.target.value))}
+              helperText="Selecciona un ítem para revisar su movimiento histórico."
+              fullWidth
+            >
+              <MenuItem value="">[ NO ESPECIFICADO ]</MenuItem>
+              {products.map((product) => (
+                <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Tipo de movimiento"
+              value={kardexType}
+              onChange={(event) => {
+                setKardexType(event.target.value);
+                resetKardexPagination();
+              }}
+              fullWidth
+            >
+              <MenuItem value="">Todos</MenuItem>
+              <MenuItem value="IN">IN</MenuItem>
+              <MenuItem value="OUT">OUT</MenuItem>
+              <MenuItem value="ADJ">ADJ</MenuItem>
+              <MenuItem value="TRF">TRF</MenuItem>
+            </TextField>
+            <TextField
+              type="date"
+              label="Desde"
+              InputLabelProps={{ shrink: true }}
+              value={kardexFrom}
+              onChange={(event) => {
+                setKardexFrom(event.target.value);
+                resetKardexPagination();
+              }}
+            />
+            <TextField
+              type="date"
+              label="Hasta"
+              InputLabelProps={{ shrink: true }}
+              value={kardexTo}
+              onChange={(event) => {
+                setKardexTo(event.target.value);
+                resetKardexPagination();
+              }}
+            />
+            <TextField
+              type="number"
+              label="Filas por página"
+              value={kardexLimit}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value || 50);
+                setKardexLimit(Math.max(1, Math.min(500, nextValue)));
+                resetKardexPagination();
+              }}
+              inputProps={{ min: 1, max: 500 }}
+            />
+            <Button variant="outlined" onClick={() => { setKardexFrom(""); setKardexTo(""); setKardexType(""); resetKardexPagination(); }}>
+              Limpiar filtros
+            </Button>
+          </Box>
 
           {kardexProductId === 0 ? (
             <EmptyState title="Esperando Selección" description="La auditoría requiere que establezcas el artículo de interés antes de realizar consultas persistentes en el log." icon={<Inventory2Icon color="disabled" sx={{ fontSize: 40 }} />} />
           ) : kardexLoading ? (
-            <LoadingState title="Desempaquetando Eventos..." rows={4} />
+            <LoadingState title="Desempaquetando eventos..." rows={4} />
           ) : kardexError ? (
-            <ErrorState title="Interrupción del Repositorio de Auditoría" onRetry={() => refetchKardex()} />
-          ) : (kardex || []).length === 0 ? (
-            <EmptyState title="Vacío Operacional" description="Existen 0 comprobantes. El producto referenciado nunca participó activamente de las dinámicas." icon={<Inventory2Icon color="disabled" sx={{ fontSize: 40 }} />} />
+            <ErrorState title="Interrupción del repositorio de auditoría" onRetry={() => refetchKardex()} />
+          ) : (kardex?.items || []).length === 0 ? (
+            <EmptyState title="Vacío Operacional" description="No hay movimientos con los filtros actuales." icon={<Inventory2Icon color="disabled" sx={{ fontSize: 40 }} />} />
           ) : (
-            <ResizableTable minHeight={400}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 800 }}>Timestamp del Evento</TableCell>
-                    <TableCell sx={{ fontWeight: 800 }}>Tipo Operación</TableCell>
-                    <TableCell sx={{ fontWeight: 800 }}>Impacto Neto (Cantidad)</TableCell>
-                    <TableCell sx={{ fontWeight: 800 }}>Comprobante</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(kardex || []).map((movement) => (
-                    <TableRow key={movement.id} hover>
-                      <TableCell>{movement.created_at}</TableCell>
-                      <TableCell>
-                        <Chip size="small" label={movement.type} color={movement.type === "ADJ" ? "warning" : movement.type === "TRF" ? "info" : movement.qty > 0 ? "success" : "error"} variant="outlined" />
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: movement.qty > 0 ? "success.main" : "error.main" }}>{movement.qty > 0 ? `+${movement.qty}` : movement.qty}</TableCell>
-                      <TableCell sx={{ fontFamily: "monospace" }}>{movement.ref || "---"}</TableCell>
+            <>
+              <ResizableTable minHeight={400}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 800 }}>Timestamp del Evento</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Tipo Operación</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Impacto Neto (Cantidad)</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Comprobante</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ResizableTable>
+                  </TableHead>
+                  <TableBody>
+                    {(kardex?.items || []).map((movement) => (
+                      <TableRow key={movement.id} hover>
+                        <TableCell>{movement.created_at}</TableCell>
+                        <TableCell>
+                          <Chip size="small" label={movement.type} color={movement.type === "ADJ" ? "warning" : movement.type === "TRF" ? "info" : movement.qty > 0 ? "success" : "error"} variant="outlined" />
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 600, color: movement.qty > 0 ? "success.main" : "error.main" }}>{movement.qty > 0 ? `+${movement.qty}` : movement.qty}</TableCell>
+                        <TableCell sx={{ fontFamily: "monospace" }}>{movement.ref || "---"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ResizableTable>
+              <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                <Button variant="outlined" onClick={handleKardexPrevPage} disabled={!kardexCursorStack.length}>
+                  Anterior
+                </Button>
+                <Button variant="outlined" onClick={handleKardexNextPage} disabled={!kardex?.has_more || !kardex?.next_cursor}>
+                  Siguiente
+                </Button>
+                <Chip size="small" label={`Mostrando ${kardex?.items.length || 0} registros`} />
+              </Stack>
+            </>
           )}
         </Paper>
       ) : null}

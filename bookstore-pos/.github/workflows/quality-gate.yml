@@ -6,9 +6,24 @@ on:
   pull_request:
 
 jobs:
+  secrets:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   backend:
     name: Backend (lint + tests)
     runs-on: ubuntu-latest
+    needs: [secrets]
     defaults:
       run:
         working-directory: backend
@@ -31,12 +46,16 @@ jobs:
       - name: Ruff
         run: python -m ruff check app tests
 
+      - name: Ruff (progressive advisory)
+        run: python -m ruff check app tests --select B,I,UP,SIM --exit-zero
+
       - name: Pytest
         run: python -m pytest -q
 
   frontend:
     name: Frontend (lint + test + build)
     runs-on: ubuntu-latest
+    needs: [secrets]
     defaults:
       run:
         working-directory: frontend

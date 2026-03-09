@@ -11,3 +11,6 @@ class Customer(Base):
     name: Mapped[str] = mapped_column(String(200), index=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     price_list_id: Mapped[int | None] = mapped_column(ForeignKey("price_lists.id"), nullable=True)
+    loyalty_points: Mapped[int] = mapped_column(Integer, default=0)
+    loyalty_total_earned: Mapped[int] = mapped_column(Integer, default=0)
+    loyalty_total_redeemed: Mapped[int] = mapped_column(Integer, default=0)

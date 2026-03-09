@@ -73,3 +73,12 @@ class ReplenishmentSuggestionReport(BaseModel):
     target_stock: int
     suggested_qty: int
     urgency: str
+
+
+class OperationalAlert(BaseModel):
+    code: str
+    severity: str
+    title: str
+    message: str
+    product_id: int | None = None
+    suggested_action: str | None = None

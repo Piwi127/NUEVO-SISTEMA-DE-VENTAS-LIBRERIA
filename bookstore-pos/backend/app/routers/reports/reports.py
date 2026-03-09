@@ -6,6 +6,7 @@ from app.core.deps import get_db, require_permission, require_role
 from app.schemas.report import (
     DailyReport,
     LowStockItem,
+    OperationalAlert,
     ProfitabilityProductReport,
     ProfitabilitySummaryReport,
     ReplenishmentSuggestionReport,
@@ -73,6 +74,29 @@ async def stock_rotation(from_date: str, to: str, limit: int = 100, db: AsyncSes
 async def replenishment(from_date: str, to: str, target_days: int = 21, limit: int = 100, db: AsyncSession = Depends(get_db)):
     service = ReportsService(db)
     return await service.replenishment_suggestions(from_date, to, target_days, limit)
+
+
+@router.get(
+    "/alerts",
+    response_model=list[OperationalAlert],
+    dependencies=[Depends(require_permission("reports.read"))],
+)
+async def operational_alerts(
+    from_date: str,
+    to: str,
+    expiry_days: int = 14,
+    stagnant_days: int = 30,
+    limit: int = 200,
+    db: AsyncSession = Depends(get_db),
+):
+    service = ReportsService(db)
+    return await service.operational_alerts(
+        from_date,
+        to,
+        expiry_days=expiry_days,
+        stagnant_days=stagnant_days,
+        limit=limit,
+    )
 
 
 @router.get("/daily/export", dependencies=[Depends(require_permission("reports.read"))])

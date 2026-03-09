@@ -1,6 +1,7 @@
 export type {
   DailyReport,
   LowStockItem,
+  OperationalAlert,
   ProfitabilityProductReport,
   ProfitabilitySummaryReport,
   ReplenishmentSuggestionReport,

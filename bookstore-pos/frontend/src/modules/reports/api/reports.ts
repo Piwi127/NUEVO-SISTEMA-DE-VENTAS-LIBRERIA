@@ -2,6 +2,7 @@ import { api } from "@/modules/shared/api";
 import {
   DailyReport,
   LowStockItem,
+  OperationalAlert,
   ProfitabilityProductReport,
   ProfitabilitySummaryReport,
   ReplenishmentSuggestionReport,
@@ -105,6 +106,23 @@ export const getReplenishmentSuggestions = async (
 ): Promise<ReplenishmentSuggestionReport[]> => {
   const res = await api.get("/reports/replenishment", {
     params: { from_date: from, to, target_days: targetDays, limit },
+  });
+  return res.data;
+};
+
+export const getOperationalAlerts = async (
+  from: string,
+  to: string,
+  options?: { expiryDays?: number; stagnantDays?: number; limit?: number }
+): Promise<OperationalAlert[]> => {
+  const res = await api.get("/reports/alerts", {
+    params: {
+      from_date: from,
+      to,
+      expiry_days: options?.expiryDays ?? 14,
+      stagnant_days: options?.stagnantDays ?? 30,
+      limit: options?.limit ?? 200,
+    },
   });
   return res.data;
 };

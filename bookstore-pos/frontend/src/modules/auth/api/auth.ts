@@ -24,3 +24,13 @@ export const logout = async () => {
   const res = await api.post("/auth/logout", {});
   return res.data as { ok: boolean };
 };
+
+export const refreshSession = async () => {
+  const res = await api.post("/auth/refresh", {});
+  return res.data as { role: string; username: string; csrf_token?: string };
+};
+
+export const logoutAll = async () => {
+  const res = await api.post("/auth/logout-all", {});
+  return res.data as { ok: boolean };
+};

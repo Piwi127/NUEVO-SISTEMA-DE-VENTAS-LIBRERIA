@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 
@@ -21,6 +21,7 @@ class SaleCreate(BaseModel):
     discount: float = 0
     total: float
     promotion_id: int | None = None
+    redeem_points: int = Field(default=0, ge=0)
 
 
 class SaleOut(BaseModel):
@@ -30,6 +31,9 @@ class SaleOut(BaseModel):
     discount: float
     pack_discount: float = 0
     promotion_discount: float = 0
+    loyalty_discount: float = 0
+    loyalty_points_earned: int = 0
+    loyalty_points_redeemed: int = 0
     total: float
     invoice_number: str
     status: str
