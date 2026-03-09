@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import json
+import logging
 from typing import cast
 
 from fastapi import HTTPException, status
@@ -21,8 +22,16 @@ from app.models.promotion_rule import PromotionRule
 from app.models.sale import Sale, SaleItem, Payment
 from app.models.settings import SystemSettings
 from app.services.pos.pricing import ProductRuleInput, RuleType, select_best_product_rule
+from app.services.printing_templates import (
+    DocumentRenderService,
+    DocumentSequenceService,
+    DocumentSnapshotService,
+    TemplateService,
+)
 
 from app.services._transaction import service_transaction
+
+logger = logging.getLogger("bookstore")
 
 class SalesService:
     def __init__(self, db: AsyncSession, current_user):
@@ -42,6 +51,22 @@ class SalesService:
         if not customer:
             raise HTTPException(status_code=404, detail="Cliente no encontrado")
         return customer
+
+    @staticmethod
+    def _normalize_document_type(raw: str | None) -> str:
+        value = (raw or "TICKET").strip().upper()
+        if value not in {"TICKET", "BOLETA", "FACTURA"}:
+            raise HTTPException(status_code=422, detail="Tipo de comprobante invalido")
+        return value
+
+    @staticmethod
+    def _validate_customer_for_document(document_type: str, customer: Customer | None) -> None:
+        if document_type == "TICKET":
+            return
+        if customer is None or not (customer.name or "").strip():
+            raise HTTPException(status_code=400, detail="Boleta/Factura requieren cliente con nombre")
+        if document_type == "FACTURA" and not (customer.tax_id or "").strip():
+            raise HTTPException(status_code=400, detail="Factura requiere cliente con RUC (tax_id)")
 
     async def _resolve_promotion(self, promotion_id: int | None) -> Promotion | None:
         if not promotion_id:
@@ -232,10 +257,7 @@ class SalesService:
 
             settings_result = await self.db.execute(select(SystemSettings).limit(1))
             system_settings = settings_result.scalar_one_or_none()
-            invoice_number = ""
             if system_settings:
-                invoice_number = f"{system_settings.invoice_prefix}-{system_settings.invoice_next:06d}"
-                system_settings.invoice_next += 1
                 tax_rate = system_settings.tax_rate
                 tax_included = system_settings.tax_included
             else:
@@ -243,9 +265,13 @@ class SalesService:
                 tax_included = False
             default_warehouse_id = await require_default_warehouse_id(self.db)
 
+            document_type = self._normalize_document_type(getattr(data, "document_type", "TICKET"))
             customer = await self._resolve_customer(data.customer_id)
+            self._validate_customer_for_document(document_type, customer)
             price_list_id = customer.price_list_id if customer else None
             promo = await self._resolve_promotion(data.promotion_id)
+            sequence_service = DocumentSequenceService(self.db)
+            invoice_number = await sequence_service.next_number(document_type)
 
             product_ids = {item.product_id for item in data.items}
             rules_by_product = await self._load_product_rules(product_ids)
@@ -289,6 +315,7 @@ class SalesService:
                 total=total,
                 status="PAID",
                 invoice_number=invoice_number,
+                document_type=document_type,
                 tax_rate=tax_rate,
                 tax_included=tax_included,
             )
@@ -332,6 +359,37 @@ class SalesService:
             for method, amount in normalized_payments:
                 payment = Payment(sale_id=sale.id, method=method, amount=amount)
                 self.db.add(payment)
+
+            await self.db.flush()
+
+            try:
+                render_service = DocumentRenderService(self.db)
+                template_service = TemplateService(self.db)
+                snapshot_service = DocumentSnapshotService(self.db)
+                context = await render_service.build_sale_context(sale.id)
+                template, schema_json = await template_service.get_active_template_with_schema(document_type=document_type)
+                html, text, warnings = render_service.render(schema_json, context)
+                latest_version = await template_service.get_latest_version_model(template.id) if template else None
+                await snapshot_service.upsert_snapshot(
+                    sale_id=sale.id,
+                    document_type=document_type,
+                    document_number=invoice_number,
+                    template_id=template.id if template else None,
+                    template_version_id=latest_version.id if latest_version else None,
+                    render_context=context,
+                    render_result={"warnings": warnings},
+                    rendered_html=html,
+                    rendered_text=text,
+                )
+            except Exception as exc:
+                # no bloqueamos la venta por fallos de plantilla/preview
+                logger.exception(
+                    "document_snapshot_failed sale_id=%s invoice=%s document_type=%s",
+                    sale.id,
+                    invoice_number,
+                    document_type,
+                    exc_info=exc,
+                )
 
             sales_total.inc()
             sales_amount_total.inc(float(total))

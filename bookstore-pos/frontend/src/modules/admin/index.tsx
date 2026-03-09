@@ -2,17 +2,20 @@ import React, { lazy } from "react";
 import GroupIcon from "@mui/icons-material/Group";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import SecurityIcon from "@mui/icons-material/Security";
+import DesignServicesIcon from "@mui/icons-material/DesignServices";
 
 import type { AppRoute, MenuSection } from "@/modules/shared/registryTypes";
 
 const Users = lazy(() => import("@/modules/admin/pages/Users"));
 const AdminPanel = lazy(() => import("@/modules/admin/pages/AdminPanel"));
 const RolePermissions = lazy(() => import("@/modules/admin/pages/RolePermissions"));
+const DocumentTemplates = lazy(() => import("@/modules/admin/pages/DocumentTemplates"));
 
 export const adminRoutes: AppRoute[] = [
   { path: "/users", component: Users, roles: ["admin"], layout: true },
   { path: "/admin", component: AdminPanel, roles: ["admin"], layout: true },
   { path: "/admin/permissions", component: RolePermissions, roles: ["admin"], layout: true },
+  { path: "/admin/document-templates", component: DocumentTemplates, roles: ["admin"], layout: true },
 ];
 
 export const adminMenu: MenuSection = {
@@ -21,5 +24,6 @@ export const adminMenu: MenuSection = {
     { label: "Usuarios", path: "/users", roles: ["admin"], icon: <GroupIcon fontSize="small" /> },
     { label: "Administracion", path: "/admin", roles: ["admin"], icon: <AdminPanelSettingsIcon fontSize="small" /> },
     { label: "Permisos por rol", path: "/admin/permissions", roles: ["admin"], icon: <SecurityIcon fontSize="small" /> },
+    { label: "Plantillas", path: "/admin/document-templates", roles: ["admin"], icon: <DesignServicesIcon fontSize="small" /> },
   ],
 };

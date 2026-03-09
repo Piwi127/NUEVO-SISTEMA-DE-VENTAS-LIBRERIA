@@ -16,6 +16,7 @@ type SettingsState = {
   receiptHeader: string;
   receiptFooter: string;
   paperWidthMm: number;
+  printTemplatesEnabled: boolean;
   defaultWarehouseId: number | null;
 };
 
@@ -39,6 +40,7 @@ const state: SettingsState = {
   receiptHeader: "",
   receiptFooter: "Gracias por su compra",
   paperWidthMm: 80,
+  printTemplatesEnabled: false,
   defaultWarehouseId: null,
 };
 
@@ -71,6 +73,7 @@ const load = () => {
     if (typeof parsed.receiptHeader === "string") state.receiptHeader = parsed.receiptHeader;
     if (typeof parsed.receiptFooter === "string") state.receiptFooter = parsed.receiptFooter;
     if (typeof parsed.paperWidthMm === "number") state.paperWidthMm = parsed.paperWidthMm;
+    if (typeof parsed.printTemplatesEnabled === "boolean") state.printTemplatesEnabled = parsed.printTemplatesEnabled;
     if (typeof parsed.defaultWarehouseId === "number") state.defaultWarehouseId = parsed.defaultWarehouseId;
   } catch {
     // ignore
@@ -158,6 +161,11 @@ export const settingsStore = {
   },
   setPaperWidthMm: (paperWidthMm: number) => {
     state.paperWidthMm = paperWidthMm;
+    persist();
+    emit();
+  },
+  setPrintTemplatesEnabled: (printTemplatesEnabled: boolean) => {
+    state.printTemplatesEnabled = printTemplatesEnabled;
     persist();
     emit();
   },

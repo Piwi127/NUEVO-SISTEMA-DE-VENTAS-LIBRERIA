@@ -4,6 +4,7 @@ from app.routers.admin import permissions as permissions_router
 from app.routers.admin import users as users_router
 from app.routers.admin import audit as audit_router
 from app.routers.admin import settings as settings_router
+from app.routers.admin import document_templates as document_templates_router
 from app.routers.catalog import products as products_router
 from app.routers.catalog import customers as customers_router
 from app.routers.catalog import suppliers as suppliers_router
@@ -28,6 +29,7 @@ __all__ = [
     "users_router",
     "audit_router",
     "settings_router",
+    "document_templates_router",
     "products_router",
     "customers_router",
     "suppliers_router",

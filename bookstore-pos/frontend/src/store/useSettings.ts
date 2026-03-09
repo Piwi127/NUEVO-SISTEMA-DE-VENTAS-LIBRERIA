@@ -20,6 +20,7 @@ export const useSettings = () => {
     setReceiptHeader: settingsStore.setReceiptHeader,
     setReceiptFooter: settingsStore.setReceiptFooter,
     setPaperWidthMm: settingsStore.setPaperWidthMm,
+    setPrintTemplatesEnabled: settingsStore.setPrintTemplatesEnabled,
     setDefaultWarehouseId: settingsStore.setDefaultWarehouseId,
   } as {
     currency: Currency;
@@ -37,6 +38,7 @@ export const useSettings = () => {
     receiptHeader: string;
     receiptFooter: string;
     paperWidthMm: number;
+    printTemplatesEnabled: boolean;
     defaultWarehouseId: number | null;
     setCurrency: (c: Currency) => void;
     setProjectName: (n: string) => void;
@@ -53,6 +55,7 @@ export const useSettings = () => {
     setReceiptHeader: (n: string) => void;
     setReceiptFooter: (n: string) => void;
     setPaperWidthMm: (n: number) => void;
+    setPrintTemplatesEnabled: (n: boolean) => void;
     setDefaultWarehouseId: (n: number | null) => void;
   };
 };

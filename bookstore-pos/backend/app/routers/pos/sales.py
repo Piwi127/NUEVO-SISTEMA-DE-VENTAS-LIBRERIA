@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user, require_permission, require_role
 from app.models.product import Product
+from app.models.customer import Customer
 from app.models.sale import Sale, SaleItem
 from app.models.settings import SystemSettings
 from app.schemas.sale import SaleCreate, SaleOut, SaleListOut
@@ -59,10 +60,15 @@ async def get_receipt(sale_id: int, db: AsyncSession = Depends(get_db)):
 
     settings_res = await db.execute(select(SystemSettings).limit(1))
     settings = settings_res.scalar_one_or_none()
+    customer = None
+    if sale.customer_id:
+        customer_res = await db.execute(select(Customer).where(Customer.id == sale.customer_id))
+        customer = customer_res.scalar_one_or_none()
 
     return {
         "sale_id": sale.id,
         "invoice_number": sale.invoice_number,
+        "document_type": sale.document_type or "TICKET",
         "created_at": sale.created_at.isoformat(),
         "subtotal": sale.subtotal,
         "tax": sale.tax,
@@ -95,9 +101,17 @@ async def get_receipt(sale_id: int, db: AsyncSession = Depends(get_db)):
             "phone": settings.store_phone if settings else "",
             "tax_id": settings.store_tax_id if settings else "",
         },
+        "customer": {
+            "id": customer.id if customer else None,
+            "name": customer.name if customer else "",
+            "tax_id": customer.tax_id if customer else "",
+            "address": customer.address if customer else "",
+            "email": customer.email if customer else "",
+        },
         "receipt": {
             "header": settings.receipt_header if settings else "",
             "footer": settings.receipt_footer if settings else "",
             "paper_width_mm": settings.paper_width_mm if settings else 80,
+            "print_templates_enabled": bool(getattr(settings, "print_templates_enabled", False)) if settings else False,
         },
     }

@@ -22,6 +22,7 @@ class SaleCreate(BaseModel):
     total: float
     promotion_id: int | None = None
     redeem_points: int = Field(default=0, ge=0)
+    document_type: str = "TICKET"
 
 
 class SaleOut(BaseModel):
@@ -39,6 +40,7 @@ class SaleOut(BaseModel):
     status: str
     promotion_id: int | None = None
     price_list_id: int | None = None
+    document_type: str = "TICKET"
 
     model_config = {"from_attributes": True}
 
@@ -53,6 +55,7 @@ class SaleListOut(BaseModel):
     discount: float
     total: float
     invoice_number: str
+    document_type: str = "TICKET"
     created_at: datetime
 
     model_config = {"from_attributes": True}

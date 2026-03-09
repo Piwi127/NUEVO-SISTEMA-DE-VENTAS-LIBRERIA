@@ -65,6 +65,9 @@ const PERMISSION_GROUPS: {
       { key: "permissions.write", label: "Editar permisos", description: "Modificar permisos por rol." },
       { key: "audit.read", label: "Ver auditoria", description: "Acceso a logs de auditoria." },
       { key: "admin.backup", label: "Backup", description: "Descargar respaldo de la base." },
+      { key: "print_templates.read", label: "Ver plantillas", description: "Consultar plantillas de comprobantes." },
+      { key: "print_templates.write", label: "Editar plantillas", description: "Crear/editar/publicar plantillas de comprobantes." },
+      { key: "printing.documents.read", label: "Imprimir documentos", description: "Generar HTML/TEXT/PDF de comprobantes." },
     ],
   },
 ];

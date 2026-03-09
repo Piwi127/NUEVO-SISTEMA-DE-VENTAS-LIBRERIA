@@ -7,6 +7,9 @@ from app.models.cash import CashSession, CashMovement, CashAudit  # noqa: F401
 from app.models.inventory import InventoryImportJob, InventoryImportJobError, StockMovement  # noqa: F401
 from app.models.purchase import Purchase, PurchaseItem  # noqa: F401
 from app.models.settings import SystemSettings  # noqa: F401
+from app.models.document_sequence import DocumentSequence  # noqa: F401
+from app.models.print_template import PrintTemplate, PrintTemplateVersion  # noqa: F401
+from app.models.sale_document_snapshot import SaleDocumentSnapshot  # noqa: F401
 from app.models.permission import RolePermission  # noqa: F401
 from app.models.audit import AuditLog  # noqa: F401
 from app.models.warehouse import Warehouse, StockLevel, StockBatch, StockTransfer, StockTransferItem, InventoryCount  # noqa: F401

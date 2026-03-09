@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import * as QRCode from "qrcode";
 import { useToast } from "@/app/components";
 import type { CartItem } from "@/app/store";
-import { createSale, downloadEscpos, getReceipt } from "@/modules/pos/api";
+import { createSale, downloadEscpos, downloadRenderedDocumentPdf, getRenderedDocumentHtml } from "@/modules/pos/api";
 import { listProducts } from "@/modules/catalog/api";
 import type { Payment, PosTotals } from "@/modules/pos/types";
 
@@ -22,41 +21,6 @@ type UsePosCheckoutArgs = {
   priceMap: Record<number, number>;
   totals: PosTotals;
   wsRef: React.MutableRefObject<WebSocket | null>;
-};
-
-type ReceiptItem = {
-  name?: string;
-  product_id: number;
-  qty: number;
-  discount?: number;
-  final_total?: number;
-  line_total: number;
-};
-
-type ReceiptPayload = {
-  invoice_number: string;
-  subtotal: number;
-  tax: number;
-  discount: number;
-  pack_discount?: number;
-  promotion_discount?: number;
-  loyalty_discount?: number;
-  loyalty_points_earned?: number;
-  loyalty_points_redeemed?: number;
-  total: number;
-  created_at: string;
-  items: ReceiptItem[];
-  store?: {
-    name?: string;
-    address?: string;
-    phone?: string;
-    tax_id?: string;
-  };
-  receipt?: {
-    header?: string;
-    footer?: string;
-    paper_width_mm?: number;
-  };
 };
 
 type LastSaleSummary = {
@@ -94,7 +58,7 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, redeemPo
     },
   });
 
-  const handlePayment = (payments: Payment[]) => {
+  const handlePayment = (payload: { payments: Payment[]; documentType: "TICKET" | "BOLETA" | "FACTURA" }) => {
     if (!cashIsOpen) {
       showToast({ message: "No hay caja abierta", severity: "error" });
       return;
@@ -103,13 +67,14 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, redeemPo
     mutation.mutate({
       customer_id: customerId ? Number(customerId) : null,
       items: cart.items.map((item) => ({ product_id: item.product_id, qty: item.qty })),
-      payments: payments.map((payment) => ({ method: payment.method, amount: payment.amount })),
+      payments: payload.payments.map((payment) => ({ method: payment.method, amount: payment.amount })),
       subtotal: totals.subtotal,
       tax: totals.tax,
       discount: totals.discount,
       total: totals.total,
       promotion_id: promoId ? Number(promoId) : null,
       redeem_points: Math.max(0, Math.floor(redeemPoints || 0)),
+      document_type: payload.documentType,
     });
   };
 
@@ -127,61 +92,7 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, redeemPo
 
   const handlePrint = async () => {
     if (!lastSale) return;
-    const receipt = (await getReceipt(lastSale.id)) as ReceiptPayload;
-    const header = receipt.receipt?.header || "";
-    const footer = receipt.receipt?.footer || "Gracias por su compra";
-    const paperWidth = receipt.receipt?.paper_width_mm || 80;
-    const qrPayload = JSON.stringify({
-      invoice: receipt.invoice_number,
-      total: receipt.total,
-      date: receipt.created_at,
-    });
-    const qrDataUrl = await QRCode.toDataURL(qrPayload);
-    const html = `
-      <html>
-      <head><title>Ticket</title></head>
-      <body style="font-family: Arial; max-width: ${paperWidth}mm;">
-        <style>
-          @media print {
-            body { width: ${paperWidth}mm; }
-          }
-          .ticket { font-size: 12px; }
-          .center { text-align: center; }
-          .qr { margin-top: 8px; }
-        </style>
-        <div class="ticket">
-        ${header ? `<div class="center">${header.replace(/\n/g, "<br/>")}</div><hr />` : ""}
-        <h3>${receipt.store?.name || ""}</h3>
-        <div>${receipt.store?.address || ""}</div>
-        <div>${receipt.store?.phone || ""}</div>
-        <div>${receipt.store?.tax_id || ""}</div>
-        <hr />
-        <div>Venta: ${receipt.invoice_number}</div>
-        <div>Fecha: ${receipt.created_at}</div>
-        <hr />
-        ${receipt.items
-          .map((item) => {
-            const lineTotal = item.final_total ?? item.line_total;
-            const packNote = item.discount && item.discount > 0 ? ` <small>(pack -${item.discount.toFixed(2)})</small>` : "";
-            return `<div>${item.name || item.product_id} x${item.qty} - ${lineTotal.toFixed(2)}${packNote}</div>`;
-          })
-          .join("")}
-        <hr />
-        <div>Subtotal: ${receipt.subtotal.toFixed(2)}</div>
-        <div>Desc. packs: ${(receipt.pack_discount || 0).toFixed(2)}</div>
-        <div>Desc. promo: ${(receipt.promotion_discount || 0).toFixed(2)}</div>
-        <div>Desc. fidelizacion: ${(receipt.loyalty_discount || 0).toFixed(2)}</div>
-        <div>Impuesto: ${receipt.tax.toFixed(2)}</div>
-        <div>Descuento: ${receipt.discount.toFixed(2)}</div>
-        <h4>Total: ${receipt.total.toFixed(2)}</h4>
-        <div>Puntos ganados: ${(receipt.loyalty_points_earned || 0).toFixed(0)}</div>
-        <div>Puntos redimidos: ${(receipt.loyalty_points_redeemed || 0).toFixed(0)}</div>
-        <div class="center qr"><img src="${qrDataUrl}" width="120" height="120" /></div>
-        <div class="center">${footer}</div>
-        </div>
-      </body>
-      </html>
-    `;
+    const html = await getRenderedDocumentHtml(lastSale.id);
     const popup = window.open("", "_blank", "width=400,height=600");
     if (!popup) return;
     popup.document.write(html);
@@ -201,6 +112,17 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, redeemPo
     window.URL.revokeObjectURL(url);
   };
 
+  const handlePdf = async () => {
+    if (!lastSale) return;
+    const blob = await downloadRenderedDocumentPdf(lastSale.id);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `documento_${lastSale.id}.pdf`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const clearLastSale = () => {
     setLastSale(null);
   };
@@ -214,6 +136,7 @@ export const usePosCheckout = ({ cart, cashIsOpen, customerId, promoId, redeemPo
     handlePayment,
     handleBarcode,
     handlePrint,
+    handlePdf,
     handleEscpos,
   };
 };

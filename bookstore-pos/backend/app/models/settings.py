@@ -22,4 +22,5 @@ class SystemSettings(Base):
     receipt_header: Mapped[str] = mapped_column(String(500), default="")
     receipt_footer: Mapped[str] = mapped_column(String(500), default="Gracias por su compra")
     paper_width_mm: Mapped[int] = mapped_column(Integer, default=80)
+    print_templates_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     default_warehouse_id: Mapped[int | None] = mapped_column(ForeignKey("warehouses.id"), nullable=True)

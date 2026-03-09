@@ -11,6 +11,7 @@ export const createSale = async (data: {
   total: number;
   promotion_id?: number | null;
   redeem_points?: number;
+  document_type?: "TICKET" | "BOLETA" | "FACTURA";
 }): Promise<SaleResponse> => {
   const res = await api.post("/sales", data);
   return res.data;

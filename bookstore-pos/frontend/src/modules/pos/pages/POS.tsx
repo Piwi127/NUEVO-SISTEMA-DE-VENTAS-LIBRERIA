@@ -55,7 +55,6 @@ import {
   usePosPricing,
   usePosWebSocket,
 } from "@/modules/pos/hooks";
-import type { Payment } from "@/modules/pos/types";
 
 const makeSessionId = () => {
   const cryptoAny = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
@@ -139,7 +138,7 @@ const POS: React.FC = () => {
     total,
   });
 
-  const { payOpen, setPayOpen, lastSale, clearLastSale, handlePayment, handlePrint, handleEscpos } = usePosCheckout({
+  const { payOpen, setPayOpen, lastSale, clearLastSale, handlePayment, handlePrint, handlePdf, handleEscpos } = usePosCheckout({
     cart,
     cashIsOpen: !!cash?.is_open,
     customerId,
@@ -350,6 +349,9 @@ const POS: React.FC = () => {
         <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handlePrint} color="inherit">
           Ticket Físico
         </Button>
+        <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handlePdf} color="inherit">
+          Exportar PDF
+        </Button>
         <Button fullWidth variant="outlined" disabled={!lastSale} onClick={handleEscpos} color="inherit">
           Protocolo ESC/POS
         </Button>
@@ -495,6 +497,7 @@ const POS: React.FC = () => {
                             Finalizar Op.
                           </Button>
                           <Button fullWidth variant="outlined" color="secondary" onClick={handlePrint}>Re-Imprimir</Button>
+                          <Button fullWidth variant="outlined" color="secondary" onClick={handlePdf}>PDF</Button>
                           <Button fullWidth variant="outlined" color="secondary" onClick={handleEscpos}>POS DLL</Button>
                         </Stack>
                       ) : null}
@@ -552,6 +555,9 @@ const POS: React.FC = () => {
               <Button variant="outlined" color="success" onClick={handlePrint}>
                 Emitir Duplicado
               </Button>
+              <Button variant="outlined" color="success" onClick={handlePdf}>
+                Exportar PDF
+              </Button>
               <Button variant="outlined" color="success" onClick={handleEscpos}>
                 Exportar Binario ESC/POS
               </Button>
@@ -592,7 +598,9 @@ const POS: React.FC = () => {
         total={total}
         methods={selectPaymentMethods(paymentMethods)}
         onClose={() => setPayOpen(false)}
-        onConfirm={(payments: Payment[]) => handlePayment(payments)}
+        onConfirm={(payload) => handlePayment(payload)}
+        customerName={selectedCustomer?.name || ""}
+        customerTaxId={selectedCustomer?.tax_id || ""}
       />
 
       <ConfirmDialog

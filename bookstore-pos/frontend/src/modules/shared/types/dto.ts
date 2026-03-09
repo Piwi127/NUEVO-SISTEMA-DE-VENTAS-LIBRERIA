@@ -36,6 +36,9 @@ export type Customer = {
   id: number;
   name: string;
   phone?: string | null;
+  tax_id?: string | null;
+  address?: string | null;
+  email?: string | null;
   price_list_id?: number | null;
   loyalty_points?: number;
   loyalty_total_earned?: number;
@@ -170,6 +173,7 @@ export type SaleResponse = {
   loyalty_points_redeemed?: number;
   total: number;
   invoice_number: string;
+  document_type?: string;
   status: string;
   promotion_id?: number | null;
   price_list_id?: number | null;
@@ -185,6 +189,7 @@ export type SaleListResponse = {
   discount: number;
   total: number;
   invoice_number: string;
+  document_type?: string;
   created_at: string;
 };
 

@@ -26,6 +26,7 @@ class Sale(Base):
     tax_rate: Mapped[float] = mapped_column(Float, default=0.0)
     tax_included: Mapped[bool] = mapped_column(Boolean, default=False)
     invoice_number: Mapped[str] = mapped_column(String(30), default="")
+    document_type: Mapped[str] = mapped_column(String(20), default="TICKET")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     items: Mapped[list["SaleItem"]] = relationship(back_populates="sale", cascade="all, delete-orphan")

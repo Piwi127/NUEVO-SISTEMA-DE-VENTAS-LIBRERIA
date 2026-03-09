@@ -15,6 +15,7 @@ export type SystemSettings = {
   receipt_header: string;
   receipt_footer: string;
   paper_width_mm: number;
+  print_templates_enabled: boolean;
   default_warehouse_id?: number | null;
 };
 

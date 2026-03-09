@@ -3,10 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.security import get_password_hash, validate_password
+from app.models.document_sequence import DocumentSequence
+from app.models.print_template import PrintTemplate, PrintTemplateVersion
 from app.models.settings import SystemSettings
 from app.models.warehouse import Warehouse
 from app.models.permission import RolePermission
 from app.models.user import User
+from app.services.printing_templates.default_templates import default_template_schema
 
 
 def default_permissions_for(role: str) -> list[str]:
@@ -24,6 +27,7 @@ def default_permissions_for(role: str) -> list[str]:
             "customers.read",
             "customers.write",
             "products.read",
+            "printing.documents.read",
         ]
     if role == "stock":
         return [
@@ -58,6 +62,7 @@ async def seed_admin(db: AsyncSession) -> None:
             receipt_header="",
             receipt_footer="Gracias por su compra",
             paper_width_mm=80,
+            print_templates_enabled=False,
             default_warehouse_id=None,
         )
         db.add(sys_settings)
@@ -81,6 +86,122 @@ async def seed_admin(db: AsyncSession) -> None:
         for perm in default_permissions_for(role):
             if perm not in existing:
                 db.add(RolePermission(role=role, permission=perm))
+
+    # Ensure template/printing permissions are available for manual role assignment UI.
+    extra_perms = {"print_templates.read", "print_templates.write", "printing.documents.read"}
+    for role in ["cashier", "stock"]:
+        if role == "cashier":
+            allowed = {"printing.documents.read"}
+        else:
+            allowed = set()
+        if not allowed:
+            continue
+        res = await db.execute(select(RolePermission.permission).where(RolePermission.role == role))
+        existing = {row[0] for row in res.all()}
+        for perm in sorted(extra_perms & allowed):
+            if perm not in existing:
+                db.add(RolePermission(role=role, permission=perm))
+
+    seq_res = await db.execute(select(DocumentSequence))
+    if not seq_res.scalars().first():
+        db.add(
+            DocumentSequence(
+                document_type="TICKET",
+                series="T001",
+                next_number=1,
+                number_padding=6,
+                is_active=True,
+                scope_type="GLOBAL",
+                scope_ref_id=None,
+            )
+        )
+        db.add(
+            DocumentSequence(
+                document_type="BOLETA",
+                series="B001",
+                next_number=1,
+                number_padding=6,
+                is_active=True,
+                scope_type="GLOBAL",
+                scope_ref_id=None,
+            )
+        )
+        db.add(
+            DocumentSequence(
+                document_type="FACTURA",
+                series="F001",
+                next_number=1,
+                number_padding=6,
+                is_active=True,
+                scope_type="GLOBAL",
+                scope_ref_id=None,
+            )
+        )
+
+    tpl_res = await db.execute(select(PrintTemplate))
+    if not tpl_res.scalars().first():
+        ticket_tpl = PrintTemplate(
+            name="Ticket Termico 80mm",
+            document_type="TICKET",
+            paper_code="THERMAL_80",
+            paper_width_mm=80.0,
+            paper_height_mm=None,
+            margin_top_mm=2,
+            margin_right_mm=2,
+            margin_bottom_mm=2,
+            margin_left_mm=2,
+            scope_type="GLOBAL",
+            scope_ref_id=None,
+            is_active=True,
+            is_default=True,
+        )
+        boleta_tpl = PrintTemplate(
+            name="Boleta A4",
+            document_type="BOLETA",
+            paper_code="A4",
+            paper_width_mm=210.0,
+            paper_height_mm=297.0,
+            margin_top_mm=8,
+            margin_right_mm=8,
+            margin_bottom_mm=8,
+            margin_left_mm=8,
+            scope_type="GLOBAL",
+            scope_ref_id=None,
+            is_active=True,
+            is_default=True,
+        )
+        factura_tpl = PrintTemplate(
+            name="Factura A4",
+            document_type="FACTURA",
+            paper_code="A4",
+            paper_width_mm=210.0,
+            paper_height_mm=297.0,
+            margin_top_mm=8,
+            margin_right_mm=8,
+            margin_bottom_mm=8,
+            margin_left_mm=8,
+            scope_type="GLOBAL",
+            scope_ref_id=None,
+            is_active=True,
+            is_default=True,
+        )
+        db.add(ticket_tpl)
+        db.add(boleta_tpl)
+        db.add(factura_tpl)
+        await db.flush()
+
+        for template in [ticket_tpl, boleta_tpl, factura_tpl]:
+            schema = default_template_schema(template.document_type, template.paper_code)
+            db.add(
+                PrintTemplateVersion(
+                    template_id=template.id,
+                    version=1,
+                    schema_json=schema,
+                    checksum="",
+                    is_published=True,
+                    created_by=None,
+                )
+            )
 
     if settings.bootstrap_dev_admin and settings.environment.lower() not in {"prod", "production"}:
         username = settings.bootstrap_admin_username.strip()

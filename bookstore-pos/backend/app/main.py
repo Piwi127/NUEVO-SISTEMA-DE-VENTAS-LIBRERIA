@@ -25,6 +25,7 @@ from app.routers.admin import permissions as permissions_router
 from app.routers.admin import users as users_router
 from app.routers.admin import audit as audit_router
 from app.routers.admin import settings as settings_router
+from app.routers.admin import document_templates as document_templates_router
 from app.routers.catalog import products as products_router
 from app.routers.catalog import customers as customers_router
 from app.routers.catalog import suppliers as suppliers_router
@@ -73,12 +74,17 @@ async def verify_schema_compatibility() -> None:
             "purchase_items": {"base_unit_cost", "direct_cost_allocated"},
             "stock_batches": {"unit_cost", "direct_cost_allocated", "source_type", "source_ref"},
             "sale_items": {"unit_cost_snapshot"},
-            "customers": {"loyalty_points", "loyalty_total_earned", "loyalty_total_redeemed"},
-            "sales": {"loyalty_discount", "loyalty_points_earned", "loyalty_points_redeemed"},
+            "customers": {"loyalty_points", "loyalty_total_earned", "loyalty_total_redeemed", "tax_id", "address", "email"},
+            "sales": {"loyalty_discount", "loyalty_points_earned", "loyalty_points_redeemed", "document_type"},
+            "system_settings": {"print_templates_enabled"},
             "user_sessions": {"family_id"},
             "refresh_tokens": {"family_id", "jti", "token_hash", "expires_at", "revoked_at"},
             "inventory_import_jobs": {"status", "filename", "file_type", "processed_rows", "success_rows", "error_rows"},
             "inventory_import_job_errors": {"job_id", "row_number", "detail"},
+            "document_sequences": {"document_type", "series", "next_number"},
+            "print_templates": {"name", "document_type"},
+            "print_template_versions": {"template_id", "schema_json"},
+            "sale_document_snapshots": {"sale_id", "document_number"},
         }
 
         for table_name, required in required_columns.items():
@@ -285,6 +291,7 @@ app.include_router(purchases_router.router)
 app.include_router(reports_router.router)
 app.include_router(display_ws_router.router)
 app.include_router(settings_router.router)
+app.include_router(document_templates_router.router)
 app.include_router(admin_router.router)
 app.include_router(permissions_router.router)
 app.include_router(audit_router.router)

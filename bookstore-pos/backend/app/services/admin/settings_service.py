@@ -53,6 +53,7 @@ class SettingsService:
             settings.receipt_header = data.receipt_header
             settings.receipt_footer = data.receipt_footer
             settings.paper_width_mm = data.paper_width_mm
+            settings.print_templates_enabled = bool(getattr(data, "print_templates_enabled", False))
             settings.default_warehouse_id = data.default_warehouse_id
             await self.db.flush()
             if self.user is not None:
@@ -76,5 +77,6 @@ class SettingsService:
             receipt_header=settings.receipt_header,
             receipt_footer=settings.receipt_footer,
             paper_width_mm=settings.paper_width_mm,
+            print_templates_enabled=bool(getattr(settings, "print_templates_enabled", False)),
             default_warehouse_id=settings.default_warehouse_id,
         )

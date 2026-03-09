@@ -74,6 +74,8 @@ const AdminPanel: React.FC = () => {
     setReceiptFooter,
     paperWidthMm,
     setPaperWidthMm,
+    printTemplatesEnabled,
+    setPrintTemplatesEnabled,
     defaultWarehouseId,
     setDefaultWarehouseId,
   } = useSettings();
@@ -90,6 +92,7 @@ const AdminPanel: React.FC = () => {
   const [receiptHeaderDraft, setReceiptHeaderDraft] = useState(receiptHeader);
   const [receiptFooterDraft, setReceiptFooterDraft] = useState(receiptFooter);
   const [paperWidthDraft, setPaperWidthDraft] = useState(paperWidthMm);
+  const [printTemplatesEnabledDraft, setPrintTemplatesEnabledDraft] = useState(printTemplatesEnabled);
   const [defaultWarehouseDraft, setDefaultWarehouseDraft] = useState<number | "">(defaultWarehouseId ?? "");
 
   const [audit, setAudit] = useState<any[]>([]);
@@ -138,6 +141,7 @@ const AdminPanel: React.FC = () => {
         setReceiptHeader(s.receipt_header);
         setReceiptFooter(s.receipt_footer);
         setPaperWidthMm(s.paper_width_mm);
+        setPrintTemplatesEnabled(Boolean(s.print_templates_enabled));
         setDefaultWarehouseId(s.default_warehouse_id ?? null);
 
         setNameDraft(s.project_name);
@@ -152,6 +156,7 @@ const AdminPanel: React.FC = () => {
         setReceiptHeaderDraft(s.receipt_header);
         setReceiptFooterDraft(s.receipt_footer);
         setPaperWidthDraft(s.paper_width_mm);
+        setPrintTemplatesEnabledDraft(Boolean(s.print_templates_enabled));
         setDefaultWarehouseDraft(s.default_warehouse_id ?? "");
       } catch {
         setSettingsError(true);
@@ -176,6 +181,7 @@ const AdminPanel: React.FC = () => {
     setStoreTaxId,
     setTaxIncluded,
     setTaxRate,
+    setPrintTemplatesEnabled,
   ]);
 
   const handleSave = async () => {
@@ -194,6 +200,7 @@ const AdminPanel: React.FC = () => {
       receipt_header: receiptHeaderDraft,
       receipt_footer: receiptFooterDraft,
       paper_width_mm: Number(paperWidthDraft) || 80,
+      print_templates_enabled: Boolean(printTemplatesEnabledDraft),
       default_warehouse_id: defaultWarehouseDraft === "" ? null : Number(defaultWarehouseDraft),
     };
     try {
@@ -212,6 +219,7 @@ const AdminPanel: React.FC = () => {
       setReceiptHeader(s.receipt_header);
       setReceiptFooter(s.receipt_footer);
       setPaperWidthMm(s.paper_width_mm);
+      setPrintTemplatesEnabled(Boolean(s.print_templates_enabled));
       setDefaultWarehouseId(s.default_warehouse_id ?? null);
       showToast({ message: "Configuracion guardada", severity: "success" });
     } catch (err: any) {
@@ -470,6 +478,12 @@ const AdminPanel: React.FC = () => {
             <Grid item xs={12} md={4}><TextField fullWidth label="Serie de boleta" value={invoicePrefixDraft} onChange={(e) => setInvoicePrefixDraft(e.target.value)} /></Grid>
             <Grid item xs={12} md={4}><TextField fullWidth label="Correlativo" type="number" value={invoiceNextDraft} onChange={(e) => setInvoiceNextDraft(Number(e.target.value))} /></Grid>
             <Grid item xs={12} md={4}><TextField fullWidth label="Ancho papel (mm)" type="number" value={paperWidthDraft} onChange={(e) => setPaperWidthDraft(Number(e.target.value))} /></Grid>
+            <Grid item xs={12} md={4}>
+              <FormControlLabel
+                control={<Checkbox checked={printTemplatesEnabledDraft} onChange={(e) => setPrintTemplatesEnabledDraft(e.target.checked)} />}
+                label="Habilitar motor de plantillas"
+              />
+            </Grid>
             <Grid item xs={12} md={4}>
               <TextField select fullWidth label="Almacen por defecto" value={defaultWarehouseDraft} onChange={(e) => setDefaultWarehouseDraft(e.target.value === "" ? "" : Number(e.target.value))}>
                 <MenuItem value="">Sin asignar</MenuItem>

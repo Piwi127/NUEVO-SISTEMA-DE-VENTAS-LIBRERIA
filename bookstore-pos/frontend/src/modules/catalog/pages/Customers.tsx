@@ -14,6 +14,9 @@ import { useSettings } from "@/app/store";
 const customerFormSchema = z.object({
   name: z.string().trim().min(2, "Ingresa al menos 2 caracteres.").max(120, "El nombre es demasiado largo."),
   phone: optionalPhoneSchema,
+  tax_id: z.string().trim().max(30, "Maximo 30 caracteres.").optional().or(z.literal("")),
+  address: z.string().trim().max(255, "Maximo 255 caracteres.").optional().or(z.literal("")),
+  email: z.string().trim().email("Correo invalido.").optional().or(z.literal("")),
   price_list_id: z.number().int().positive().nullable(),
 });
 
@@ -22,6 +25,9 @@ type CustomerFormValues = z.infer<typeof customerFormSchema>;
 const defaultValues: CustomerFormValues = {
   name: "",
   phone: "",
+  tax_id: "",
+  address: "",
+  email: "",
   price_list_id: null,
 };
 
@@ -64,7 +70,7 @@ const Customers: React.FC = () => {
   const filtered = (data || []).filter((customer) => {
     const term = query.trim().toLowerCase();
     if (!term) return true;
-    return `${customer.name} ${customer.phone || ""}`.toLowerCase().includes(term);
+    return `${customer.name} ${customer.phone || ""} ${customer.tax_id || ""}`.toLowerCase().includes(term);
   });
 
   const startEdit = (customer: Customer) => {
@@ -73,6 +79,9 @@ const Customers: React.FC = () => {
     reset({
       name: customer.name,
       phone: customer.phone || "",
+      tax_id: customer.tax_id || "",
+      address: customer.address || "",
+      email: customer.email || "",
       price_list_id: customer.price_list_id ?? null,
     });
   };
@@ -88,6 +97,9 @@ const Customers: React.FC = () => {
     const payload: Omit<Customer, "id"> = {
       name: values.name.trim(),
       phone: normalizeOptionalText(values.phone),
+      tax_id: normalizeOptionalText(values.tax_id || ""),
+      address: normalizeOptionalText(values.address || ""),
+      email: normalizeOptionalText(values.email || ""),
       price_list_id: values.price_list_id,
     };
     try {
@@ -220,6 +232,30 @@ const Customers: React.FC = () => {
             error={!!errors.phone}
             helperText={errors.phone?.message || "Opcional. Usa numeros y signos comunes."}
             {...register("phone", {
+              onChange: () => setSubmitError(""),
+            })}
+          />
+          <TextField
+            label="RUC / Documento fiscal"
+            error={!!errors.tax_id}
+            helperText={errors.tax_id?.message || "Opcional. Requerido para factura."}
+            {...register("tax_id", {
+              onChange: () => setSubmitError(""),
+            })}
+          />
+          <TextField
+            label="Direccion"
+            error={!!errors.address}
+            helperText={errors.address?.message || "Opcional."}
+            {...register("address", {
+              onChange: () => setSubmitError(""),
+            })}
+          />
+          <TextField
+            label="Correo"
+            error={!!errors.email}
+            helperText={errors.email?.message || "Opcional."}
+            {...register("email", {
               onChange: () => setSubmitError(""),
             })}
           />

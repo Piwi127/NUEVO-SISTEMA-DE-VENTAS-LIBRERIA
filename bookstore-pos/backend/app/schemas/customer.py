@@ -4,6 +4,9 @@ from pydantic import BaseModel
 class CustomerBase(BaseModel):
     name: str
     phone: str | None = None
+    tax_id: str | None = None
+    address: str | None = None
+    email: str | None = None
     price_list_id: int | None = None
 
 

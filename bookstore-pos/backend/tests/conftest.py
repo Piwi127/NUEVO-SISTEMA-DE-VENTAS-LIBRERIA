@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.db.base import Base
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def test_app():
     from app.main import app
     import app.db.session as db_session
@@ -56,6 +56,15 @@ async def test_app():
     await engine.dispose()
     if os.path.exists(db_path):
         os.remove(db_path)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def reset_template_cache():
+    from app.services.printing_templates.template_service import TemplateService
+
+    TemplateService.clear_cache()
+    yield
+    TemplateService.clear_cache()
 
 
 @pytest_asyncio.fixture(autouse=True)
