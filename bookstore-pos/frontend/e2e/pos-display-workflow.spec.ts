@@ -28,9 +28,9 @@ test("POS-Display: requiere auth y sincroniza carrito en pantalla dual", async (
   await displayPage.goto(`/display/${sessionId}`);
   await expect(displayPage.getByText("Total:")).toBeVisible();
 
-  const searchInput = page.getByLabel("Busqueda inteligente");
+  const searchInput = page.getByLabel(/A.*adir Item/i);
   await searchInput.fill(product.sku);
-  await expect(page.getByText(product.name)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(product.name, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   await searchInput.press("Enter");
 
   await expect(displayPage.getByText(product.name)).toBeVisible({ timeout: 15_000 });

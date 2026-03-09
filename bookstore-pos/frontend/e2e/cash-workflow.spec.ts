@@ -5,50 +5,26 @@ test("flujo de caja: apertura, movimiento y arqueo Z visible en historial", asyn
   test.setTimeout(90_000);
   await loginFromUi(page);
   await page.goto("/cash");
-  await expect(page.getByText("Caja y arqueos")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Gesti.*Caja/i })).toBeVisible();
 
-  const cashOpenText = page.getByText("Caja abierta desde:");
-  const openButton = page.getByRole("button", { name: "Abrir caja" });
-  const openingInput = page.getByLabel("Monto apertura");
-
-  let alreadyOpen = true;
-  try {
-    await expect(cashOpenText).toBeVisible({ timeout: 4_000 });
-  } catch {
-    alreadyOpen = false;
+  const openButton = page.getByRole("button", { name: /Autorizar Apertura/i });
+  if (await openButton.isVisible().catch(() => false)) {
+    await page.getByLabel(/Declaraci.*base/i).fill("100");
+    await openButton.click();
   }
+  await expect(page.getByRole("button", { name: /Inicia Cierre de Jornada \(Z\)/i })).toBeVisible({ timeout: 15_000 });
 
-  if (!alreadyOpen) {
-    await expect(openButton).toBeVisible({ timeout: 15_000 });
-    let opened = false;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      await expect(openingInput).toBeVisible({ timeout: 10_000 });
-      await openingInput.fill("100");
-      await openButton.click();
+  await page.getByLabel(/Volumen a trasladar/i).fill("15");
+  await page.getByLabel(/Causa u Origen del movimiento/i).fill("Movimiento E2E");
+  await page.getByRole("button", { name: /Grabar en la Sesi/i }).click();
 
-      try {
-        await expect(cashOpenText).toBeVisible({ timeout: 5_000 });
-        opened = true;
-        break;
-      } catch {
-        await page.waitForTimeout(500);
-      }
-    }
-    if (!opened) throw new Error("No se pudo abrir caja tras 3 intentos");
-  }
-  await expect(cashOpenText).toBeVisible({ timeout: 15_000 });
-
-  await page.getByLabel("Monto", { exact: true }).fill("15");
-  await page.getByLabel("Motivo").fill("Movimiento E2E");
-  await page.getByRole("button", { name: "Registrar", exact: true }).click();
-
-  const auditTypeSelect = page.getByLabel("Tipo").last();
+  const auditTypeSelect = page.getByLabel(/Modelo de Auditor/i);
   await auditTypeSelect.click();
-  await page.getByRole("option", { name: "Z (cierre)" }).click();
-  await page.getByLabel("Monto contado").fill("115");
-  await page.getByRole("button", { name: "Registrar arqueo" }).click();
+  await page.getByRole("option", { name: /Arqueo Finalizador \(Z\)/i }).click();
+  await page.getByLabel(/Conteo Total de Billetaje Local/i).fill("115");
+  await page.getByRole("button", { name: /Fijar y Emitir Documento Z/i }).click();
 
-  await page.getByRole("tab", { name: "Historial" }).click();
-  await expect(page.getByText("Historial de arqueos")).toBeVisible();
-  await expect(page.getByText("Sesion #").first()).toBeVisible();
+  await page.getByRole("tab", { name: /Historial y Arqueos/i }).click();
+  await expect(page.getByText(/Memoria de Arqueos e Informes/i)).toBeVisible();
+  await expect(page.getByText(/Sesion de Caja #/i).first()).toBeVisible();
 });

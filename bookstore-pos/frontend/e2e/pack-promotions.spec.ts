@@ -20,6 +20,10 @@ type ReceiptPayload = {
   items: ReceiptItem[];
 };
 
+type CreatedSalePayload = {
+  id: number;
+};
+
 test("promo pack 3x2.50: aplica en POS y persiste en venta", async ({ page, request }) => {
   test.setTimeout(120_000);
 
@@ -44,32 +48,29 @@ test("promo pack 3x2.50: aplica en POS y persiste en venta", async ({ page, requ
   await loginFromUi(page);
   await page.goto("/pos");
 
-  const searchInput = page.getByLabel("Busqueda inteligente");
+  const searchInput = page.getByLabel(/A.*adir Item/i);
   await searchInput.fill(product.sku);
   const resultItem = page.locator("li").filter({ hasText: product.name }).first();
   await expect(resultItem).toBeVisible({ timeout: 15_000 });
   await resultItem.getByRole("button").click();
+  await searchInput.press("Enter");
+  await searchInput.press("Enter");
 
-  const itemRow = page.getByRole("row", { name: new RegExp(product.name, "i") }).first();
-  await expect(itemRow).toBeVisible({ timeout: 15_000 });
+  const checkoutPanel = page.locator(".MuiPaper-root").filter({ hasText: /BOLETA EN CURSO/i }).first();
+  await expect(checkoutPanel.getByText(/Pack 3x2\.50 E2E/i).first()).toBeVisible({ timeout: 15_000 });
+  await expect(checkoutPanel.getByText(/2[.,]50/).first()).toBeVisible();
 
-  const qtyInput = itemRow.locator("input[type='number']").first();
-  await qtyInput.fill("3");
-  await qtyInput.blur();
+  await page.getByRole("button", { name: /Cobrar \/ Facturar/i }).first().click();
+  await page.getByRole("button", { name: /Autocompletar Efectivo/i }).click();
+  const saleResponsePromise = page.waitForResponse((response) => {
+    return response.url().includes("/sales") && response.request().method() === "POST" && response.status() === 201;
+  });
+  await page.getByRole("button", { name: /Procesar Pago|Confirmar y Emitir/i }).click();
 
-  await expect(itemRow.getByText(/Pack 1x\(3 por/i)).toBeVisible({ timeout: 15_000 });
-  await expect(itemRow.locator("td").nth(4)).toContainText(/2[.,]50/);
-
-  await page.getByRole("button", { name: /^Cobrar$/ }).first().click();
-  await page.getByRole("button", { name: "Pagar exacto" }).click();
-  await page.getByRole("button", { name: "Confirmar" }).click();
-
-  const lastSaleChip = page.getByText(/Ultima venta #\d+/).first();
-  await expect(lastSaleChip).toBeVisible({ timeout: 15_000 });
-  const saleText = (await lastSaleChip.textContent()) || "";
-  const match = saleText.match(/#(\d+)/);
-  expect(match).toBeTruthy();
-  const saleId = Number(match![1]);
+  const saleResponse = await saleResponsePromise;
+  const createdSale = (await saleResponse.json()) as CreatedSalePayload;
+  const saleId = Number(createdSale.id);
+  expect(Number.isFinite(saleId) && saleId > 0).toBeTruthy();
 
   const apiUrl = process.env.E2E_API_URL || "http://127.0.0.1:8010";
   const receiptResp = await request.get(`${apiUrl}/sales/${saleId}/receipt`);

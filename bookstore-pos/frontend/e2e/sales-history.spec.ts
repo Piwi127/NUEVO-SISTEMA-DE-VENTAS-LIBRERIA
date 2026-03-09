@@ -11,7 +11,8 @@ test("historial de ventas muestra venta registrada y comprobante", async ({ page
 
   await loginFromUi(page);
   await page.goto("/sales-history");
-  await page.getByRole("button", { name: "Consultar" }).click();
+  await expect(page.getByRole("heading", { name: /Repositorio de Ventas/i })).toBeVisible();
+  await page.getByRole("button", { name: "Auditar" }).click();
 
   await expect(page.getByText(sale.invoice_number)).toBeVisible();
 });
