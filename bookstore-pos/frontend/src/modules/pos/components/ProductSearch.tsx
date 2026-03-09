@@ -27,7 +27,7 @@ import { Product } from "@/modules/shared/types";
 import { useCartStore, useSettings } from "@/app/store";
 import { formatMoney } from "@/app/utils";
 
-const SEARCH_LIMIT = 120;
+const SEARCH_LIMIT = 500;
 
 const TERM_GROUPS: string[][] = [
   ["cuaderno", "cuadernos", "hoja", "hojas", "libreta", "notebook", "rayado", "cuadriculado", "apuntes"],
@@ -35,6 +35,7 @@ const TERM_GROUPS: string[][] = [
   ["lapicero", "lapiceros", "boligrafo", "boligrafos", "pluma", "tinta", "escribir"],
   ["borrador", "borradores", "goma", "corrector", "corregir"],
   ["resaltador", "resaltadores", "marcador", "marcadores", "fluorescente", "subrayar"],
+  ["plumon", "plumones", "color", "colores", "marker", "markers", "punta", "delgado"],
   ["folder", "carpeta", "archivador", "funda", "micas", "archivar"],
   ["papel", "papeles", "resma", "a4", "oficio", "bond", "imprimir", "fotocopia"],
   ["regla", "escuadra", "transportador", "compas", "geometria"],

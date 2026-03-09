@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 import json
+from typing import cast
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
@@ -18,7 +20,7 @@ from app.models.promotion import Promotion
 from app.models.promotion_rule import PromotionRule
 from app.models.sale import Sale, SaleItem, Payment
 from app.models.settings import SystemSettings
-from app.services.pos.pricing import ProductRuleInput, select_best_product_rule
+from app.services.pos.pricing import ProductRuleInput, RuleType, select_best_product_rule
 
 from app.services._transaction import service_transaction
 
@@ -53,22 +55,30 @@ class SalesService:
     async def _load_product_rules(self, product_ids: set[int]) -> dict[int, list[ProductRuleInput]]:
         rules_by_product: dict[int, list[ProductRuleInput]] = {}
         if product_ids:
+            now = datetime.now(timezone.utc)
             rules_res = await self.db.execute(
-                select(PromotionRule).where(
+                select(PromotionRule)
+                .where(
                     PromotionRule.is_active == True,  # noqa: E712
                     PromotionRule.product_id.in_(product_ids),
+                    or_(PromotionRule.start_date.is_(None), PromotionRule.start_date <= now),
+                    or_(PromotionRule.end_date.is_(None), PromotionRule.end_date >= now),
                 )
+                .order_by(PromotionRule.priority.desc(), PromotionRule.id.desc())
             )
             for rule in rules_res.scalars().all():
+                if rule.rule_type not in {"BUNDLE_PRICE", "UNIT_PRICE_BY_QTY"}:
+                    continue
                 rules_by_product.setdefault(rule.product_id, []).append(
                     ProductRuleInput(
                         id=rule.id,
                         name=rule.name,
-                        rule_type=rule.rule_type,
+                        rule_type=cast(RuleType, rule.rule_type),
                         bundle_qty=rule.bundle_qty,
                         bundle_price=rule.bundle_price,
                         min_qty=rule.min_qty,
                         unit_price=rule.unit_price,
+                        priority=rule.priority,
                     )
                 )
         return rules_by_product

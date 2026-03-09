@@ -3,9 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import log_event
 from app.core.deps import get_current_user, get_db, require_role
+from app.models.promotion_rule import PromotionRule
 from app.schemas.promotion import (
     PromotionCreate,
     PromotionOut,
+    PromotionUpdate,
     PromotionRuleCreate,
     PromotionRuleOut,
     PromotionRuleUpdate,
@@ -21,7 +23,7 @@ def _parse_product_ids(product_ids: str | None) -> list[int]:
     return [int(value) for value in product_ids.split(",") if value.strip().isdigit()]
 
 
-def _rule_details(rule: PromotionRuleOut) -> str:
+def _rule_details(rule: PromotionRule | PromotionRuleOut) -> str:
     if rule.rule_type == "BUNDLE_PRICE":
         return (
             f"{rule.name} product:{rule.product_id} type:{rule.rule_type} "
@@ -52,6 +54,32 @@ async def create_promotion(data: PromotionCreate, db: AsyncSession = Depends(get
     details = f"{created.name} {created.type}:{float(created.value):.2f} active:{created.is_active}"
     await log_event(db, current_user.id, "promotion_create", "promotion", str(created.id), details[:255], commit=True)
     return created
+
+
+@router.put("/{promotion_id}", response_model=PromotionOut, dependencies=[Depends(require_role("admin"))])
+async def update_promotion(
+    promotion_id: int,
+    data: PromotionUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    service = PromotionsService(db)
+    updated = await service.update_promotion(promotion_id, data)
+    details = f"{updated.name} {updated.type}:{float(updated.value):.2f} active:{updated.is_active}"
+    await log_event(db, current_user.id, "promotion_update", "promotion", str(updated.id), details[:255], commit=True)
+    return updated
+
+
+@router.delete("/{promotion_id}", dependencies=[Depends(require_role("admin"))])
+async def delete_promotion(
+    promotion_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    service = PromotionsService(db)
+    response = await service.delete_promotion(promotion_id)
+    await log_event(db, current_user.id, "promotion_delete", "promotion", str(promotion_id), f"deleted:{promotion_id}", commit=True)
+    return response
 
 
 @router.get("/rules", response_model=list[PromotionRuleOut], dependencies=[Depends(require_role("admin"))])
@@ -103,6 +131,26 @@ async def update_rule(
     return updated
 
 
+@router.delete("/rules/{rule_id}", dependencies=[Depends(require_role("admin"))])
+async def delete_rule(
+    rule_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    service = PromotionsService(db)
+    response = await service.delete_rule(rule_id)
+    await log_event(
+        db,
+        current_user.id,
+        "promotion_rule_delete",
+        "promotion_rule",
+        str(rule_id),
+        f"deleted:{rule_id}",
+        commit=True,
+    )
+    return response
+
+
 @router.get("/pack-rules", response_model=list[PromotionRuleOut], dependencies=[Depends(require_role("admin"))])
 async def list_pack_rules(db: AsyncSession = Depends(get_db)):
     service = PromotionsService(db)
@@ -150,3 +198,23 @@ async def update_pack_rule(
         commit=True,
     )
     return updated
+
+
+@router.delete("/pack-rules/{rule_id}", dependencies=[Depends(require_role("admin"))])
+async def delete_pack_rule(
+    rule_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    service = PromotionsService(db)
+    response = await service.delete_rule(rule_id)
+    await log_event(
+        db,
+        current_user.id,
+        "promotion_rule_delete",
+        "promotion_rule",
+        str(rule_id),
+        f"deleted:{rule_id}",
+        commit=True,
+    )
+    return response

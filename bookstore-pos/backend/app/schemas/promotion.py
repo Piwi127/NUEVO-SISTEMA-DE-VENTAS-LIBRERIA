@@ -15,6 +15,13 @@ class PromotionCreate(PromotionBase):
     pass
 
 
+class PromotionUpdate(BaseModel):
+    name: str | None = None
+    type: str | None = None
+    value: float | None = None
+    is_active: bool | None = None
+
+
 class PromotionOut(PromotionBase):
     id: int
     model_config = {"from_attributes": True}
@@ -31,6 +38,9 @@ class PromotionRuleBase(BaseModel):
     bundle_price: float | None = Field(default=None, gt=0)
     min_qty: int | None = Field(default=None, ge=2)
     unit_price: float | None = Field(default=None, gt=0)
+    priority: int = 0
+    start_date: datetime | None = None
+    end_date: datetime | None = None
     is_active: bool = True
 
     @model_validator(mode="after")
@@ -45,6 +55,8 @@ class PromotionRuleBase(BaseModel):
                 raise ValueError("min_qty y unit_price son requeridos para reglas UNIT_PRICE_BY_QTY")
             if self.bundle_qty is not None or self.bundle_price is not None:
                 raise ValueError("bundle_qty y bundle_price no aplican a reglas UNIT_PRICE_BY_QTY")
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError("end_date no puede ser menor que start_date")
         return self
 
 
@@ -60,10 +72,20 @@ class PromotionRuleUpdate(BaseModel):
     bundle_price: float | None = Field(default=None, gt=0)
     min_qty: int | None = Field(default=None, ge=2)
     unit_price: float | None = Field(default=None, gt=0)
+    priority: int | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
     is_active: bool | None = None
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError("end_date no puede ser menor que start_date")
+        return self
 
 
 class PromotionRuleOut(PromotionRuleBase):
     id: int
     created_at: datetime
+    updated_at: datetime | None = None
     model_config = {"from_attributes": True}

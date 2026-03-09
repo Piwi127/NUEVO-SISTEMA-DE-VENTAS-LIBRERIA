@@ -17,6 +17,7 @@ TERM_GROUPS: list[list[str]] = [
     ["lapicero", "lapiceros", "boligrafo", "boligrafos", "pluma", "tinta"],
     ["borrador", "borradores", "goma", "corrector"],
     ["resaltador", "resaltadores", "marcador", "marcadores", "fluorescente"],
+    ["plumon", "plumones", "color", "colores", "marker", "markers", "punta", "delgado"],
     ["folder", "carpeta", "archivador", "funda", "micas"],
     ["papel", "papeles", "resma", "a4", "oficio", "bond"],
     ["regla", "escuadra", "transportador", "compas"],

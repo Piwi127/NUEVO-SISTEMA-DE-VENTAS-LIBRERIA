@@ -3,32 +3,36 @@ import { api } from "@/modules/shared/api";
 export type Promotion = { id: number; name: string; type: string; value: number; is_active: boolean };
 export type ProductPromotionRuleType = "BUNDLE_PRICE" | "UNIT_PRICE_BY_QTY";
 
-export type PackPromotionRule = {
+type ProductPromotionRuleCommon = {
   id: number;
   name: string;
   product_id: number;
+  priority: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+export type PackPromotionRule = ProductPromotionRuleCommon & {
   rule_type: "BUNDLE_PRICE";
   bundle_qty: number;
   bundle_price: number;
-  is_active: boolean;
-  created_at: string;
 };
 
-export type UnitPriceByQtyPromotionRule = {
-  id: number;
-  name: string;
-  product_id: number;
+export type UnitPriceByQtyPromotionRule = ProductPromotionRuleCommon & {
   rule_type: "UNIT_PRICE_BY_QTY";
   min_qty: number;
   unit_price: number;
-  is_active: boolean;
-  created_at: string;
 };
 
 export type ProductPromotionRule = PackPromotionRule | UnitPriceByQtyPromotionRule;
-export type ProductPromotionRuleCreate = Omit<ProductPromotionRule, "id" | "created_at">;
+export type ProductPromotionRuleCreate =
+  | Omit<PackPromotionRule, "id" | "created_at" | "updated_at">
+  | Omit<UnitPriceByQtyPromotionRule, "id" | "created_at" | "updated_at">;
 export type ProductPromotionRuleUpdate = Partial<ProductPromotionRuleCreate>;
-export type PackPromotionRuleCreate = Omit<PackPromotionRule, "id" | "created_at">;
+export type PackPromotionRuleCreate = Omit<PackPromotionRule, "id" | "created_at" | "updated_at">;
 export type PackPromotionRuleUpdate = Partial<PackPromotionRuleCreate>;
 
 let supportsGenericPromotionRulesEndpoint: boolean | null = null;
@@ -48,8 +52,18 @@ export const createPromotion = async (data: Omit<Promotion, "id">) => {
   return res.data as Promotion;
 };
 
-export const listProductPromotionRules = async (): Promise<PackPromotionRule[]> => {
-  const res = await api.get("/promotions/pack-rules");
+export const updatePromotion = async (promotionId: number, data: Partial<Omit<Promotion, "id">>) => {
+  const res = await api.put(`/promotions/${promotionId}`, data);
+  return res.data as Promotion;
+};
+
+export const deletePromotion = async (promotionId: number) => {
+  const res = await api.delete(`/promotions/${promotionId}`);
+  return res.data as { ok: boolean };
+};
+
+export const listProductPromotionRules = async (ruleType?: ProductPromotionRuleType): Promise<ProductPromotionRule[]> => {
+  const res = await api.get("/promotions/rules", { params: ruleType ? { rule_type: ruleType } : undefined });
   return res.data;
 };
 
@@ -78,15 +92,20 @@ export const listActiveProductPromotionRules = async (productIds?: number[]): Pr
   }
 };
 
-export const createProductPromotionRule = async (data: PackPromotionRuleCreate): Promise<PackPromotionRule> => {
-  const res = await api.post("/promotions/pack-rules", data);
+export const createProductPromotionRule = async (data: ProductPromotionRuleCreate): Promise<ProductPromotionRule> => {
+  const res = await api.post("/promotions/rules", data);
   return res.data;
 };
 
 export const updateProductPromotionRule = async (
   ruleId: number,
-  data: PackPromotionRuleUpdate
-): Promise<PackPromotionRule> => {
-  const res = await api.put(`/promotions/pack-rules/${ruleId}`, data);
+  data: ProductPromotionRuleUpdate
+): Promise<ProductPromotionRule> => {
+  const res = await api.put(`/promotions/rules/${ruleId}`, data);
   return res.data;
+};
+
+export const deleteProductPromotionRule = async (ruleId: number) => {
+  const res = await api.delete(`/promotions/rules/${ruleId}`);
+  return res.data as { ok: boolean };
 };

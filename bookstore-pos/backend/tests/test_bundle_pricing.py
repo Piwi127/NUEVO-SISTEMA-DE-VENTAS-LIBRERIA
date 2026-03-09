@@ -1,6 +1,8 @@
 from app.services.pos.pricing import (
     BundleRuleInput,
+    CartLineInput,
     ProductRuleInput,
+    apply_product_promotions,
     calculate_unit_price_by_qty_discount,
     select_best_bundle_rule,
     select_best_product_rule,
@@ -77,3 +79,51 @@ def test_unit_price_tiers_pick_best_threshold():
     assert result.discount == 10.0
     assert result.applied_rule is not None
     assert result.applied_rule.id == 2
+
+
+def test_rule_priority_breaks_equal_discount_ties():
+    rules = [
+        ProductRuleInput(
+            id=1,
+            name="Prioridad baja",
+            rule_type="UNIT_PRICE_BY_QTY",
+            min_qty=3,
+            unit_price=6.0,
+            priority=1,
+        ),
+        ProductRuleInput(
+            id=2,
+            name="Prioridad alta",
+            rule_type="UNIT_PRICE_BY_QTY",
+            min_qty=3,
+            unit_price=6.0,
+            priority=10,
+        ),
+    ]
+    result = select_best_product_rule(qty=5, unit_price=6.5, rules=rules)
+    assert result.discount == 2.5
+    assert result.applied_rule is not None
+    assert result.applied_rule.id == 2
+
+
+def test_apply_product_promotions_returns_enriched_line_fields():
+    lines = apply_product_promotions(
+        cart_items=[CartLineInput(product_id=1, quantity=3, original_unit_price=6.5)],
+        rules_by_product={
+            1: [
+                ProductRuleInput(
+                    id=10,
+                    name="Desde 3 a 6.00",
+                    rule_type="UNIT_PRICE_BY_QTY",
+                    min_qty=3,
+                    unit_price=6.0,
+                )
+            ]
+        },
+    )
+    assert len(lines) == 1
+    assert lines[0].promotion_applied is True
+    assert lines[0].promotion_name == "Desde 3 a 6.00"
+    assert lines[0].original_unit_price == 6.5
+    assert lines[0].final_unit_price == 6.0
+    assert lines[0].line_subtotal == 18.0

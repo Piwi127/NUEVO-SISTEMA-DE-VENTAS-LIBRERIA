@@ -12,6 +12,7 @@ describe("POS pricing utils", () => {
           name: "3x25",
           product_id: 1,
           rule_type: "BUNDLE_PRICE",
+          priority: 0,
           bundle_qty: 3,
           bundle_price: 25,
           is_active: true,
@@ -22,6 +23,7 @@ describe("POS pricing utils", () => {
           name: "2x18",
           product_id: 1,
           rule_type: "BUNDLE_PRICE",
+          priority: 0,
           bundle_qty: 2,
           bundle_price: 18,
           is_active: true,
@@ -45,6 +47,7 @@ describe("POS pricing utils", () => {
           name: "Desde 3 a 6.00",
           product_id: 7,
           rule_type: "UNIT_PRICE_BY_QTY",
+          priority: 0,
           min_qty: 3,
           unit_price: 6.0,
           is_active: true,
@@ -57,6 +60,10 @@ describe("POS pricing utils", () => {
     expect(result.packDiscountTotal).toBe(2);
     expect(result.subtotalAfterPacks).toBe(24);
     expect(result.linesByProductId[7].applied_rule_type).toBe("UNIT_PRICE_BY_QTY");
+    expect(result.linesByProductId[7].original_unit_price).toBe(6.5);
+    expect(result.linesByProductId[7].final_unit_price).toBe(6);
+    expect(result.linesByProductId[7].promotion_applied).toBe(true);
+    expect(result.linesByProductId[7].line_subtotal).toBe(24);
   });
 
   it("selects the best rule between pack and unit-price promotions", () => {
@@ -68,6 +75,7 @@ describe("POS pricing utils", () => {
           name: "Pack 3x18.50",
           product_id: 8,
           rule_type: "BUNDLE_PRICE",
+          priority: 0,
           bundle_qty: 3,
           bundle_price: 18.5,
           is_active: true,
@@ -78,6 +86,7 @@ describe("POS pricing utils", () => {
           name: "Desde 3 a 6.00",
           product_id: 8,
           rule_type: "UNIT_PRICE_BY_QTY",
+          priority: 0,
           min_qty: 3,
           unit_price: 6.0,
           is_active: true,
@@ -88,6 +97,38 @@ describe("POS pricing utils", () => {
 
     expect(result.packDiscountTotal).toBe(1.5);
     expect(result.linesByProductId[8].applied_rule_id).toBe(12);
+  });
+
+  it("uses priority to resolve equal discount ties", () => {
+    const result = calculatePackPricing(
+      [{ product_id: 9, sku: "CUA-3", name: "Cuaderno", price: 6.5, qty: 5 }],
+      [
+        {
+          id: 13,
+          name: "Prioridad baja",
+          product_id: 9,
+          rule_type: "UNIT_PRICE_BY_QTY",
+          priority: 1,
+          min_qty: 3,
+          unit_price: 6.0,
+          is_active: true,
+          created_at: "2026-01-01T00:00:00Z",
+        },
+        {
+          id: 14,
+          name: "Prioridad alta",
+          product_id: 9,
+          rule_type: "UNIT_PRICE_BY_QTY",
+          priority: 10,
+          min_qty: 3,
+          unit_price: 6.0,
+          is_active: true,
+          created_at: "2026-01-01T00:00:00Z",
+        },
+      ]
+    );
+
+    expect(result.linesByProductId[9].applied_rule_id).toBe(14);
   });
 
   it("calculates totals with tax excluded and discounts", () => {

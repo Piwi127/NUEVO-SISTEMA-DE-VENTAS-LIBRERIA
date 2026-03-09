@@ -3,7 +3,13 @@ import type { ProductPromotionRule } from "@/modules/catalog/api/promotions";
 
 export type PackPricingLine = {
   product_id: number;
+  quantity: number;
+  original_unit_price: number;
+  final_unit_price: number;
+  promotion_applied: boolean;
+  promotion_name?: string;
   base_total: number;
+  line_subtotal: number;
   pack_discount: number;
   final_total: number;
   applied_rule_id?: number;
@@ -62,9 +68,10 @@ const getRuleSpecificity = (rule?: ProductPromotionRule) => {
 };
 
 const getRulePriority = (rule?: ProductPromotionRule) => {
-  if (!rule) return [-1, -1] as const;
+  if (!rule) return [-1, -1, -1] as const;
+  const configuredPriority = Number(rule.priority || 0);
   const typePriority = rule.rule_type === "UNIT_PRICE_BY_QTY" ? 1 : 0;
-  return [getRuleSpecificity(rule), typePriority] as const;
+  return [configuredPriority, getRuleSpecificity(rule), typePriority] as const;
 };
 
 const selectBestRule = (item: CartItem, rules: ProductPromotionRule[]) => {
@@ -92,7 +99,8 @@ const selectBestRule = (item: CartItem, rules: ProductPromotionRule[]) => {
       const bestPriority = getRulePriority(bestRule);
       if (
         currentPriority[0] > bestPriority[0] ||
-        (currentPriority[0] === bestPriority[0] && currentPriority[1] > bestPriority[1])
+        (currentPriority[0] === bestPriority[0] && currentPriority[1] > bestPriority[1]) ||
+        (currentPriority[0] === bestPriority[0] && currentPriority[1] === bestPriority[1] && currentPriority[2] > bestPriority[2])
       ) {
         bestRule = rule;
         bestBundles = bundles;
@@ -122,6 +130,7 @@ export const calculatePackPricing = (items: CartItem[], rules: ProductPromotionR
     const { rule, discount, bundles } = selectBestRule(item, rulesByProduct[item.product_id] || []);
     const safeDiscount = Math.max(0, Math.min(baseTotal, discount));
     const finalTotal = baseTotal - safeDiscount;
+    const finalUnitPrice = item.qty > 0 ? finalTotal / item.qty : item.price;
     grossSubtotal += baseTotal;
     subtotalAfterPacks += finalTotal;
     packDiscountTotal += safeDiscount;
@@ -145,7 +154,13 @@ export const calculatePackPricing = (items: CartItem[], rules: ProductPromotionR
 
     linesByProductId[item.product_id] = {
       product_id: item.product_id,
+      quantity: item.qty,
+      original_unit_price: item.price,
+      final_unit_price: finalUnitPrice,
+      promotion_applied: safeDiscount > 0,
+      promotion_name: rule?.name,
       base_total: baseTotal,
+      line_subtotal: finalTotal,
       pack_discount: safeDiscount,
       final_total: finalTotal,
       applied_rule_id: rule?.id,

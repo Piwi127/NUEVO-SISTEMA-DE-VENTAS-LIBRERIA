@@ -73,7 +73,12 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
     const baseTotal = qty * unitPrice;
     return {
       product_id: productId,
+      quantity: qty,
+      original_unit_price: unitPrice,
+      final_unit_price: unitPrice,
+      promotion_applied: false,
       base_total: baseTotal,
+      line_subtotal: baseTotal,
       pack_discount: 0,
       final_total: baseTotal,
     };
@@ -222,9 +227,16 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
                     </Stack>
 
                     <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
-                      <Typography variant="caption" sx={{ color: palette.textMuted, fontWeight: 600 }}>
-                        {formatMoney(item.price)} u.
-                      </Typography>
+                      <Box sx={{ display: "grid", justifyItems: "start" }}>
+                        {linePricing.promotion_applied ? (
+                          <Typography variant="caption" sx={{ color: palette.textMuted, fontWeight: 600, textDecoration: "line-through" }}>
+                            {formatMoney(linePricing.original_unit_price)} u.
+                          </Typography>
+                        ) : null}
+                        <Typography variant="caption" sx={{ color: linePricing.promotion_applied ? "success.main" : palette.textMuted, fontWeight: 700 }}>
+                          {formatMoney(linePricing.final_unit_price)} u.
+                        </Typography>
+                      </Box>
                       <Typography sx={{ fontWeight: 900, color: isDark ? "white" : "text.primary", fontSize: "1.1rem" }}>
                         {formatMoney(linePricing.final_total)}
                       </Typography>
@@ -248,9 +260,20 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
                         </IconButton>
                       </Stack>
                       {linePricing.pack_discount > 0 && (
-                        <Chip size="small" color="secondary" label={`Dcto -${formatMoney(linePricing.pack_discount)}`} variant="outlined" sx={{ height: 24 }} />
+                        <Chip
+                          size="small"
+                          color="secondary"
+                          label={`${linePricing.promotion_name || "Promo"} -${formatMoney(linePricing.pack_discount)}`}
+                          variant="outlined"
+                          sx={{ height: 24 }}
+                        />
                       )}
                     </Stack>
+                    {linePricing.promotion_applied && linePricing.promotion_name ? (
+                      <Typography variant="caption" sx={{ color: "secondary.main", fontWeight: 700 }}>
+                        {linePricing.promotion_name}
+                      </Typography>
+                    ) : null}
                   </Box>
                 </Stack>
               </Paper>
@@ -304,7 +327,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
                       </Typography>
                       {linePricing.pack_discount > 0 && (
                         <Typography variant="caption" sx={{ display: "block", color: "secondary.main", fontWeight: 600 }}>
-                          Dcto Pack -{formatMoney(linePricing.pack_discount)}
+                          {linePricing.promotion_name || "Promo"} -{formatMoney(linePricing.pack_discount)}
                         </Typography>
                       )}
                     </TableCell>
@@ -326,7 +349,20 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
                         </IconButton>
                       </Stack>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: isDark ? "rgba(255,255,255,0.8)" : "text.secondary" }}>{formatMoney(item.price)}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: isDark ? "rgba(255,255,255,0.8)" : "text.secondary" }}>
+                      {linePricing.promotion_applied ? (
+                        <Box sx={{ display: "grid", gap: 0.25 }}>
+                          <Typography variant="caption" sx={{ textDecoration: "line-through", color: palette.textMuted }}>
+                            {formatMoney(linePricing.original_unit_price)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: "success.main", fontWeight: 700 }}>
+                            {formatMoney(linePricing.final_unit_price)}
+                          </Typography>
+                        </Box>
+                      ) : (
+                        formatMoney(item.price)
+                      )}
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 800, color: isDark ? "white" : "text.primary" }}>{formatMoney(linePricing.final_total)}</TableCell>
                     <TableCell align="right">
                       <IconButton onClick={() => cart.removeItem(item.product_id)} sx={{ color: "error.main", opacity: 0.7, "&:hover": { opacity: 1 } }}>
@@ -367,7 +403,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
       >
         {!minimal && (
           <Typography variant="overline" sx={{ fontWeight: 800, display: "block", mb: 1, color: isDark ? "rgba(255,255,255,0.7)" : "text.secondary", letterSpacing: 1 }}>
-            TOTA DE LIQUIDACIÓN
+            TOTAL DE LIQUIDACIÓN
           </Typography>
         )}
         <Stack spacing={1}>

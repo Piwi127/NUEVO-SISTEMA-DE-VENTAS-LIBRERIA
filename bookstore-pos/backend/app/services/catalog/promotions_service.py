@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
@@ -29,6 +31,7 @@ class PromotionsService:
 
     @staticmethod
     def _sanitize_rule_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        payload.setdefault("priority", 0)
         rule_type = payload.get("rule_type", "BUNDLE_PRICE")
         if rule_type == "BUNDLE_PRICE":
             payload["min_qty"] = None
@@ -91,26 +94,63 @@ class PromotionsService:
             await self.db.refresh(promotion)
             return promotion
 
+    async def update_promotion(self, promotion_id: int, data):
+        result = await self.db.execute(select(Promotion).where(Promotion.id == promotion_id))
+        promotion = result.scalar_one_or_none()
+        if not promotion:
+            raise HTTPException(status_code=404, detail="Promocion no encontrada")
+
+        payload = data.model_dump(exclude_unset=True)
+        async with self._transaction():
+            for key, value in payload.items():
+                setattr(promotion, key, value)
+            await self.db.flush()
+            await self.db.refresh(promotion)
+            return promotion
+
+    async def delete_promotion(self, promotion_id: int):
+        result = await self.db.execute(select(Promotion).where(Promotion.id == promotion_id))
+        promotion = result.scalar_one_or_none()
+        if not promotion:
+            raise HTTPException(status_code=404, detail="Promocion no encontrada")
+
+        try:
+            async with self._transaction():
+                await self.db.delete(promotion)
+        except IntegrityError:
+            raise HTTPException(
+                status_code=409,
+                detail="No se puede eliminar la promocion porque tiene ventas relacionadas",
+            ) from None
+        return {"ok": True}
+
     async def list_rules(self, rule_type: str | None = None):
         stmt = select(PromotionRule)
         if rule_type:
             stmt = stmt.where(PromotionRule.rule_type == rule_type)
-        result = await self.db.execute(stmt.order_by(PromotionRule.id.desc()))
+        result = await self.db.execute(stmt.order_by(PromotionRule.priority.desc(), PromotionRule.id.desc()))
         return result.scalars().all()
 
     async def list_active_rules(self, product_ids: list[int] | None = None, rule_type: str | None = None):
-        stmt = select(PromotionRule).where(PromotionRule.is_active == True)  # noqa: E712
+        now = datetime.now(timezone.utc)
+        stmt = select(PromotionRule).where(
+            PromotionRule.is_active == True,  # noqa: E712
+            or_(PromotionRule.start_date.is_(None), PromotionRule.start_date <= now),
+            or_(PromotionRule.end_date.is_(None), PromotionRule.end_date >= now),
+        )
         if rule_type:
             stmt = stmt.where(PromotionRule.rule_type == rule_type)
         if product_ids:
             stmt = stmt.where(PromotionRule.product_id.in_(product_ids))
-        result = await self.db.execute(stmt.order_by(PromotionRule.id.desc()))
+        result = await self.db.execute(stmt.order_by(PromotionRule.priority.desc(), PromotionRule.id.desc()))
         return result.scalars().all()
 
     async def _create_rule_from_payload(self, payload: dict[str, Any]):
         await self._ensure_product_exists(payload["product_id"])
         payload = self._sanitize_rule_payload(payload)
         self._validate_rule_payload(payload)
+        if payload.get("start_date") and payload.get("end_date") and payload["end_date"] < payload["start_date"]:
+            raise HTTPException(status_code=400, detail="end_date no puede ser menor que start_date")
 
         async with self._transaction():
             await self._deactivate_conflicting_rules(payload)
@@ -149,10 +189,15 @@ class PromotionsService:
             "bundle_price": payload.get("bundle_price", rule.bundle_price),
             "min_qty": payload.get("min_qty", rule.min_qty),
             "unit_price": payload.get("unit_price", rule.unit_price),
+            "priority": payload.get("priority", rule.priority),
+            "start_date": payload.get("start_date", rule.start_date),
+            "end_date": payload.get("end_date", rule.end_date),
             "is_active": payload.get("is_active", rule.is_active),
         }
         merged_payload = self._sanitize_rule_payload(merged_payload)
         self._validate_rule_payload(merged_payload)
+        if merged_payload.get("start_date") and merged_payload.get("end_date") and merged_payload["end_date"] < merged_payload["start_date"]:
+            raise HTTPException(status_code=400, detail="end_date no puede ser menor que start_date")
 
         async with self._transaction():
             for key, value in merged_payload.items():
@@ -165,6 +210,22 @@ class PromotionsService:
     async def update_rule(self, rule_id: int, data):
         payload = data.model_dump(exclude_unset=True)
         return await self._update_rule_with_payload(rule_id, payload)
+
+    async def delete_rule(self, rule_id: int):
+        result = await self.db.execute(select(PromotionRule).where(PromotionRule.id == rule_id))
+        rule = result.scalar_one_or_none()
+        if not rule:
+            raise HTTPException(status_code=404, detail="Regla de promocion no encontrada")
+
+        try:
+            async with self._transaction():
+                await self.db.delete(rule)
+        except IntegrityError:
+            raise HTTPException(
+                status_code=409,
+                detail="No se puede eliminar la regla porque tiene ventas relacionadas",
+            ) from None
+        return {"ok": True}
 
     async def update_pack_rule(self, rule_id: int, data):
         payload = data.model_dump(exclude_unset=True)
