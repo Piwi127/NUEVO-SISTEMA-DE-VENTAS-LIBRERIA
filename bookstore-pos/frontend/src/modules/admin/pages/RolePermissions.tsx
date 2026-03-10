@@ -77,15 +77,18 @@ const RolePermissions: React.FC = () => {
   const [role, setRole] = useState("cashier");
   const [rolePerms, setRolePerms] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   React.useEffect(() => {
     const loadPerms = async () => {
       setLoading(true);
+      setLoadError("");
       try {
         const res = await getRolePermissions(role);
         setRolePerms(res.permissions);
       } catch {
         setRolePerms([]);
+        setLoadError("No se pudieron cargar los permisos del rol. Reintenta antes de guardar cambios.");
       } finally {
         setLoading(false);
       }
@@ -98,8 +101,16 @@ const RolePermissions: React.FC = () => {
   };
 
   const handleSavePerms = async () => {
-    await updateRolePermissions(role, rolePerms);
-    showToast({ message: "Permisos actualizados", severity: "success" });
+    if (loadError) {
+      showToast({ message: "No se puede guardar hasta recargar los permisos correctamente.", severity: "error" });
+      return;
+    }
+    try {
+      await updateRolePermissions(role, rolePerms);
+      showToast({ message: "Permisos actualizados", severity: "success" });
+    } catch {
+      showToast({ message: "No se pudieron actualizar los permisos.", severity: "error" });
+    }
   };
 
   return (
@@ -117,8 +128,15 @@ const RolePermissions: React.FC = () => {
             <MenuItem value="cashier">cashier</MenuItem>
             <MenuItem value="stock">stock</MenuItem>
           </TextField>
-          <Button variant="contained" onClick={handleSavePerms} sx={{ width: { xs: "100%", md: "auto" } }}>Guardar permisos</Button>
+          <Button variant="contained" onClick={handleSavePerms} disabled={loading || !!loadError} sx={{ width: { xs: "100%", md: "auto" } }}>
+            Guardar permisos
+          </Button>
         </Stack>
+        {loadError ? (
+          <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+            {loadError}
+          </Typography>
+        ) : null}
 
         <Grid container spacing={2}>
           {PERMISSION_GROUPS.map((group) => (

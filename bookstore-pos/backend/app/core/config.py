@@ -1,5 +1,17 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, field_validator
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+ROOT_DIR = BACKEND_DIR.parent
+DEFAULT_DB_PATH = (BACKEND_DIR / "bookstore.db").as_posix()
+ENV_FILES = (
+    str(BACKEND_DIR / ".env"),
+    str(ROOT_DIR / ".env"),
+    ".env",
+)
 
 
 class Settings(BaseSettings):
@@ -7,7 +19,7 @@ class Settings(BaseSettings):
     # JWT_SECRET: Clave secreta para firmar tokens JWT. Debe ser única y segura en producción.
     jwt_secret: str = ""
     # DATABASE_URL: URL de conexión a la base de datos (ej: sqlite+aiosqlite:///./bookstore.db)
-    database_url: str = "sqlite+aiosqlite:///./bookstore.db"
+    database_url: str = f"sqlite+aiosqlite:///{DEFAULT_DB_PATH}"
     # CORS_ORIGINS: Orígenes permitidos para CORS, separados por comas
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     # ACCESS_TOKEN_EXPIRE_MINUTES: Duración del token de acceso en minutos
@@ -79,7 +91,7 @@ class Settings(BaseSettings):
     # ACCOUNT_LOCK_MINUTES: Minutos de bloqueo tras intentos fallidos
     account_lock_minutes: int = 15
 
-    model_config = ConfigDict(env_file=".env")
+    model_config = ConfigDict(env_file=ENV_FILES, env_file_encoding="utf-8")
 
     @field_validator("jwt_secret")
     @classmethod

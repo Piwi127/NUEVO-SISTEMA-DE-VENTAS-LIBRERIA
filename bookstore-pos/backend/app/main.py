@@ -350,7 +350,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def unhandled_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", "-")
     logger.exception("Unhandled error request_id=%s", request_id, exc_info=exc)
-    return _error_response(request, 500, "internal_error", "Internal server error")
+    detail = "Internal server error"
+    if settings.environment.lower() not in {"prod", "production"}:
+        detail = f"{exc.__class__.__name__}: {exc}"
+    return _error_response(request, 500, "internal_error", detail)
 
 
 @app.get("/")
