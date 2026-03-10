@@ -57,12 +57,21 @@ const persistCsrfToken = (csrfToken: string | null) => {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
 };
 
-api.interceptors.request.use((config) => {
+const resolveCsrfToken = (): string | null => {
+  const cookieCsrf = getCookie("csrf_token");
   const auth = readStoredAuth();
-  let csrf = auth?.csrfToken ?? auth?.csrf_token ?? null;
-  if (!csrf) {
-    csrf = getCookie("csrf_token");
+  const storedCsrf = auth?.csrfToken ?? auth?.csrf_token ?? null;
+  if (cookieCsrf) {
+    if (storedCsrf !== cookieCsrf) {
+      persistCsrfToken(cookieCsrf);
+    }
+    return cookieCsrf;
   }
+  return storedCsrf;
+};
+
+api.interceptors.request.use((config) => {
+  const csrf = resolveCsrfToken();
   if (csrf) {
     config.headers = config.headers || {};
     config.headers["X-CSRF-Token"] = csrf;
@@ -84,6 +93,22 @@ api.interceptors.response.use(
     const status = error?.response?.status;
     const originalRequest = error?.config || {};
     const requestUrl = String(originalRequest?.url || "");
+    const responseDataText = String(error?.response?.data || "").toLowerCase();
+
+    if (status === 403 && typeof window !== "undefined") {
+      const isCsrfError = responseDataText.includes("csrf token missing or invalid");
+      const isRefreshCall = requestUrl.includes("/auth/refresh");
+      if (isCsrfError && !isRefreshCall && !originalRequest._csrfRetry) {
+        const csrfFromCookie = getCookie("csrf_token");
+        if (csrfFromCookie) {
+          persistCsrfToken(csrfFromCookie);
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers["X-CSRF-Token"] = csrfFromCookie;
+          originalRequest._csrfRetry = true;
+          return api(originalRequest);
+        }
+      }
+    }
 
     if (status !== 401 || typeof window === "undefined") {
       return Promise.reject(error);
