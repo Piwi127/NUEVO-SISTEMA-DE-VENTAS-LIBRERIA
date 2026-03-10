@@ -61,7 +61,7 @@ test("promo pack 3x2.50: aplica en POS y persiste en venta", async ({ page, requ
   await expect(checkoutPanel.getByText(/2[.,]50/).first()).toBeVisible();
 
   await page.getByRole("button", { name: /Cobrar \/ Facturar/i }).first().click();
-  await page.getByRole("button", { name: /Autocompletar Efectivo/i }).click();
+  await page.getByRole("button", { name: /Autocompletar Efectivo|Completar efectivo/i }).click();
   const saleResponsePromise = page.waitForResponse((response) => {
     return response.url().includes("/sales") && response.request().method() === "POST" && response.status() === 201;
   });

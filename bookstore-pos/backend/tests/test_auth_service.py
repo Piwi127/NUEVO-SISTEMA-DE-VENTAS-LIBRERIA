@@ -2,8 +2,8 @@
 Tests unitarios para AuthService
 """
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 
 from app.services.auth.auth_service import AuthService
 from app.models.user import User
@@ -126,7 +126,6 @@ class TestPasswordValidation:
     def test_validate_password_too_short(self):
         """validate_password() debe lanzar error si es muy corta"""
         from app.core.security import validate_password
-        from app.core.config import settings
 
         with pytest.raises(ValueError, match="al menos"):
             validate_password("Aa1")  # Menos de password_min_length

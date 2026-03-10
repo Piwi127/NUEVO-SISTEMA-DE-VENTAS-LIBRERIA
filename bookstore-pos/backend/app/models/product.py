@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Float, Integer, Numeric, String, Text, Index
+from sqlalchemy import Boolean, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
