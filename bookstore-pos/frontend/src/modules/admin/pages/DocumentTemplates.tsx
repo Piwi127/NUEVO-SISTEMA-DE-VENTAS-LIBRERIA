@@ -22,6 +22,41 @@ import {
 import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Rnd } from "react-rnd";
+
+// Funcion de sanitizacion basica para prevenir XSS
+// NOTA: Para produccion, se recomienda instalar DOMPurify: npm install dompurify
+// y usar: import DOMPurify from 'dompurify'; luego: DOMPurify.sanitize(html)
+const sanitizeHtml = (html: string): string => {
+  if (typeof window === "undefined") return html;
+  
+  // Crear un elemento temporal para parsear el HTML
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  
+  // Eliminar scripts y eventos peligrosos
+  const scripts = temp.getElementsByTagName("script");
+  while (scripts.length > 0) {
+    scripts[0].parentNode?.removeChild(scripts[0]);
+  }
+  
+  // Eliminar atributos on* (onclick, onerror, etc.)
+  const allElements = temp.getElementsByTagName("*");
+  for (let i = 0; i < allElements.length; i++) {
+    const el = allElements[i];
+    const attributes = Array.from(el.attributes);
+    for (const attr of attributes) {
+      if (attr.name.startsWith("on")) {
+        el.removeAttribute(attr.name);
+      }
+      // Eliminar javascript: en hrefs
+      if (attr.name === "href" && attr.value.toLowerCase().includes("javascript:")) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  }
+  
+  return temp.innerHTML;
+};
 import { PageHeader, ResizableTable, useToast } from "@/app/components";
 import {
   createDocumentTemplate,
@@ -611,7 +646,16 @@ const DocumentTemplates: React.FC = () => {
                   {previewWarnings.length ? previewWarnings.map((warning) => <Chip key={warning} size="small" label={warning} color="warning" />) : <Chip size="small" label="Sin advertencias" color="success" />}
                 </Stack>
                 <Paper variant="outlined" sx={{ p: 1, minHeight: 300, overflow: "auto", bgcolor: "#fff" }}>
-                  {previewHtml ? <Box sx={{ "& table": { width: "100%" }, "& th, & td": { fontSize: 12 } }} dangerouslySetInnerHTML={{ __html: previewHtml }} /> : <Typography variant="body2" color="text.secondary">Ejecuta preview para ver render canónico.</Typography>}
+                  {previewHtml ? (
+                    <Box
+                      sx={{ "& table": { width: "100%" }, "& th, & td": { fontSize: 12 } }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }}
+                    />
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      Ejecuta preview para ver render canónico.
+                    </Typography>
+                  )}
                 </Paper>
               </Stack>
             </Grid>

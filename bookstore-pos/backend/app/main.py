@@ -44,18 +44,32 @@ from app.routers.pos import printing as printing_router
 from app.routers.reports import reports as reports_router
 from app.seed import seed_admin
 from app.db.session import AsyncSessionLocal
+import re
+
+
+# Validar nombres de tablas para prevenir SQL injection
+_TABLE_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _validate_table_name(table_name: str) -> str:
+    """Valida que el nombre de la tabla solo contenga caracteres alfanuméricos y guiones bajos."""
+    if not _TABLE_NAME_PATTERN.match(table_name):
+        raise ValueError(f"Nombre de tabla invalido: {table_name}")
+    return table_name
 
 
 async def verify_schema_compatibility() -> None:
     async with AsyncSessionLocal() as session:
         dialect = session.bind.dialect.name if session.bind else ""
         async def table_columns(table_name: str) -> set[str]:
+            # Validar nombre de tabla para prevenir SQL injection
+            safe_table_name = _validate_table_name(table_name)
             if dialect == "sqlite":
-                result = await session.execute(text(f"PRAGMA table_info({table_name})"))
+                result = await session.execute(text(f"PRAGMA table_info({safe_table_name})"))
                 return {row[1] for row in result.fetchall()}
             result = await session.execute(
                 text("SELECT column_name FROM information_schema.columns WHERE table_name = :table_name"),
-                {"table_name": table_name},
+                {"table_name": safe_table_name},
             )
             return {row[0] for row in result.fetchall()}
 

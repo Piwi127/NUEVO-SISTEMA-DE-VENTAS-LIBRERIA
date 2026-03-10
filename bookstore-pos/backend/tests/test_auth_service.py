@@ -149,5 +149,6 @@ class TestPasswordValidation:
         """validate_password() debe lanzar error si no tiene digito"""
         from app.core.security import validate_password
 
+        # Usar password de 10+ caracteres sin digitos para pasar validacion de longitud
         with pytest.raises(ValueError, match="numero"):
-            validate_password("Password")
+            validate_password("PasswordAb")

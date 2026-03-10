@@ -37,11 +37,17 @@ class AuthService:
         return value
 
     def _verify_totp(self, secret: str, code: str) -> bool:
-        if not code:
+        if not code or not code.strip():
+            return False
+        if not secret or len(secret) < 16:
             return False
         normalized = code.strip().replace(" ", "")
-        totp = pyotp.TOTP(secret)
-        return bool(totp.verify(normalized, valid_window=1))
+        try:
+            totp = pyotp.TOTP(secret)
+            return bool(totp.verify(normalized, valid_window=1))
+        except Exception:
+            # Capturar errores de base32 invalido u otros
+            return False
 
     async def _issue_tokens_for_user(
         self,

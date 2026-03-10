@@ -89,7 +89,13 @@ class Settings(BaseSettings):
                 "JWT_SECRET es requerido. Debe configurarse en .env o variable de ambiente. "
                 "Use un valor seguro y único (mínimo 32 caracteres recomendados)."
             )
-        return v.strip()
+        v = v.strip()
+        if len(v) < 32:
+            raise ValueError(
+                f"JWT_SECRET debe tener al menos 32 caracteres (actual: {len(v)}). "
+                "Genere uno seguro con: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        return v
 
 
 settings = Settings()

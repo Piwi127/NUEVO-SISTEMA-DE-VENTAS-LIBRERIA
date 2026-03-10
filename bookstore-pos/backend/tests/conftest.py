@@ -7,8 +7,8 @@ import httpx
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-# Configurar JWT_SECRET antes de importar app
-os.environ["JWT_SECRET"] = "test_secret_key_for_unit_tests_min_32_chars"
+# Configurar JWT_SECRET antes de importar app (minimo 32 caracteres)
+os.environ["JWT_SECRET"] = "test_secret_key_for_unit_tests_minimum_32_characters_long_secure"
 
 from app.db.base import Base
 

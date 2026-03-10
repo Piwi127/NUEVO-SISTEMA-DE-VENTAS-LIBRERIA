@@ -67,7 +67,9 @@ export const useHeldCarts = ({
             if (Array.isArray(parsed)) {
                 // Migrar campos antiguos create_at a created_at
                 const migrated = parsed.map((cart) => {
-                    const hasCreateAt = (cart as any).create_at;
+                    // Usar index signature para acceder a propiedad obsoleta
+                    const cartWithLegacy = cart as HeldCart & { create_at?: string };
+                    const hasCreateAt = cartWithLegacy.create_at;
                     const hasCreatedAt = cart.created_at;
                     return {
                         ...cart,
