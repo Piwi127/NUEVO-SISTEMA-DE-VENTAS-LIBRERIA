@@ -102,7 +102,9 @@ def _to_escpos(lines: list[str]) -> bytes:
     return bytes(payload)
 
 
-def _fmt_money(value: object) -> str:
+def _fmt_money(value: float | int | str | None) -> str:
+    if value is None:
+        return "0.00"
     try:
         return f"{float(value):.2f}"
     except (TypeError, ValueError):
@@ -467,7 +469,9 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=f"No se pudo generar PDF legal: {exc}") from exc
 
-    def _safe_int(value: object, default: int = 0) -> int:
+    def _safe_int(value: float | int | str | None, default: int = 0) -> int:
+        if value is None:
+            return default
         try:
             return int(value)
         except (TypeError, ValueError):
