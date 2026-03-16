@@ -24,8 +24,8 @@ export const posRoutes: AppRoute[] = [
 export const posMenu: MenuSection = {
   title: "Operacion",
   items: [
-    { label: "POS", path: "/pos", roles: ["admin", "cashier"], icon: <PointOfSaleIcon fontSize="small" /> },
-    { label: "Ventas", path: "/sales-history", roles: ["admin", "cashier"], icon: <ReceiptLongIcon fontSize="small" /> },
+    { label: "Punto de venta", path: "/pos", roles: ["admin", "cashier"], icon: <PointOfSaleIcon fontSize="small" /> },
+    { label: "Historial de ventas", path: "/sales-history", roles: ["admin", "cashier"], icon: <ReceiptLongIcon fontSize="small" /> },
     { label: "Devoluciones", path: "/returns", roles: ["admin", "cashier"], icon: <ReplayIcon fontSize="small" /> },
     { label: "Caja", path: "/cash", roles: ["admin", "cashier"], icon: <AccountBalanceIcon fontSize="small" /> },
   ],

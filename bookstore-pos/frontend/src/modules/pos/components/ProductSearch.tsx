@@ -274,9 +274,9 @@ const getMatchMeta = (product: Product, rawTokens: string[], expandedTokens: str
     return { label: "Categoría", color: "warning", isRelated: true };
   }
   if (expandedTokens.some((token) => name.includes(token) || category.includes(token) || tags.includes(token) || author.includes(token) || publisher.includes(token))) {
-    return { label: "Semántico", color: "default", isRelated: true };
+    return { label: "Relacionado", color: "default", isRelated: true };
   }
-  return { label: "Aproximación", color: "default", isRelated: false };
+  return { label: "Coincidencia cercana", color: "default", isRelated: false };
 };
 
 const getAppliedPrice = (product: Product, priceMap?: Record<number, number>) => {
@@ -494,7 +494,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
       <Chip size="small" label={entry.stockLabel} color={entry.stockColor} variant="outlined" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700 }} />
       <Chip size="small" label={entry.matchLabel} color={entry.matchColor} variant="outlined" sx={{ height: 20, fontSize: "0.7rem" }} />
       {entry.inCartQty > 0 ? <Chip size="small" label={`En cola: ${entry.inCartQty}`} color="secondary" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700 }} /> : null}
-      {entry.hasSpecialPrice ? <Chip size="small" label="Rebaja Automática" color="secondary" variant="filled" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700 }} /> : null}
+      {entry.hasSpecialPrice ? <Chip size="small" label="Precio especial" color="secondary" variant="filled" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700 }} /> : null}
     </Stack>
   );
 
@@ -506,7 +506,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
       {usesSplitTabs ? (
         <Paper className="glass-panel" sx={{ mb: 1.25, pb: 0 }}>
           <Tabs value={panelTab} onChange={(_, value) => setPanelTab(value)} variant="fullWidth" indicatorColor="primary" textColor="primary" sx={{ minHeight: 48, '& .MuiTab-root': { py: 1, minHeight: 48, fontWeight: 700 } }}>
-            <Tab value="search" label="Motor de Búsqueda" />
+            <Tab value="search" label="Buscar" />
             <Tab value="results" label={canSearch ? `Catálogo (${panelResults.length})` : "Catálogo y Resultados"} />
           </Tabs>
         </Paper>
@@ -518,7 +518,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             <TextField
               fullWidth
               variant="outlined"
-              label={minimal ? "Añadir Item" : "Buscador Predictivo POS"}
+              label="Buscar producto"
               placeholder="Ej. 'libro calculo', '10931294', 'papel A4'"
               helperText={searchHelperText}
               autoComplete="off"
@@ -589,7 +589,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                   <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1.5, justifyContent: "center" }}>
                     <CircularProgress size={20} />
                     <Typography variant="body2" color="primary" fontWeight="700">
-                      Evaluando matches en el inventario local...
+                      Buscando productos...
                     </Typography>
                   </Box>
                 ) : null}
@@ -675,7 +675,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               size={minimal ? "small" : "medium"}
               sx={{ width: { xs: "100%", md: compactMode ? "100%" : "auto" }, maxWidth: { md: minimal ? 200 : 240 }, minWidth: 0 }}
             >
-              <MenuItem value="">Sin Filtro (Todas)</MenuItem>
+              <MenuItem value="">Todas las categorias</MenuItem>
               {categories.map((category) => (
                 <MenuItem key={category} value={category}>{category}</MenuItem>
               ))}
@@ -687,8 +687,8 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
             {!minimal ? (
               <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", ml: { md: "auto !important" } }}>
-                <Chip label={`Top ${canSearch ? rankedResults.length : 0}`} color="primary" size="small" variant="outlined" />
-                <Chip label={`En Almacen ${canSearch ? stockCount : 0}`} size="small" variant="outlined" />
+                <Chip label={`${canSearch ? rankedResults.length : 0} resultados`} color="primary" size="small" variant="outlined" />
+                <Chip label={`Con stock ${canSearch ? stockCount : 0}`} size="small" variant="outlined" />
                 {productsQuery.isFetching || fallbackQuery.isFetching ? (
                   <Chip icon={<CircularProgress size={12} />} label="Buscando..." size="small" />
                 ) : null}
@@ -698,7 +698,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                 <Chip label={`${rankedResults.length} Encontrados`} color="primary" size="small" variant="outlined" />
                 {usesSplitTabs ? (
                   <Button size="small" variant="outlined" onClick={() => setPanelTab("results")} sx={{ borderRadius: 4, px: 2, height: 24, fontSize: "0.75rem" }}>
-                    Desplegar Catalogo
+                    Ver resultados
                   </Button>
                 ) : null}
               </Stack>
@@ -720,7 +720,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             <Box sx={{ p: 3, border: "2px dashed var(--border-subtle)", borderRadius: 3, textAlign: "center", bgcolor: "rgba(255,255,255,0.4)" }}>
               <SearchIcon sx={{ fontSize: 32, color: "text.disabled", mb: 0.5 }} />
               <Typography variant="body2" color="text.secondary" fontWeight="600">
-                El motor de búsqueda está en modo Standby.
+                Escribe al menos 2 letras para empezar.
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Ingresa datos arriba para activar el panel predictivo en tiempo real.
@@ -740,7 +740,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
       {smartHint ? (
         <Alert severity="info" variant="outlined" sx={{ mt: 1.5, py: 0, alignItems: "center", borderRadius: 2 }}>
-          La consulta generó poca tracción. Quizás estás buscando:{" "}
+          No hubo resultados exactos. Prueba con:{" "}
           <Button size="small" variant="text" sx={{ fontWeight: 800, textTransform: "none" }} onClick={() => replaceSearch(smartHint)}>
             {smartHint}
           </Button>
@@ -756,7 +756,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               </Typography>
               {canSearch ? (
                 <Button size="small" variant="outlined" onClick={() => setPanelTab("search")} sx={{ borderRadius: 3 }}>
-                  Modificar Parámetros
+                  Cambiar busqueda
                 </Button>
               ) : null}
             </Stack>
@@ -776,7 +776,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ md: "center" }}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="overline" sx={{ color: "success.main", letterSpacing: 1.5, fontWeight: 800, display: "flex", alignItems: "center", gap: 0.5 }}>
-                    ⚡ GOLDEN MATCH
+                    Mejor coincidencia
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 900, mt: 0.5, mb: 0.25, color: "#064e3b" }} noWrap>
                     {topResult.product.name}
@@ -786,7 +786,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                   </Typography>
                   {renderResultMeta(topResult)}
                   <Typography variant="caption" sx={{ display: "block", mt: 1.5, color: "#047857", fontWeight: 600 }}>
-                    * Presionar ENTER sobre la barra principal añadirá inmediatamente este registro.
+                    Presiona ENTER para agregar este producto de inmediato.
                   </Typography>
                 </Box>
                 <Stack direction={{ xs: "row", md: "column" }} spacing={1.5} alignItems={{ md: "flex-end" }}>
@@ -794,7 +794,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     {formatMoney(topResult.price)}
                   </Typography>
                   <Button variant="contained" color="success" startIcon={<AddIcon />} onClick={() => addProduct(topResult.product)} sx={{ width: { xs: "100%", md: "auto" }, fontWeight: 800, borderRadius: 2 }}>
-                    AÑADIR A ORDEN
+                    Agregar
                   </Button>
                 </Stack>
               </Stack>
@@ -804,9 +804,9 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
           {!minimal ? (
             <Paper className="glass-panel" sx={{ mb: 1, p: 0.5 }}>
               <Tabs value={resultTab} onChange={(_, value) => setResultTab(value)} variant="standard" textColor="primary" indicatorColor="primary">
-                <Tab label={`Listado Universal (${rankedResults.length})`} value="all" sx={{ fontWeight: 700 }} />
-                <Tab label={`Stock Optimizado (${stockCount})`} value="stock" sx={{ fontWeight: 700 }} />
-                <Tab label={`Semántica & Relacionados (${relatedCount})`} value="suggested" sx={{ fontWeight: 700 }} />
+                <Tab label={`Todos (${rankedResults.length})`} value="all" sx={{ fontWeight: 700 }} />
+                <Tab label={`Con stock (${stockCount})`} value="stock" sx={{ fontWeight: 700 }} />
+                <Tab label={`Relacionados (${relatedCount})`} value="suggested" sx={{ fontWeight: 700 }} />
               </Tabs>
             </Paper>
           ) : null}
@@ -815,7 +815,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             {!canSearch ? (
               <Box sx={{ p: 4, textAlign: "center" }}>
                 <Typography variant="body2" color="text.secondary" fontWeight="600">
-                  {usesSplitTabs ? "Navega hacia 'Motor de Búsqueda' para establecer las condiciones del algoritmo." : "Ingresa requerimientos en la barra principal."}
+                  {usesSplitTabs ? "Vuelve a la pestaña de busqueda para cambiar el criterio." : "Escribe tu busqueda en la barra principal."}
                 </Typography>
               </Box>
             ) : null}
@@ -832,7 +832,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             {canSearch && !productsQuery.isFetching && !fallbackQuery.isFetching && panelResults.length === 0 ? (
               <Box sx={{ p: 4, textAlign: "center" }}>
                 <Typography variant="body2" color="text.secondary" fontWeight="700">
-                  Cero artículos pasaron el corte de la colección.
+                  No se encontraron productos con esos filtros.
                 </Typography>
               </Box>
             ) : null}

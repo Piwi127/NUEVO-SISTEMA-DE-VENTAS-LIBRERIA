@@ -96,10 +96,10 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
   const totalUnits = useMemo(() => cart.items.reduce((acc, item) => acc + item.qty, 0), [cart.items]);
 
   const summaryRows = [
-    { label: minimal ? "Items" : "Subtotal neto", value: formatMoney(summary.subtotalAfterPacks), visible: true },
-    { label: minimal ? "Packs" : "Descuento por paquetes", value: `-${formatMoney(summary.packDiscount)}`, visible: !minimal || summary.packDiscount > 0 },
+    { label: minimal ? "Subtotal" : "Subtotal neto", value: formatMoney(summary.subtotalAfterPacks), visible: true },
+    { label: minimal ? "Paquetes" : "Descuento por paquetes", value: `-${formatMoney(summary.packDiscount)}`, visible: !minimal || summary.packDiscount > 0 },
     {
-      label: minimal ? "Promo/desc." : "Beneficio manual / promo",
+      label: minimal ? "Descuento" : "Descuento manual o promocion",
       value: `-${formatMoney(summary.promotionDiscount)}`,
       visible: !minimal || summary.promotionDiscount > 0,
     },
@@ -139,7 +139,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
         {minimal ? (
           <Typography variant="caption" sx={{ color: isDark ? "rgba(255,255,255,0.7)" : "text.secondary", fontWeight: 700 }}>
             {cart.items.length} productos | {totalUnits} uds.
-            {selectedProductIds.length > 0 ? ` | ${selectedProductIds.length} selec.` : ""}
+            {selectedProductIds.length > 0 ? ` | ${selectedProductIds.length} seleccionados` : ""}
           </Typography>
         ) : (
           <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
@@ -152,10 +152,10 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
         )}
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
           <Button variant="outlined" size="small" onClick={toggleAllProducts} disabled={!cart.items.length} sx={{ borderColor: palette.inputBorder, color: isDark ? "white" : "inherit" }}>
-            {allSelected ? "Quitar selección" : "Seleccionar Todo"}
+            {allSelected ? "Quitar seleccion" : "Seleccionar todo"}
           </Button>
           <Button variant="outlined" color="error" size="small" startIcon={<DeleteIcon />} disabled={!selectedProductIds.length} onClick={removeSelectedProducts}>
-            Descartar ({selectedProductIds.length})
+            Eliminar ({selectedProductIds.length})
           </Button>
           <Button variant="text" color="inherit" size="small" disabled={!cart.items.length} onClick={cart.clear} sx={{ color: isDark ? "rgba(255,255,255,0.7)" : "text.secondary" }}>
             Limpiar
@@ -176,10 +176,10 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
           }}
         >
           <Typography variant="subtitle1" sx={{ fontWeight: 800, color: isDark ? "white" : "text.primary" }}>
-            El carrito está vacío
+            Aun no hay productos en la venta
           </Typography>
           <Typography variant="body2" sx={{ color: palette.textMuted, mt: 0.5 }}>
-            Ingresa productos o escanea códigos para arrancar.
+            Busca o escanea productos para comenzar.
           </Typography>
         </Paper>
       ) : isCompact ? (
@@ -403,7 +403,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
       >
         {!minimal && (
           <Typography variant="overline" sx={{ fontWeight: 800, display: "block", mb: 1, color: isDark ? "rgba(255,255,255,0.7)" : "text.secondary", letterSpacing: 1 }}>
-            TOTAL DE LIQUIDACIÓN
+            RESUMEN DE COBRO
           </Typography>
         )}
         <Stack spacing={1}>
@@ -414,7 +414,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
             </Box>
           ))}
           <Box sx={{ borderTop: `1px dashed ${palette.summaryBorder}`, pt: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
-            <Typography variant="h6" fontWeight="900">Total a Pagar</Typography>
+            <Typography variant="h6" fontWeight="900">Total a cobrar</Typography>
             <Typography variant="h5" fontWeight="900" color={isDark ? "white" : "primary.main"}>{formatMoney(summary.total)}</Typography>
           </Box>
         </Stack>
@@ -422,7 +422,7 @@ export const Cart: React.FC<CartProps> = ({ packPricingLines, totalsSummary, ton
 
       {!minimal && (
         <Typography sx={{ mt: 2, fontSize: 12, color: palette.textMuted, fontWeight: 700, textAlign: "right" }}>
-          Moneda de liquidación: {currency}
+          Moneda: {currency}
         </Typography>
       )}
     </Box>

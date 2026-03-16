@@ -54,46 +54,51 @@ let theme = createTheme({
     },
     divider: "rgba(19, 41, 61, 0.12)",
   },
-  shape: { borderRadius: 18 },
+  shape: { borderRadius: 20 },
   typography: {
     fontFamily: "var(--font-ui), 'Segoe UI', sans-serif",
     h1: {
       fontFamily: "var(--font-display), var(--font-ui), sans-serif",
       fontWeight: 700,
       letterSpacing: "-0.04em",
+      fontSize: "clamp(2.1rem, 1.9rem + 1.2vw, 3rem)",
     },
     h2: {
       fontFamily: "var(--font-display), var(--font-ui), sans-serif",
       fontWeight: 700,
       letterSpacing: "-0.035em",
+      fontSize: "clamp(1.8rem, 1.6rem + 0.95vw, 2.55rem)",
     },
     h3: {
       fontFamily: "var(--font-display), var(--font-ui), sans-serif",
       fontWeight: 700,
       letterSpacing: "-0.03em",
+      fontSize: "clamp(1.55rem, 1.38rem + 0.78vw, 2.1rem)",
     },
     h4: {
       fontFamily: "var(--font-display), var(--font-ui), sans-serif",
       fontWeight: 700,
       letterSpacing: "-0.03em",
-      fontSize: "clamp(1.65rem, 1.3rem + 1vw, 2.3rem)",
+      fontSize: "clamp(1.48rem, 1.2rem + 0.84vw, 2.02rem)",
     },
     h5: {
       fontFamily: "var(--font-display), var(--font-ui), sans-serif",
       fontWeight: 700,
       letterSpacing: "-0.02em",
+      fontSize: "1.22rem",
     },
     h6: {
       fontFamily: "var(--font-display), var(--font-ui), sans-serif",
       fontWeight: 700,
       letterSpacing: "-0.02em",
+      fontSize: "1.06rem",
     },
-    subtitle1: { fontWeight: 700 },
-    subtitle2: { fontWeight: 700 },
-    body1: { lineHeight: 1.6 },
-    body2: { lineHeight: 1.55 },
-    button: { textTransform: "none", fontWeight: 700, letterSpacing: "0.01em" },
-    overline: { letterSpacing: "0.12em", fontWeight: 700 },
+    subtitle1: { fontWeight: 700, fontSize: "0.96rem" },
+    subtitle2: { fontWeight: 700, fontSize: "0.9rem" },
+    body1: { lineHeight: 1.62, fontSize: "0.95rem" },
+    body2: { lineHeight: 1.56, fontSize: "0.9rem" },
+    button: { textTransform: "none", fontWeight: 800, letterSpacing: "0.01em", fontSize: "0.9rem" },
+    overline: { letterSpacing: "0.1em", fontWeight: 700, fontSize: "0.72rem" },
   },
   components: {
     MuiCssBaseline: {
@@ -111,6 +116,7 @@ let theme = createTheme({
         },
         html: {
           height: "100%",
+          fontSize: "15px",
           WebkitTextSizeAdjust: "100%",
           backgroundColor: "#F4F0E8",
         },
@@ -162,8 +168,8 @@ let theme = createTheme({
       },
       styleOverrides: {
         root: {
-          minHeight: 40,
-          borderRadius: 12,
+          minHeight: 42,
+          borderRadius: 13,
           paddingInline: 16,
           transition: "transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease",
           "&:hover": {
@@ -204,7 +210,7 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           maxWidth: "100%",
-          minHeight: 44,
+          minHeight: 40,
           padding: 4,
           borderRadius: 12,
           backgroundColor: "rgba(19, 41, 61, 0.05)",
@@ -219,11 +225,12 @@ let theme = createTheme({
       styleOverrides: {
         root: {
           minWidth: 0,
-          minHeight: 34,
-          paddingInline: 16,
+          minHeight: 32,
+          paddingInline: 14,
           borderRadius: 8,
           fontWeight: 700,
           textTransform: "none",
+          fontSize: "0.88rem",
           color: "#5B6D7F",
           transition: "background-color 140ms ease, color 140ms ease, box-shadow 140ms ease",
           "&.Mui-selected": {
@@ -237,9 +244,11 @@ let theme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
+          minHeight: 26,
           fontWeight: 700,
           maxWidth: "100%",
           borderRadius: 10,
+          fontSize: "0.8rem",
           border: "1px solid rgba(19, 41, 61, 0.1)",
           backgroundColor: "rgba(19, 41, 61, 0.04)",
         },
@@ -310,7 +319,7 @@ let theme = createTheme({
         root: {
           marginTop: 6,
           lineHeight: 1.4,
-          fontSize: "0.75rem",
+          fontSize: "0.72rem",
         },
       },
     },
@@ -322,9 +331,15 @@ let theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          minHeight: 44,
+          borderRadius: 13,
           backgroundColor: "#FFFFFF",
           transition: "box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease",
+          "& .MuiInputBase-input": {
+            fontSize: "0.92rem",
+            paddingTop: 10,
+            paddingBottom: 10,
+          },
           "& .MuiOutlinedInput-notchedOutline": {
             borderColor: "rgba(19, 41, 61, 0.18)",
             transition: "border-color 140ms ease",
@@ -419,12 +434,14 @@ let theme = createTheme({
           fontWeight: 700,
           color: "#13293D",
           whiteSpace: "nowrap",
-          paddingTop: 12,
-          paddingBottom: 12,
-        },
-        body: {
+          fontSize: "0.84rem",
           paddingTop: 10,
           paddingBottom: 10,
+        },
+        body: {
+          fontSize: "0.88rem",
+          paddingTop: 8,
+          paddingBottom: 8,
           color: "#324B61",
         },
       },

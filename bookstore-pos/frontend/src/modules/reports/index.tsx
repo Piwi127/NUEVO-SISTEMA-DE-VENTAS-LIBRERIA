@@ -13,6 +13,6 @@ export const reportsRoutes: AppRoute[] = [
 export const reportsMenu: MenuSection = {
   title: "Reportes",
   items: [
-    { label: "Reportes", path: "/reports", roles: ["admin"], icon: <AssessmentIcon fontSize="small" /> },
+    { label: "Panel de reportes", path: "/reports", roles: ["admin"], icon: <AssessmentIcon fontSize="small" /> },
   ],
 };

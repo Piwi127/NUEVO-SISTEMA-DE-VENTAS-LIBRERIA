@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
+  Button,
   ButtonBase,
   Chip,
-  Collapse,
+  Divider,
+  Drawer,
   IconButton,
   Paper,
   Stack,
@@ -13,8 +15,9 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
-import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
+import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import StorefrontIcon from "@mui/icons-material/Storefront";
+import CircleIcon from "@mui/icons-material/Circle";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
 import { useSettings } from "@/app/store";
@@ -25,63 +28,60 @@ import type { MenuSection } from "@/modules/shared/registryTypes";
 
 const matchesPath = (pathname: string, itemPath: string) => pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 
-type SectionVisual = {
+type SectionMeta = {
   description: string;
   accent: string;
-  glow: string;
-  panel: string;
+  surface: string;
 };
 
-const SECTION_VISUALS: Record<string, SectionVisual> = {
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrador",
+  cashier: "Caja",
+  stock: "Inventario",
+};
+
+const SECTION_META: Record<string, SectionMeta> = {
   Operacion: {
-    description: "Ventas, caja y flujo rapido de mostrador.",
+    description: "Ventas, caja y atencion en mostrador.",
     accent: "#B45309",
-    glow: "rgba(180,83,9,0.18)",
-    panel: "linear-gradient(135deg, rgba(255,248,239,0.99) 0%, rgba(251,240,224,0.95) 100%)",
+    surface: "linear-gradient(180deg, rgba(255,249,241,0.98) 0%, rgba(248,237,220,0.98) 100%)",
   },
   Catalogo: {
-    description: "Productos, clientes, proveedores y promociones.",
-    accent: "#254B67",
-    glow: "rgba(37,75,103,0.18)",
-    panel: "linear-gradient(135deg, rgba(245,250,255,0.99) 0%, rgba(236,245,251,0.95) 100%)",
+    description: "Productos, clientes, precios y promociones.",
+    accent: "#1D4E89",
+    surface: "linear-gradient(180deg, rgba(246,250,255,0.98) 0%, rgba(235,244,252,0.98) 100%)",
   },
   "Inventario y compras": {
-    description: "Movimientos, compras, recepcion y kardex.",
+    description: "Stock, recepcion y compras.",
     accent: "#0F766E",
-    glow: "rgba(15,118,110,0.18)",
-    panel: "linear-gradient(135deg, rgba(239,250,248,0.99) 0%, rgba(230,246,243,0.95) 100%)",
+    surface: "linear-gradient(180deg, rgba(241,251,248,0.98) 0%, rgba(229,245,240,0.98) 100%)",
   },
   Reportes: {
-    description: "Indicadores operativos y vistas ejecutivas.",
-    accent: "#415A6F",
-    glow: "rgba(65,90,111,0.16)",
-    panel: "linear-gradient(135deg, rgba(245,248,252,0.99) 0%, rgba(236,242,248,0.95) 100%)",
+    description: "Indicadores y consultas de gestion.",
+    accent: "#475569",
+    surface: "linear-gradient(180deg, rgba(247,249,252,0.98) 0%, rgba(237,242,248,0.98) 100%)",
   },
   Administracion: {
-    description: "Usuarios, permisos, seguridad y configuracion.",
+    description: "Usuarios, permisos y configuracion general.",
     accent: "#6B4C2F",
-    glow: "rgba(107,76,47,0.16)",
-    panel: "linear-gradient(135deg, rgba(250,247,241,0.99) 0%, rgba(243,236,226,0.95) 100%)",
+    surface: "linear-gradient(180deg, rgba(251,248,242,0.98) 0%, rgba(242,236,226,0.98) 100%)",
   },
 };
 
-const DEFAULT_SECTION_VISUAL: SectionVisual = {
-  description: "Accesos del sistema.",
+const DEFAULT_SECTION_META: SectionMeta = {
+  description: "Opciones del sistema.",
   accent: "#13293D",
-  glow: "rgba(19,41,61,0.16)",
-  panel: "linear-gradient(135deg, rgba(250,248,244,0.99) 0%, rgba(242,236,226,0.95) 100%)",
+  surface: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(247,243,236,0.98) 100%)",
 };
 
-const getSectionVisual = (title?: string) => (title ? SECTION_VISUALS[title] ?? DEFAULT_SECTION_VISUAL : DEFAULT_SECTION_VISUAL);
+const getSectionMeta = (title?: string) => (title ? SECTION_META[title] ?? DEFAULT_SECTION_META : DEFAULT_SECTION_META);
 
 export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const theme = useTheme();
-  const compact = useMediaQuery(theme.breakpoints.down("md"));
-  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [expandedSectionTitle, setExpandedSectionTitle] = useState<string | null>(null);
+  const useDrawerNavigation = useMediaQuery(theme.breakpoints.down("lg"));
+  const [desktopNavOpen, setDesktopNavOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [healthOk, setHealthOk] = useState(true);
-  const headerRef = useRef<HTMLDivElement | null>(null);
 
   const { role, username, logout } = useAuth();
   const {
@@ -117,61 +117,63 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
     [role]
   );
 
+  const flatItems = useMemo(() => filteredSections.flatMap((section) => section.items), [filteredSections]);
   const activeItem =
-    filteredSections
-      .flatMap((section) => section.items)
-      .filter((item) => matchesPath(location.pathname, item.path))
-      .sort((a, b) => b.path.length - a.path.length)[0] || filteredSections[0]?.items[0];
-
-  const activeSection = filteredSections.find((section) => section.items.some((item) => item.path === activeItem?.path)) || filteredSections[0];
-  const expandedSection = filteredSections.find((section) => section.title === expandedSectionTitle) || activeSection;
+    flatItems.filter((item) => matchesPath(location.pathname, item.path)).sort((a, b) => b.path.length - a.path.length)[0] ||
+    flatItems[0];
+  const activeSection =
+    filteredSections.find((section) => section.items.some((item) => item.path === activeItem?.path)) || filteredSections[0];
+  const activeMeta = getSectionMeta(activeSection?.title);
   const projectLabel = projectName || "Sistema";
+  const roleLabel = role ? ROLE_LABELS[role] ?? role : "Usuario";
 
   useEffect(() => {
     const load = async () => {
       try {
-        const s = await getPublicSettings();
-        setProjectName(s.project_name);
-        setCurrency(s.currency as any);
-        setTaxRate(s.tax_rate);
-        setTaxIncluded(s.tax_included);
-        setStoreAddress(s.store_address);
-        setStorePhone(s.store_phone);
-        setStoreTaxId(s.store_tax_id);
-        setLogoUrl(s.logo_url);
-        setPaymentMethods(s.payment_methods);
-        setInvoicePrefix(s.invoice_prefix);
-        setInvoiceNext(s.invoice_next);
-        setReceiptHeader(s.receipt_header);
-        setReceiptFooter(s.receipt_footer);
-        setPaperWidthMm(s.paper_width_mm);
-        setDefaultWarehouseId(s.default_warehouse_id ?? null);
+        const settings = await getPublicSettings();
+        setProjectName(settings.project_name);
+        setCurrency(settings.currency as any);
+        setTaxRate(settings.tax_rate);
+        setTaxIncluded(settings.tax_included);
+        setStoreAddress(settings.store_address);
+        setStorePhone(settings.store_phone);
+        setStoreTaxId(settings.store_tax_id);
+        setLogoUrl(settings.logo_url);
+        setPaymentMethods(settings.payment_methods);
+        setInvoicePrefix(settings.invoice_prefix);
+        setInvoiceNext(settings.invoice_next);
+        setReceiptHeader(settings.receipt_header);
+        setReceiptFooter(settings.receipt_footer);
+        setPaperWidthMm(settings.paper_width_mm);
+        setDefaultWarehouseId(settings.default_warehouse_id ?? null);
       } catch {
         // ignore
       }
     };
+
     load();
   }, [
-    setProjectName,
     setCurrency,
-    setTaxRate,
-    setTaxIncluded,
+    setDefaultWarehouseId,
+    setInvoiceNext,
+    setInvoicePrefix,
+    setLogoUrl,
+    setPaperWidthMm,
+    setPaymentMethods,
+    setProjectName,
+    setReceiptFooter,
+    setReceiptHeader,
     setStoreAddress,
     setStorePhone,
     setStoreTaxId,
-    setLogoUrl,
-    setPaymentMethods,
-    setInvoicePrefix,
-    setInvoiceNext,
-    setReceiptHeader,
-    setReceiptFooter,
-    setPaperWidthMm,
-    setDefaultWarehouseId,
+    setTaxIncluded,
+    setTaxRate,
   ]);
 
   useEffect(() => {
     let mounted = true;
-    const check = async () => {
+
+    const checkHealth = async () => {
       try {
         await api.get("/healthz");
         if (mounted) setHealthOk(true);
@@ -179,8 +181,9 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
         if (mounted) setHealthOk(false);
       }
     };
-    check();
-    const timer = window.setInterval(check, 30000);
+
+    checkHealth();
+    const timer = window.setInterval(checkHealth, 30000);
     return () => {
       mounted = false;
       window.clearInterval(timer);
@@ -188,37 +191,15 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    setExpandedSectionTitle(activeSection?.title ?? null);
-    setDesktopMenuOpen(false);
-    setMobileMenuOpen(false);
-  }, [location.pathname, activeSection?.title]);
+    setMobileNavOpen(false);
+    setDesktopNavOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
-    if (!desktopMenuOpen && !mobileMenuOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (headerRef.current && !headerRef.current.contains(target)) {
-        setDesktopMenuOpen(false);
-        setMobileMenuOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setDesktopMenuOpen(false);
-        setMobileMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [desktopMenuOpen, mobileMenuOpen]);
+    if (useDrawerNavigation) {
+      setDesktopNavOpen(false);
+    }
+  }, [useDrawerNavigation]);
 
   const handleLogout = () => {
     logout();
@@ -226,440 +207,401 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   };
 
   const handleSelectItem = (path: string) => {
-    setDesktopMenuOpen(false);
-    setMobileMenuOpen(false);
     navigate(path);
   };
 
-  const handleSectionToggle = (title: string) => {
-    setExpandedSectionTitle(title);
-    if (compact) {
-      setMobileMenuOpen((current) => (expandedSectionTitle === title ? !current : true));
-      return;
+  const handleDesktopNavOpen = () => {
+    if (!useDrawerNavigation) {
+      setDesktopNavOpen(true);
     }
-    setDesktopMenuOpen((current) => (expandedSectionTitle === title ? !current : true));
   };
 
-  const renderMenuItems = (section: MenuSection, dense = false) => {
-    const visual = getSectionVisual(section.title);
+  const handleDesktopNavClose = () => {
+    if (!useDrawerNavigation) {
+      setDesktopNavOpen(false);
+    }
+  };
+
+  const renderSection = (section: MenuSection) => {
+    const meta = getSectionMeta(section.title);
     return (
-      <Box
-        sx={{
-          display: "grid",
-          gap: dense ? 0.75 : 1,
-          gridTemplateColumns: dense
-            ? "1fr"
-            : {
-                xs: "1fr",
-                md: "repeat(2, minmax(0, 1fr))",
-                xl: `repeat(${Math.min(section.items.length, 3)}, minmax(0, 1fr))`,
-              },
-        }}
-      >
-        {section.items.map((item) => {
-          const selected = activeItem?.path === item.path;
-          return (
-            <ButtonBase
-              key={item.path}
-              onClick={() => handleSelectItem(item.path)}
-              sx={{
-                justifyContent: "flex-start",
-                textAlign: "left",
-                width: "100%",
-                p: dense ? 1 : 1.05,
-                borderRadius: 2.5,
-                border: `1px solid ${selected ? alpha(visual.accent, 0.4) : "rgba(19,41,61,0.12)"}`,
-                bgcolor: selected ? alpha(visual.accent, 0.12) : "rgba(255,255,255,0.92)",
-                boxShadow: selected ? `0 10px 24px ${alpha(visual.accent, 0.16)}` : "none",
-                transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
-                "&:hover": {
-                  transform: "translateY(-1px)",
-                  borderColor: alpha(visual.accent, 0.36),
-                  boxShadow: `0 10px 22px ${alpha(visual.accent, 0.16)}`,
-                },
-              }}
-            >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%", minWidth: 0 }}>
-                <Box
-                  sx={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 2,
-                    display: "grid",
-                    placeItems: "center",
-                    flexShrink: 0,
-                    color: visual.accent,
-                    bgcolor: alpha(visual.accent, selected ? 0.18 : 0.1),
-                  }}
-                >
-                  {item.icon}
-                </Box>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontWeight: 800, lineHeight: 1.15, color: "text.primary" }}>
-                    {item.label}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.15 }}>
-                    {selected ? "Vista actual" : "Abrir modulo"}
-                  </Typography>
-                </Box>
-              </Stack>
-            </ButtonBase>
-          );
-        })}
+      <Box key={section.title} sx={{ display: "grid", gap: 1.1 }}>
+        <Box sx={{ px: 0.35 }}>
+          <Typography variant="overline" sx={{ color: alpha(meta.accent, 0.85), letterSpacing: 1.2, lineHeight: 1 }}>
+            {section.title}
+          </Typography>
+          <Typography variant="caption" sx={{ display: "block", mt: 0.35, color: "text.secondary" }}>
+            {meta.description}
+          </Typography>
+        </Box>
+
+        <Stack spacing={0.9}>
+          {section.items.map((item) => {
+            const selected = activeItem?.path === item.path;
+            return (
+              <ButtonBase
+                key={item.path}
+                onClick={() => handleSelectItem(item.path)}
+                sx={{
+                  width: "100%",
+                  textAlign: "left",
+                  justifyContent: "flex-start",
+                  borderRadius: 3,
+                  border: `1px solid ${selected ? alpha(meta.accent, 0.28) : "rgba(19,41,61,0.08)"}`,
+                  bgcolor: selected ? alpha(meta.accent, 0.12) : "rgba(255,255,255,0.9)",
+                  boxShadow: selected ? `0 14px 28px ${alpha(meta.accent, 0.16)}` : "0 10px 24px rgba(19,41,61,0.06)",
+                  transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+                  "&:hover": {
+                    transform: "translateY(-1px)",
+                    borderColor: alpha(meta.accent, 0.28),
+                    boxShadow: `0 16px 30px ${alpha(meta.accent, 0.16)}`,
+                  },
+                }}
+              >
+                <Stack direction="row" spacing={1.1} alignItems="center" sx={{ width: "100%", p: 1.15, minWidth: 0 }}>
+                  <Box
+                    sx={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 2.5,
+                      display: "grid",
+                      placeItems: "center",
+                      flexShrink: 0,
+                      color: meta.accent,
+                      bgcolor: alpha(meta.accent, selected ? 0.18 : 0.1),
+                      border: `1px solid ${alpha(meta.accent, 0.12)}`,
+                    }}
+                  >
+                    {item.icon}
+                  </Box>
+
+                  <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                    <Typography sx={{ fontWeight: 800, lineHeight: 1.15, color: "text.primary" }}>{item.label}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                      {selected ? "Pantalla actual" : "Abrir modulo"}
+                    </Typography>
+                  </Box>
+
+                  {selected ? (
+                    <Chip
+                      label="Aqui"
+                      size="small"
+                      sx={{
+                        flexShrink: 0,
+                        bgcolor: alpha(meta.accent, 0.14),
+                        color: meta.accent,
+                        fontWeight: 800,
+                      }}
+                    />
+                  ) : (
+                    <ChevronRightRoundedIcon sx={{ color: alpha(meta.accent, 0.65), flexShrink: 0 }} />
+                  )}
+                </Stack>
+              </ButtonBase>
+            );
+          })}
+        </Stack>
       </Box>
     );
   };
 
-  const currentVisual = getSectionVisual(expandedSection?.title || activeSection?.title);
+  const navigationContent = (
+    <Box
+      sx={{
+        display: "grid",
+        height: "100%",
+        gridTemplateRows: "auto 1fr auto",
+        gap: 2,
+        p: { xs: 1.25, md: 1.5 },
+        background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(247,242,234,0.98) 100%)",
+      }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          p: 1.5,
+          borderRadius: 4,
+          border: `1px solid ${alpha("#13293D", 0.09)}`,
+          background: activeMeta.surface,
+          boxShadow: "0 18px 32px rgba(19,41,61,0.08)",
+        }}
+      >
+        <Stack spacing={1.4}>
+          <Stack direction="row" spacing={1.2} alignItems="center">
+            {logoUrl ? (
+              <Box
+                component="img"
+                src={logoUrl}
+                alt="logo"
+                sx={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 3,
+                  objectFit: "cover",
+                  border: `1px solid ${alpha(activeMeta.accent, 0.16)}`,
+                  boxShadow: "0 12px 24px rgba(19,41,61,0.12)",
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 3,
+                  display: "grid",
+                  placeItems: "center",
+                  color: activeMeta.accent,
+                  bgcolor: alpha(activeMeta.accent, 0.12),
+                  border: `1px solid ${alpha(activeMeta.accent, 0.14)}`,
+                }}
+              >
+                <StorefrontIcon />
+              </Box>
+            )}
+
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="overline" sx={{ color: alpha("#13293D", 0.72), letterSpacing: 1.15, lineHeight: 1 }}>
+                Centro de trabajo
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{
+                  mt: 0.35,
+                  fontWeight: 800,
+                  lineHeight: 1.08,
+                  fontSize: { xs: "1.05rem", md: "1.15rem" },
+                }}
+              >
+                {projectLabel}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.35 }}>
+                Todo esta organizado por areas para que el uso sea mas claro.
+              </Typography>
+            </Box>
+          </Stack>
+
+          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+            <Chip label={roleLabel} size="small" sx={{ fontWeight: 800 }} />
+            {username ? <Chip label={username} size="small" variant="outlined" sx={{ fontWeight: 700 }} /> : null}
+            <Chip
+              size="small"
+              icon={<CircleIcon sx={{ fontSize: "0.55rem !important" }} />}
+              label={healthOk ? "Sistema conectado" : "Sin conexion con API"}
+              color={healthOk ? "success" : "error"}
+              variant={healthOk ? "outlined" : "filled"}
+              sx={{ fontWeight: 700 }}
+            />
+          </Stack>
+        </Stack>
+      </Paper>
+
+      <Box sx={{ overflowY: "auto", pr: 0.3, display: "grid", alignContent: "start", gap: 1.75 }}>{filteredSections.map(renderSection)}</Box>
+
+      <Paper
+        elevation={0}
+        sx={{
+          p: 1.35,
+          borderRadius: 4,
+          border: `1px solid ${alpha(activeMeta.accent, 0.12)}`,
+          background: "linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(248,244,237,0.96) 100%)",
+        }}
+      >
+        <Stack spacing={1.25}>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+              {activeSection?.title || "Area actual"}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+              {activeMeta.description}
+            </Typography>
+          </Box>
+          <Divider />
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<LogoutIcon />}
+            onClick={handleLogout}
+            sx={{ width: "100%", justifyContent: "center", minHeight: 46 }}
+          >
+            Cerrar sesion
+          </Button>
+        </Stack>
+      </Paper>
+    </Box>
+  );
 
   return (
     <Box
       sx={{
         minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
         bgcolor: "background.default",
         backgroundImage:
-          "radial-gradient(circle at top left, rgba(19,41,61,0.1) 0%, rgba(19,41,61,0) 28%), radial-gradient(circle at top right, rgba(15,118,110,0.12) 0%, rgba(15,118,110,0) 32%), linear-gradient(180deg, #fbf8f2 0%, #f4f0e8 54%, #efe6d6 100%)",
+          "radial-gradient(circle at top left, rgba(19,41,61,0.08) 0%, rgba(19,41,61,0) 26%), radial-gradient(circle at top right, rgba(15,118,110,0.08) 0%, rgba(15,118,110,0) 30%), linear-gradient(180deg, #FBF8F2 0%, #F4F0E8 52%, #EDE4D4 100%)",
       }}
     >
-      <Paper
-        ref={headerRef}
-        component="header"
-        elevation={0}
-        sx={{
-          position: "sticky",
-          top: 0,
-          zIndex: (currentTheme) => currentTheme.zIndex.appBar,
-          borderRadius: 0,
-          borderLeft: 0,
-          borderRight: 0,
-          borderTop: 0,
-          overflow: "visible",
-          background: "linear-gradient(180deg, rgba(255,253,248,0.97) 0%, rgba(248,241,230,0.95) 100%)",
-          borderBottom: `1px solid ${alpha("#13293D", 0.12)}`,
-          boxShadow: "0 18px 40px rgba(19,41,61,0.12)",
-          backdropFilter: "blur(18px)",
-          WebkitBackdropFilter: "blur(18px)",
-        }}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            inset: "auto 0 0 0",
-            height: 3,
-            background: `linear-gradient(90deg, ${currentVisual.accent} 0%, ${alpha(currentVisual.accent, 0.25)} 60%, transparent 100%)`,
-          }}
-        />
-
-        <Box sx={{ px: { xs: 1, sm: 1.5, md: 2.25 }, pt: { xs: 0.9, md: 1.1 }, pb: { xs: 0.85, md: 0.95 } }}>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 0.9, md: 1.25 }} alignItems={{ xs: "stretch", md: "center" }}>
-            <Stack direction="row" spacing={1.1} alignItems="center" sx={{ minWidth: 0, flexGrow: 1 }}>
-              {logoUrl ? (
-                <Box
-                  component="img"
-                  src={logoUrl}
-                  alt="logo"
-                  sx={{
-                    width: { xs: 42, md: 46 },
-                    height: { xs: 42, md: 46 },
-                    borderRadius: 2.5,
-                    objectFit: "cover",
-                    border: `1px solid ${alpha("#17344e", 0.1)}`,
-                    boxShadow: "0 8px 20px rgba(19,41,61,0.12)",
-                  }}
-                />
-              ) : (
-                <Box
-                  sx={{
-                    width: { xs: 42, md: 46 },
-                    height: { xs: 42, md: 46 },
-                    borderRadius: 2.5,
-                    display: "grid",
-                    placeItems: "center",
-                    color: currentVisual.accent,
-                    bgcolor: alpha(currentVisual.accent, 0.12),
-                    border: `1px solid ${alpha(currentVisual.accent, 0.16)}`,
-                  }}
-                >
-                  <StorefrontIcon />
-                </Box>
-              )}
-
-              <Box sx={{ minWidth: 0 }}>
-                <Typography variant="overline" sx={{ color: "text.secondary", letterSpacing: 1.15, lineHeight: 1 }}>
-                  Centro de control
-                </Typography>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    mt: 0.25,
-                    color: "text.primary",
-                    fontWeight: 800,
-                    fontSize: { xs: "1.05rem", md: "1.18rem" },
-                    lineHeight: 1.08,
-                  }}
-                  noWrap
-                >
-                  {projectLabel}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
-                  {activeSection?.title || "Modulo"}  -  {activeItem?.label || "Inicio"}
-                </Typography>
-              </Box>
-            </Stack>
-
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ alignItems: "center", justifyContent: { xs: "space-between", md: "flex-end" } }}>
-              {compact ? (
-                <IconButton
-                  color="primary"
-                  onClick={() => setMobileMenuOpen((current) => !current)}
-                  aria-label="Abrir menu principal"
-                  sx={{
-                    border: `1px solid ${alpha("#17344e", 0.14)}`,
-                    bgcolor: alpha(currentVisual.accent, 0.08),
-                  }}
-                >
-                  <MenuIcon />
-                </IconButton>
-              ) : null}
-
-              {username ? (
-                <Chip
-                  label={username}
-                  size="small"
-                  sx={{
-                    bgcolor: alpha("#13293D", 0.08),
-                    border: `1px solid ${alpha("#13293D", 0.14)}`,
-                    color: "text.primary",
-                    fontWeight: 800,
-                  }}
-                />
-              ) : null}
-
-              {!healthOk ? <Chip label="API offline" size="small" color="error" /> : null}
-
-              <IconButton
-                color="primary"
-                onClick={handleLogout}
-                aria-label="Cerrar sesion"
-                sx={{
-                  border: `1px solid ${alpha("#13293D", 0.14)}`,
-                  bgcolor: "rgba(255,252,246,0.95)",
-                }}
-              >
-                <LogoutIcon />
-              </IconButton>
-            </Stack>
-          </Stack>
-        </Box>
-
-        {!compact ? (
-          <Box sx={{ px: { md: 2.25 }, pb: 1.05 }}>
+      {!useDrawerNavigation ? (
+        <>
+          <Box
+            onMouseEnter={handleDesktopNavOpen}
+            sx={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: 18,
+              zIndex: (currentTheme) => currentTheme.zIndex.drawer + 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <Box
               sx={{
-                display: "flex",
-                gap: 0.9,
-                overflowX: "auto",
-                pb: 0.2,
-                scrollbarWidth: "thin",
+                width: 6,
+                height: 110,
+                borderRadius: 999,
+                background: `linear-gradient(180deg, ${alpha(activeMeta.accent, 0.18)} 0%, ${alpha(activeMeta.accent, 0.42)} 100%)`,
+                boxShadow: `0 10px 28px ${alpha(activeMeta.accent, 0.18)}`,
               }}
-            >
-              {filteredSections.map((section) => {
-                const visual = getSectionVisual(section.title);
-                const isExpanded = desktopMenuOpen && expandedSection?.title === section.title;
-                const isActiveSection = activeSection?.title === section.title;
-                return (
-                  <ButtonBase
-                    key={section.title}
-                    onClick={() => handleSectionToggle(section.title)}
-                    onMouseEnter={() => {
-                      if (desktopMenuOpen) {
-                        setExpandedSectionTitle(section.title);
-                      }
-                    }}
-                    sx={{
-                      position: "relative",
-                      flexShrink: 0,
-                      minWidth: { md: 148, lg: 170 },
-                      px: 1.1,
-                      py: 0.9,
-                      borderRadius: 2.6,
-                      border: `1px solid ${isExpanded ? alpha(visual.accent, 0.34) : alpha("#17344e", 0.12)}`,
-                      bgcolor: isExpanded ? alpha(visual.accent, 0.12) : isActiveSection ? alpha(visual.accent, 0.08) : "rgba(255,255,255,0.92)",
-                      boxShadow: isExpanded ? `0 12px 28px ${visual.glow}` : "none",
-                      transition: "transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease",
-                      "&:hover": {
-                        transform: "translateY(-1px)",
-                        bgcolor: alpha(visual.accent, isExpanded ? 0.14 : 0.1),
-                      },
-                      "&::before": {
-                        content: '""',
-                        position: "absolute",
-                        top: 0,
-                        left: 10,
-                        right: 10,
-                        height: 3,
-                        borderBottomLeftRadius: 999,
-                        borderBottomRightRadius: 999,
-                        bgcolor: isExpanded || isActiveSection ? visual.accent : "transparent",
-                      },
-                    }}
-                  >
-                    <Stack direction="row" spacing={0.9} alignItems="center" sx={{ width: "100%", minWidth: 0 }}>
-                      <Box
-                        sx={{
-                          width: 30,
-                          height: 30,
-                          borderRadius: 2,
-                          display: "grid",
-                          placeItems: "center",
-                          color: visual.accent,
-                          bgcolor: alpha(visual.accent, 0.12),
-                          flexShrink: 0,
-                        }}
-                      >
-                        {section.items[0]?.icon}
-                      </Box>
-                      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: "0.92rem", lineHeight: 1.1 }} noWrap>
-                          {section.title}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.1 }} noWrap>
-                          {section.items.length} acceso{section.items.length === 1 ? "" : "s"}
-                        </Typography>
-                      </Box>
-                      <KeyboardArrowDownRoundedIcon
-                        sx={{
-                          fontSize: 18,
-                          color: alpha(visual.accent, 0.95),
-                          transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                          transition: "transform 160ms ease",
-                        }}
-                      />
-                    </Stack>
-                  </ButtonBase>
-                );
-              })}
-            </Box>
+            />
           </Box>
-        ) : null}
 
-        <Collapse in={desktopMenuOpen && !compact && !!expandedSection} timeout={180} unmountOnExit>
-          {expandedSection ? (
-            <Box sx={{ px: { md: 2.25 }, pb: 1.25 }}>
-              <Paper
-                sx={{
-                  overflow: "hidden",
-                  background: currentVisual.panel,
-                  border: `1px solid ${alpha(currentVisual.accent, 0.18)}`,
-                  boxShadow: `0 24px 44px ${currentVisual.glow}`,
-                }}
-              >
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "280px minmax(0, 1fr)" } }}>
-                  <Box
-                    sx={{
-                      p: 1.35,
-                      color: "#0c1f33",
-                      background: `linear-gradient(180deg, ${alpha(currentVisual.accent, 0.16)} 0%, ${alpha(currentVisual.accent, 0.06)} 100%)`,
-                      borderRight: { lg: `1px solid ${alpha(currentVisual.accent, 0.16)}` },
-                      borderBottom: { xs: `1px solid ${alpha(currentVisual.accent, 0.16)}`, lg: 0 },
-                    }}
-                  >
-                    <Typography variant="overline" sx={{ letterSpacing: 1.1, color: alpha("#17344e", 0.78) }}>
-                      Menu principal
-                    </Typography>
-                    <Typography variant="h6" sx={{ mt: 0.3, fontWeight: 800, lineHeight: 1.05 }}>
-                      {expandedSection.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55 }}>
-                      {getSectionVisual(expandedSection.title).description}
-                    </Typography>
-                    <Stack direction="row" spacing={0.7} flexWrap="wrap" useFlexGap sx={{ mt: 1.1 }}>
-                      <Chip label={`${expandedSection.items.length} opciones`} size="small" sx={{ bgcolor: "rgba(255,255,255,0.6)" }} />
-                      {activeSection?.title === expandedSection.title && activeItem ? (
-                        <Chip label={`Actual: ${activeItem.label}`} size="small" sx={{ bgcolor: alpha(currentVisual.accent, 0.12), color: currentVisual.accent }} />
-                      ) : null}
-                    </Stack>
-                  </Box>
+          <Box
+            component="aside"
+            onMouseEnter={handleDesktopNavOpen}
+            onMouseLeave={handleDesktopNavClose}
+            sx={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: 308,
+              zIndex: (currentTheme) => currentTheme.zIndex.drawer + 3,
+              transform: desktopNavOpen ? "translateX(0)" : "translateX(-100%)",
+              transition: "transform 220ms ease, box-shadow 220ms ease",
+              boxShadow: desktopNavOpen ? "0 26px 50px rgba(19,41,61,0.18)" : "none",
+              borderRight: `1px solid ${alpha("#13293D", 0.1)}`,
+              bgcolor: "rgba(255,255,255,0.82)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              overflow: "hidden",
+            }}
+          >
+            {navigationContent}
+          </Box>
+        </>
+      ) : null}
 
-                  <Box sx={{ p: 1.1 }}>{renderMenuItems(expandedSection)}</Box>
-                </Box>
-              </Paper>
-            </Box>
-          ) : null}
-        </Collapse>
-
-        <Collapse in={mobileMenuOpen && compact} timeout={180} unmountOnExit>
-          <Box sx={{ px: 1, pb: 1.1 }}>
-            <Stack spacing={0.85}>
-              {filteredSections.map((section) => {
-                const visual = getSectionVisual(section.title);
-                const isExpanded = expandedSectionTitle === section.title;
-                return (
-                  <Paper
-                    key={section.title}
-                    sx={{
-                      overflow: "hidden",
-                      border: `1px solid ${alpha(visual.accent, 0.16)}`,
-                      background: isExpanded ? visual.panel : "rgba(255,255,255,0.92)",
-                    }}
-                  >
-                    <ButtonBase
-                      onClick={() => {
-                        setExpandedSectionTitle((current) => (current === section.title ? null : section.title));
+      <Box sx={{ display: "grid", minHeight: "100vh", gridTemplateColumns: "1fr" }}>
+        <Box sx={{ minWidth: 0, display: "grid", gridTemplateRows: "auto 1fr" }}>
+          <Paper
+            component="header"
+            elevation={0}
+            sx={{
+              position: "sticky",
+              top: 0,
+              zIndex: (currentTheme) => currentTheme.zIndex.appBar,
+              borderRadius: 0,
+              borderLeft: 0,
+              borderRight: 0,
+              borderTop: 0,
+              borderBottom: `1px solid ${alpha(activeMeta.accent, 0.16)}`,
+              background: "linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,243,235,0.96) 100%)",
+              boxShadow: "0 12px 28px rgba(19,41,61,0.08)",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+            }}
+          >
+            <Box sx={{ px: { xs: 1.1, sm: 1.5, md: 2.2 }, py: { xs: 1, md: 1.15 } }}>
+              <Stack direction="row" spacing={1.1} alignItems="center" justifyContent="space-between">
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0, flexGrow: 1 }}>
+                  {useDrawerNavigation ? (
+                    <IconButton
+                      color="primary"
+                      onClick={() => setMobileNavOpen(true)}
+                      aria-label="Abrir menu principal"
+                      sx={{
+                        border: `1px solid ${alpha(activeMeta.accent, 0.14)}`,
+                        bgcolor: alpha(activeMeta.accent, 0.08),
                       }}
-                      sx={{ width: "100%", justifyContent: "flex-start", px: 1, py: 0.95, textAlign: "left" }}
                     >
-                      <Stack direction="row" spacing={0.9} alignItems="center" sx={{ width: "100%" }}>
-                        <Box
-                          sx={{
-                            width: 30,
-                            height: 30,
-                            borderRadius: 2,
-                            display: "grid",
-                            placeItems: "center",
-                            color: visual.accent,
-                            bgcolor: alpha(visual.accent, 0.1),
-                            flexShrink: 0,
-                          }}
-                        >
-                          {section.items[0]?.icon}
-                        </Box>
-                        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                          <Typography sx={{ fontWeight: 800, lineHeight: 1.1 }}>{section.title}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {getSectionVisual(section.title).description}
-                          </Typography>
-                        </Box>
-                        <KeyboardArrowDownRoundedIcon
-                          sx={{
-                            color: visual.accent,
-                            transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                            transition: "transform 160ms ease",
-                          }}
-                        />
-                      </Stack>
-                    </ButtonBase>
-                    <Collapse in={isExpanded} timeout={160} unmountOnExit>
-                      <Box sx={{ px: 1, pb: 1 }}>{renderMenuItems(section, true)}</Box>
-                    </Collapse>
-                  </Paper>
-                );
-              })}
-            </Stack>
-          </Box>
-        </Collapse>
-      </Paper>
+                      <MenuIcon />
+                    </IconButton>
+                  ) : null}
 
-      <Box sx={{ width: "100%", maxWidth: { xl: 1720 }, mx: "auto", p: { xs: 1, sm: 1.5, md: 2.2 }, pb: { xs: 1.5, sm: 2, md: 3 } }}>
-        <Box sx={{ display: "grid", gap: { xs: 1, md: 1.2 } }}>{children}</Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="overline" sx={{ color: alpha(activeMeta.accent, 0.82), letterSpacing: 1.2, lineHeight: 1 }}>
+                      {activeSection?.title || "Sistema"}
+                    </Typography>
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        mt: 0.18,
+                        fontWeight: 800,
+                        fontSize: { xs: "1.08rem", sm: "1.2rem", md: "1.35rem" },
+                        lineHeight: 1.08,
+                        color: "text.primary",
+                      }}
+                    >
+                      {activeItem?.label || "Inicio"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35, maxWidth: 820 }}>
+                      {activeMeta.description}
+                    </Typography>
+                  </Box>
+                </Stack>
+
+                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+                  {!healthOk ? <Chip label="Sin conexion" size="small" color="error" /> : null}
+                  {username ? (
+                    <Chip
+                      label={username}
+                      size="small"
+                      sx={{
+                        display: { xs: "none", sm: "inline-flex" },
+                        fontWeight: 800,
+                        bgcolor: alpha("#13293D", 0.08),
+                      }}
+                    />
+                  ) : null}
+                  {useDrawerNavigation ? (
+                    <IconButton
+                      color="primary"
+                      onClick={handleLogout}
+                      aria-label="Cerrar sesion"
+                      sx={{
+                        border: `1px solid ${alpha("#13293D", 0.12)}`,
+                        bgcolor: "rgba(255,255,255,0.9)",
+                      }}
+                    >
+                      <LogoutIcon />
+                    </IconButton>
+                  ) : null}
+                </Stack>
+              </Stack>
+            </Box>
+          </Paper>
+
+          <Box sx={{ width: "100%", maxWidth: { xl: 1680 }, mx: "auto", p: { xs: 1.1, sm: 1.5, md: 2.2 }, pb: { xs: 2, md: 3 } }}>
+            <Box sx={{ display: "grid", gap: { xs: 1.1, md: 1.35 } }}>{children}</Box>
+          </Box>
+        </Box>
       </Box>
+
+      <Drawer
+        anchor="left"
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        PaperProps={{
+          sx: {
+            width: "min(92vw, 360px)",
+            borderRight: `1px solid ${alpha("#13293D", 0.1)}`,
+            background: "linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(247,242,234,0.98) 100%)",
+          },
+        }}
+      >
+        {navigationContent}
+      </Drawer>
     </Box>
   );
 };
-
-
-
-
-

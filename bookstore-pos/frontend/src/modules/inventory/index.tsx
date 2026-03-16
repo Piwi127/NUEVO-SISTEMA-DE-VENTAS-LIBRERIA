@@ -16,7 +16,7 @@ export const inventoryRoutes: AppRoute[] = [
 export const inventoryMenu: MenuSection = {
   title: "Inventario y compras",
   items: [
-    { label: "Inventario", path: "/inventory", roles: ["admin", "stock"], icon: <Inventory2Icon fontSize="small" /> },
+    { label: "Stock actual", path: "/inventory", roles: ["admin", "stock"], icon: <Inventory2Icon fontSize="small" /> },
     { label: "Compras", path: "/purchases", roles: ["admin", "stock"], icon: <LocalShippingIcon fontSize="small" /> },
   ],
 };

@@ -31,7 +31,7 @@ export const catalogMenu: MenuSection = {
     { label: "Clientes", path: "/customers", roles: ["admin", "cashier"], icon: <PeopleAltIcon fontSize="small" /> },
     { label: "Productos", path: "/products", roles: ["admin", "stock"], icon: <CategoryIcon fontSize="small" /> },
     { label: "Proveedores", path: "/suppliers", roles: ["admin", "stock"], icon: <LocalShippingIcon fontSize="small" /> },
-    { label: "Listas de precio", path: "/price-lists", roles: ["admin"], icon: <PriceChangeIcon fontSize="small" /> },
+    { label: "Listas de precios", path: "/price-lists", roles: ["admin"], icon: <PriceChangeIcon fontSize="small" /> },
     { label: "Promociones", path: "/promotions", roles: ["admin"], icon: <CampaignIcon fontSize="small" /> },
   ],
 };

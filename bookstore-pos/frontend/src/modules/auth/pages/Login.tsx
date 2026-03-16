@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { Alert, Box, Button, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Divider, Paper, Stack, TextField, Typography } from "@mui/material";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import TaskAltRoundedIcon from "@mui/icons-material/TaskAltRounded";
+import KeyRoundedIcon from "@mui/icons-material/KeyRounded";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -17,6 +19,32 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
+
+const steps = [
+  {
+    title: "1. Escribe tu usuario",
+    description: "Usa el mismo usuario con el que trabajas todos los dias.",
+    icon: <TaskAltRoundedIcon fontSize="small" />,
+  },
+  {
+    title: "2. Escribe tu clave",
+    description: "La clave se valida de forma segura antes de entrar.",
+    icon: <KeyRoundedIcon fontSize="small" />,
+  },
+  {
+    title: "3. Entra al sistema",
+    description: "Si tu cuenta usa verificacion extra, aqui tambien podras ingresar ese codigo.",
+    icon: <LockOutlinedIcon fontSize="small" />,
+  },
+];
+
+const fieldSx = {
+  "& .MuiOutlinedInput-root": {
+    minHeight: 56,
+    borderRadius: 4,
+    bgcolor: "rgba(255,255,255,0.96)",
+  },
+};
 
 const Login: React.FC = () => {
   const { login: doLogin } = useAuth();
@@ -51,22 +79,24 @@ const Login: React.FC = () => {
       setFocus("otp");
       return;
     }
+
     try {
-      const res = await login(data.username.trim(), data.password, data.otp?.trim() || undefined);
-      doLogin(res.username, res.role, res.csrf_token || null);
-      navigate(getLandingRoute(res.role));
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
+      const response = await login(data.username.trim(), data.password, data.otp?.trim() || undefined);
+      doLogin(response.username, response.role, response.csrf_token || null);
+      navigate(getLandingRoute(response.role));
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
       if (detail === "2FA_REQUIRED") {
         setRequireOtp(true);
         setSubmitError("Ingresa el codigo 2FA para completar el acceso.");
-        showToast({ message: "Ingrese codigo 2FA", severity: "info" });
+        showToast({ message: "Ingresa el codigo 2FA", severity: "info" });
         window.setTimeout(() => setFocus("otp"), 0);
-      } else {
-        const message = detail || "Error de login";
-        setSubmitError(message);
-        showToast({ message, severity: "error" });
+        return;
       }
+
+      const message = detail || "No se pudo iniciar sesion.";
+      setSubmitError(message);
+      showToast({ message, severity: "error" });
     }
   };
 
@@ -76,95 +106,157 @@ const Login: React.FC = () => {
         minHeight: "100vh",
         display: "grid",
         placeItems: "center",
+        p: { xs: 1.25, md: 2 },
         bgcolor: "background.default",
         backgroundImage:
-          "linear-gradient(140deg, rgba(12,42,74,0.22), rgba(18,53,90,0.08)), radial-gradient(800px 360px at 12% 15%, rgba(154,123,47,0.22), transparent), radial-gradient(900px 420px at 88% 78%, rgba(18,53,90,0.16), transparent)",
-        p: 2,
+          "radial-gradient(circle at 14% 16%, rgba(180,83,9,0.12) 0%, rgba(180,83,9,0) 28%), radial-gradient(circle at 84% 20%, rgba(15,118,110,0.12) 0%, rgba(15,118,110,0) 30%), linear-gradient(180deg, #FBF8F2 0%, #F4F0E8 58%, #EDE4D4 100%)",
       }}
     >
-      <Paper sx={{ width: "100%", maxWidth: 980, overflow: "hidden" }}>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.1fr 0.9fr" } }}>
+      <Paper sx={{ width: "100%", maxWidth: 1080, overflow: "hidden", borderRadius: { xs: 4, md: 5 } }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.05fr 0.95fr" } }}>
           <Box
             sx={{
-              p: { xs: 3, md: 5 },
-              color: "white",
-              background: "linear-gradient(165deg, #0b2b4d 0%, #12355a 58%, #1d4e7f 100%)",
+              p: { xs: 3, md: 4.5 },
+              background:
+                "linear-gradient(180deg, rgba(255,250,243,0.98) 0%, rgba(248,239,225,0.98) 100%)",
+              borderRight: { md: "1px solid rgba(19,41,61,0.08)" },
+              borderBottom: { xs: "1px solid rgba(19,41,61,0.08)", md: 0 },
             }}
           >
-            <Typography variant="overline" sx={{ opacity: 0.85, letterSpacing: 1.1 }}>
-              Plataforma Comercial
-            </Typography>
-            <Typography variant="h4" sx={{ mt: 1, mb: 1 }}>
-              Bookstore POS
-            </Typography>
-            <Typography variant="body1" sx={{ maxWidth: 420, opacity: 0.92 }}>
-              Control centralizado de ventas, caja, inventario y administracion en una sola experiencia operativa.
-            </Typography>
-          </Box>
-
-          <Box sx={{ p: { xs: 3, md: 5 }, display: "grid", alignContent: "center", gap: 2 }}>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack spacing={2.25}>
               <Box
                 sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 1.2,
-                  bgcolor: "rgba(18,53,90,0.1)",
-                  color: "primary.main",
+                  width: 56,
+                  height: 56,
+                  borderRadius: 4,
                   display: "grid",
                   placeItems: "center",
+                  color: "primary.main",
+                  bgcolor: "rgba(19,41,61,0.08)",
+                  border: "1px solid rgba(19,41,61,0.1)",
                 }}
               >
-                <LockOutlinedIcon fontSize="small" />
+                <LockOutlinedIcon />
               </Box>
+
               <Box>
-                <Typography variant="h5">Acceso seguro</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Inicia sesion para continuar
+                <Typography variant="overline" sx={{ letterSpacing: 1.15, color: "text.secondary" }}>
+                  Acceso sencillo
+                </Typography>
+                <Typography variant="h4" sx={{ mt: 0.7, mb: 1 }}>
+                  Ingreso rapido al sistema
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 470 }}>
+                  La pantalla fue pensada para que el personal encuentre el acceso sin distracciones y con pasos faciles de seguir.
                 </Typography>
               </Box>
+
+              <Stack spacing={1.1}>
+                {steps.map((step) => (
+                  <Paper
+                    key={step.title}
+                    elevation={0}
+                    sx={{
+                      p: 1.4,
+                      borderRadius: 3.5,
+                      bgcolor: "rgba(255,255,255,0.74)",
+                      border: "1px solid rgba(19,41,61,0.08)",
+                    }}
+                  >
+                    <Stack direction="row" spacing={1.2} alignItems="center">
+                      <Box
+                        sx={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: 2.5,
+                          display: "grid",
+                          placeItems: "center",
+                          flexShrink: 0,
+                          color: "secondary.main",
+                          bgcolor: "rgba(15,118,110,0.1)",
+                        }}
+                      >
+                        {step.icon}
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontWeight: 800 }}>{step.title}</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                          {step.description}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+
+              <Alert severity="info" sx={{ alignItems: "flex-start" }}>
+                Si tu cuenta usa verificacion en dos pasos, el sistema te pedira el codigo despues de validar tu usuario y clave.
+              </Alert>
             </Stack>
+          </Box>
 
-            <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 2 }}>
-              {submitError ? <Alert severity={requireOtp ? "info" : "error"}>{submitError}</Alert> : null}
+          <Box sx={{ p: { xs: 3, md: 4.5 }, display: "grid", alignContent: "center" }}>
+            <Stack spacing={2.25}>
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                  Entrar al sistema
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.45 }}>
+                  Completa solo los campos necesarios para comenzar a trabajar.
+                </Typography>
+              </Box>
 
-              <TextField
-                label="Usuario"
-                autoComplete="username"
-                error={!!errors.username}
-                helperText={errors.username?.message || "Ingresa tu usuario de acceso."}
-                {...register("username", {
-                  onChange: () => setSubmitError(""),
-                })}
-              />
+              <Divider />
 
-              <TextField
-                label="Contrasena"
-                type="password"
-                autoComplete="current-password"
-                error={!!errors.password}
-                helperText={errors.password?.message || "Ingresa tu contrasena."}
-                {...register("password", {
-                  onChange: () => setSubmitError(""),
-                })}
-              />
+              <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: "grid", gap: 2 }}>
+                {submitError ? <Alert severity={requireOtp ? "info" : "error"}>{submitError}</Alert> : null}
 
-              {requireOtp ? (
                 <TextField
-                  label="Codigo 2FA"
-                  autoComplete="one-time-code"
-                  error={otpMissing}
-                  helperText={otpMissing ? "Ingresa el codigo OTP para continuar." : "Codigo temporal generado por tu app autenticadora."}
-                  {...register("otp", {
+                  label="Usuario"
+                  autoComplete="username"
+                  autoFocus
+                  error={!!errors.username}
+                  helperText={errors.username?.message || "Ejemplo: caja01 o administrador"}
+                  sx={fieldSx}
+                  {...register("username", {
                     onChange: () => setSubmitError(""),
                   })}
                 />
-              ) : null}
 
-              <Button variant="contained" size="large" type="submit" disabled={!isValid || isSubmitting || otpMissing}>
-                {isSubmitting ? "Validando..." : "Entrar"}
-              </Button>
-            </Box>
+                <TextField
+                  label="Contrasena"
+                  type="password"
+                  autoComplete="current-password"
+                  error={!!errors.password}
+                  helperText={errors.password?.message || "Ingresa tu clave de acceso."}
+                  sx={fieldSx}
+                  {...register("password", {
+                    onChange: () => setSubmitError(""),
+                  })}
+                />
+
+                {requireOtp ? (
+                  <TextField
+                    label="Codigo 2FA"
+                    autoComplete="one-time-code"
+                    error={otpMissing}
+                    helperText={otpMissing ? "Ingresa el codigo temporal." : "Codigo generado por tu app autenticadora."}
+                    sx={fieldSx}
+                    {...register("otp", {
+                      onChange: () => setSubmitError(""),
+                    })}
+                  />
+                ) : null}
+
+                <Button variant="contained" type="submit" disabled={!isValid || isSubmitting || otpMissing} sx={{ minHeight: 56 }}>
+                  {isSubmitting ? "Validando acceso..." : "Entrar"}
+                </Button>
+
+                <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center" }}>
+                  Si olvidas tu acceso, solicita ayuda al administrador del sistema.
+                </Typography>
+              </Box>
+            </Stack>
           </Box>
         </Box>
       </Paper>
