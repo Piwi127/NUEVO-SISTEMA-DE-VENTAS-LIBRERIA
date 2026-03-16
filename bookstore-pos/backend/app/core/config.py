@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     # ACCOUNT_LOCK_MINUTES: Minutos de bloqueo tras intentos fallidos
     account_lock_minutes: int = 15
 
-    model_config = ConfigDict(env_file=ENV_FILES, env_file_encoding="utf-8")
+    model_config = ConfigDict(env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore")
 
     @field_validator("jwt_secret")
     @classmethod
