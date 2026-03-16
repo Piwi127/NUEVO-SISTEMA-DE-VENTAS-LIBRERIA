@@ -1,3 +1,7 @@
+from sqlalchemy import delete, select
+
+import app.db.session as db_session
+from app.models.warehouse import StockLevel
 import pytest
 
 async def _login_admin(client):
@@ -100,3 +104,49 @@ async def test_returns_history_endpoint(client):
     match = next((r for r in rows if r["sale_id"] == sale_id), None)
     assert match is not None
     assert match["sale_status"] == "VOID"
+
+
+@pytest.mark.asyncio
+async def test_sale_backfills_legacy_stock_level_when_product_has_aggregate_stock(client):
+    headers = await _login_admin(client)
+
+    product_payload = {
+        "sku": "BK-LEGACY-STOCK-001",
+        "name": "Servicio heredado con stock",
+        "category": "SERVICIOS",
+        "price": 3.0,
+        "cost": 0.5,
+        "stock": 10,
+        "stock_min": 0,
+    }
+    resp = await client.post("/products", json=product_payload, headers=headers)
+    assert resp.status_code == 201
+    product = resp.json()
+
+    async with db_session.AsyncSessionLocal() as session:
+        await session.execute(delete(StockLevel).where(StockLevel.product_id == product["id"]))
+        await session.commit()
+
+    open_resp = await client.post("/cash/open", json={"opening_amount": 50.0}, headers=headers)
+    assert open_resp.status_code in {201, 409}
+
+    sale_resp = await client.post(
+        "/sales",
+        json={
+            "customer_id": None,
+            "items": [{"product_id": product["id"], "qty": 2}],
+            "payments": [{"method": "CASH", "amount": 6.0}],
+            "subtotal": 6.0,
+            "tax": 0.0,
+            "discount": 0.0,
+            "total": 6.0,
+            "promotion_id": None,
+        },
+        headers=headers,
+    )
+    assert sale_resp.status_code == 201
+
+    async with db_session.AsyncSessionLocal() as session:
+        level_result = await session.execute(select(StockLevel.qty).where(StockLevel.product_id == product["id"]))
+        qty = level_result.scalar_one_or_none()
+        assert qty == 8

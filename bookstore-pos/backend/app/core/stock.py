@@ -55,10 +55,34 @@ async def apply_stock_delta(
 
 async def get_stock_level(db: AsyncSession, product_id: int, warehouse_id: int) -> int:
     res = await db.execute(
-        select(StockLevel.qty).where(
+        select(StockLevel).where(
             StockLevel.product_id == product_id,
             StockLevel.warehouse_id == warehouse_id,
         )
     )
-    qty = res.scalar_one_or_none()
-    return int(qty or 0)
+    level = res.scalar_one_or_none()
+    if level is not None:
+        return int(level.qty or 0)
+
+    # Backfill legacy products that still have aggregate stock in products.stock
+    # but never got a stock_levels row in the default warehouse.
+    prod_res = await db.execute(select(Product).where(Product.id == product_id))
+    product = prod_res.scalar_one_or_none()
+    if not product:
+        return 0
+
+    legacy_stock = int(product.stock or 0)
+    if legacy_stock <= 0:
+        return 0
+
+    total_levels_res = await db.execute(
+        select(func.coalesce(func.sum(StockLevel.qty), 0)).where(StockLevel.product_id == product_id)
+    )
+    total_levels = int(total_levels_res.scalar_one() or 0)
+    if total_levels > 0:
+        return 0
+
+    level = StockLevel(product_id=product_id, warehouse_id=warehouse_id, qty=legacy_stock)
+    db.add(level)
+    await db.flush()
+    return legacy_stock
