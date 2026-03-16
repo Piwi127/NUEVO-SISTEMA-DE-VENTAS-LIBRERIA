@@ -204,19 +204,26 @@ async def seed_admin(db: AsyncSession) -> None:
             )
 
     if settings.bootstrap_dev_admin and settings.environment.lower() not in {"prod", "production"}:
-        username = settings.bootstrap_admin_username.strip()
+        raw_usernames = settings.bootstrap_admin_usernames.strip()
         password = settings.bootstrap_admin_password
-        if username and password:
+        usernames = [
+            username.strip()
+            for username in raw_usernames.split(",")
+            if username.strip()
+        ] if raw_usernames else [settings.bootstrap_admin_username.strip()]
+        usernames = list(dict.fromkeys([username for username in usernames if username]))
+        if usernames and password:
             validate_password(password)
-            user_res = await db.execute(select(User).where(User.username == username))
-            user = user_res.scalar_one_or_none()
-            if user is None:
-                db.add(
-                    User(
-                        username=username,
-                        password_hash=get_password_hash(password),
-                        role="admin",
-                        is_active=True,
+            for username in usernames:
+                user_res = await db.execute(select(User).where(User.username == username))
+                user = user_res.scalar_one_or_none()
+                if user is None:
+                    db.add(
+                        User(
+                            username=username,
+                            password_hash=get_password_hash(password),
+                            role="admin",
+                            is_active=True,
+                        )
                     )
-                )
     await db.commit()

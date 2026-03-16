@@ -31,8 +31,9 @@ export default defineConfig({
       env: {
         ...process.env,
         BOOTSTRAP_DEV_ADMIN: "true",
-        BOOTSTRAP_ADMIN_USERNAME: process.env.E2E_USERNAME || "e2e_admin",
-        BOOTSTRAP_ADMIN_PASSWORD: process.env.E2E_PASSWORD || "E2EAdmin1234",
+        BOOTSTRAP_ADMIN_USERNAME: process.env.E2E_USERNAME || "prueba",
+        BOOTSTRAP_ADMIN_USERNAMES: process.env.E2E_USERNAMES || "prueba,test",
+        BOOTSTRAP_ADMIN_PASSWORD: process.env.E2E_PASSWORD || "Prueba1234",
         RATE_LIMIT_PER_MINUTE: process.env.RATE_LIMIT_PER_MINUTE || "2000",
         RATE_LIMIT_WINDOW_SECONDS: process.env.RATE_LIMIT_WINDOW_SECONDS || "60",
         AUTH_LOGIN_RATE_LIMIT_COUNT: process.env.AUTH_LOGIN_RATE_LIMIT_COUNT || "200",

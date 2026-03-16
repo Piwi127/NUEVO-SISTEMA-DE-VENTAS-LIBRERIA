@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     bootstrap_dev_admin: bool = False
     # BOOTSTRAP_ADMIN_USERNAME: Username del admin inicial
     bootstrap_admin_username: str = ""
+    # BOOTSTRAP_ADMIN_USERNAMES: Usernames del admin inicial, separados por comas
+    bootstrap_admin_usernames: str = ""
     # BOOTSTRAP_ADMIN_PASSWORD: Password del admin inicial
     bootstrap_admin_password: str = ""
     # INVENTORY_IMPORT_MAX_FILE_SIZE_MB: Tamaño máximo de archivos de importación

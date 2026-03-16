@@ -1,7 +1,12 @@
 import { APIRequestContext, expect } from "@playwright/test";
 
-const USERNAME = process.env.E2E_USERNAME || "e2e_admin";
-const PASSWORD = process.env.E2E_PASSWORD || "E2EAdmin1234";
+const TEST_USERNAMES = process.env.E2E_USERNAME
+  ? [process.env.E2E_USERNAME]
+  : (process.env.E2E_USERNAMES || "prueba,test")
+      .split(",")
+      .map((username) => username.trim())
+      .filter(Boolean);
+const PASSWORD = process.env.E2E_PASSWORD || "Prueba1234";
 const API_URL = process.env.E2E_API_URL || "http://127.0.0.1:8010";
 
 type Product = {
@@ -54,20 +59,25 @@ type SaleResponse = {
 
 export const apiLogin = async (api: APIRequestContext): Promise<string> => {
   let lastStatus = 0;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const loginResp = await api.post(`${API_URL}/auth/login`, {
-      data: { username: USERNAME, password: PASSWORD },
-    });
-    lastStatus = loginResp.status();
-    if (loginResp.ok()) {
-      const body = await loginResp.json();
-      return body.csrf_token as string;
+  for (const username of TEST_USERNAMES) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const loginResp = await api.post(`${API_URL}/auth/login`, {
+        data: { username, password: PASSWORD },
+      });
+      lastStatus = loginResp.status();
+      if (loginResp.ok()) {
+        const body = await loginResp.json();
+        return body.csrf_token as string;
+      }
+      if (lastStatus === 429 && attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        continue;
+      }
+      break;
     }
-    if (lastStatus === 429 && attempt < 2) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    if (lastStatus === 200) {
       continue;
     }
-    break;
   }
   expect(lastStatus, "API login should succeed").toBe(200);
   return "";
