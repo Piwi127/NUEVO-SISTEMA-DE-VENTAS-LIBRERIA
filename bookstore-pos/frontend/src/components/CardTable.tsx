@@ -27,13 +27,14 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
     return (
       <Paper
         sx={{
-          p: 2,
-          border: "1px dashed rgba(19,41,61,0.22)",
-          background: "rgba(255,255,255,0.74)",
+          p: 4,
+          border: "1px dashed #E2E8F0",
+          background: "#F8FAFC",
           textAlign: "center",
+          borderRadius: 3,
         }}
       >
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "#64748B" }}>
           Sin registros para mostrar
         </Typography>
       </Paper>
@@ -45,34 +46,30 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
       sx={{
         position: "relative",
         display: "grid",
-        gap: { xs: 0.95, md: 1.1 },
+        gap: 1.5,
         minHeight: canResize ? minHeight : undefined,
         maxHeight: canResize ? maxHeight : undefined,
         overflowY: canResize ? "auto" : "visible",
         overflowX: "hidden",
         resize: canResize ? "vertical" : "none",
-        pr: canResize ? 0.4 : 0,
-        pb: canResize ? 0.4 : 0,
+        pr: canResize ? 0.5 : 0,
+        pb: canResize ? 0.5 : 0,
       }}
     >
       {rows.map((row) => (
         <Paper
           key={row.key}
+          className="card-interactive"
           sx={{
             position: "relative",
             overflow: "hidden",
-            p: { xs: 1.15, md: 1.25 },
-            border: "1px solid rgba(19,41,61,0.1)",
-            background: "linear-gradient(135deg, rgba(255,255,255,0.99) 0%, rgba(248,243,235,0.95) 100%)",
-            boxShadow: "0 12px 24px rgba(19,41,61,0.08)",
-            "&::before": {
-              content: '""',
-              position: "absolute",
-              top: 0,
-              left: 0,
-              bottom: 0,
-              width: 4,
-              background: "linear-gradient(180deg, #13293D 0%, #0F766E 100%)",
+            p: 1.5,
+            border: "1px solid #E2E8F0",
+            background: "#FFFFFF",
+            boxShadow: "var(--shadow-sm)",
+            borderRadius: 2.5,
+            "&:hover": {
+              borderColor: "#CBD5E1",
             },
           }}
         >
@@ -81,14 +78,15 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
               display: "grid",
               gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) auto" },
               alignItems: { sm: "start" },
-              gap: 1,
-              pl: 0.45,
+              gap: 1.5,
             }}
           >
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 800, wordBreak: "break-word", lineHeight: 1.15 }}>{row.title}</Typography>
+              <Typography sx={{ fontWeight: 600, wordBreak: "break-word", lineHeight: 1.3, color: "#1E293B", fontSize: "0.9375rem" }}>
+                {row.title}
+              </Typography>
               {row.subtitle ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.34 }}>
+                <Typography variant="body2" sx={{ mt: 0.5, color: "#64748B" }}>
                   {row.subtitle}
                 </Typography>
               ) : null}
@@ -97,22 +95,22 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
           </Box>
 
           {row.fields.length > 0 ? (
-            <Box sx={{ mt: 1.1, display: "grid", gap: 0.8, gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(170px, 1fr))" } }}>
+            <Box sx={{ mt: 1.5, display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(180px, 1fr))" } }}>
               {row.fields.map((field, idx) => (
                 <Box
                   key={idx}
                   sx={{
-                    p: 0.95,
-                    borderRadius: 2.2,
-                    border: "1px solid rgba(19,41,61,0.1)",
-                    bgcolor: alpha("#13293D", 0.04),
+                    p: 1,
+                    borderRadius: 1.5,
+                    border: "1px solid #F1F5F9",
+                    bgcolor: "#F8FAFC",
                     minWidth: 0,
                   }}
                 >
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 800, letterSpacing: 0.4 }}>
+                  <Typography variant="caption" sx={{ display: "block", fontWeight: 500, color: "#64748B", letterSpacing: 0.3 }}>
                     {field.label}
                   </Typography>
-                  <Typography variant="body2" sx={{ mt: 0.34, fontWeight: 700, wordBreak: "break-word" }}>
+                  <Typography variant="body2" sx={{ mt: 0.25, fontWeight: 600, wordBreak: "break-word", color: "#1E293B" }}>
                     {field.value}
                   </Typography>
                 </Box>
@@ -126,15 +124,15 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
         <Box
           sx={{
             position: "absolute",
-            right: 4,
-            bottom: 4,
-            width: 14,
-            height: 14,
-            borderRight: "2px solid rgba(19,41,61,0.3)",
-            borderBottom: "2px solid rgba(19,41,61,0.3)",
-            borderBottomRightRadius: 2,
+            right: 6,
+            bottom: 6,
+            width: 12,
+            height: 12,
+            borderRight: "2px solid #CBD5E1",
+            borderBottom: "2px solid #CBD5E1",
+            borderBottomRightRadius: 3,
             pointerEvents: "none",
-            opacity: 0.76,
+            opacity: 0.6,
           }}
         />
       ) : null}

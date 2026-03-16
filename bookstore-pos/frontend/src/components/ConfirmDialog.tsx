@@ -1,6 +1,5 @@
 import React from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Typography } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 
 type Props = {
   open: boolean;
@@ -31,33 +30,47 @@ export const ConfirmDialog: React.FC<Props> = ({
   disableConfirm = false,
   maxWidth = "sm",
 }) => (
-  <Dialog open={open} onClose={onCancel} fullWidth maxWidth={maxWidth}>
-    <DialogTitle sx={{ pb: 0 }}>
-      <Box
-        sx={{
-          p: 1.2,
-          borderRadius: 3,
-          background: "linear-gradient(135deg, rgba(16,58,95,0.1) 0%, rgba(18,116,107,0.08) 100%)",
-          border: `1px solid ${alpha("#103a5f", 0.08)}`,
-        }}
-      >
-        <Typography variant="overline" sx={{ letterSpacing: 1.08, color: "text.secondary", lineHeight: 1 }}>
-          Confirmacion segura
-        </Typography>
-        <Typography variant="h6" sx={{ mt: 0.35, fontWeight: 800, lineHeight: 1.08 }}>
-          {title}
-        </Typography>
-      </Box>
+  <Dialog 
+    open={open} 
+    onClose={onCancel} 
+    fullWidth 
+    maxWidth={maxWidth}
+    PaperProps={{
+      sx: {
+        borderRadius: 3,
+        border: "1px solid #E2E8F0",
+      }
+    }}
+  >
+    <DialogTitle sx={{ pb: 1 }}>
+      <Typography variant="h6" sx={{ fontWeight: 600, color: "#1E293B" }}>
+        {title}
+      </Typography>
     </DialogTitle>
-    <DialogContent sx={{ display: "grid", gap: 1.6 }}>
-      {description ? <DialogContentText sx={{ color: "text.secondary" }}>{description}</DialogContentText> : null}
+    <DialogContent sx={{ display: "grid", gap: 2 }}>
+      {description ? 
+        <DialogContentText sx={{ color: "#64748B" }}>
+          {description}
+        </DialogContentText> 
+        : null}
       {content}
     </DialogContent>
-    <DialogActions>
-      <Button onClick={onCancel} disabled={loading} variant="outlined">
+    <DialogActions sx={{ px: 3, pb: 2 }}>
+      <Button 
+        onClick={onCancel} 
+        disabled={loading} 
+        variant="outlined"
+        sx={{ borderRadius: 2 }}
+      >
         {cancelText}
       </Button>
-      <Button onClick={onConfirm} variant="contained" color={confirmColor} disabled={loading || disableConfirm}>
+      <Button 
+        onClick={onConfirm} 
+        variant="contained" 
+        color={confirmColor} 
+        disabled={loading || disableConfirm}
+        sx={{ borderRadius: 2 }}
+      >
         {loading ? "Procesando..." : confirmText}
       </Button>
     </DialogActions>

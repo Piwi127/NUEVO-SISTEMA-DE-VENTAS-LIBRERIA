@@ -14,39 +14,28 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({ title, subtitle, chi
       sx={{
         position: "relative",
         overflow: "hidden",
-        p: { xs: 1, md: 1.15 },
-        border: "1px solid rgba(19,41,61,0.1)",
-        background: "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,243,234,0.95) 100%)",
-        boxShadow: "0 12px 24px rgba(19,41,61,0.08)",
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 4,
-          background: "linear-gradient(180deg, #13293D 0%, #0F766E 100%)",
-        },
+        p: { xs: 1.5, md: 1.5 },
+        border: "1px solid #E2E8F0",
+        background: "#FFFFFF",
+        boxShadow: "var(--shadow-sm)",
+        borderRadius: 2.5,
+        mb: 2,
       }}
     >
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 260px) minmax(0, 1fr)" },
-          alignItems: "start",
-          gap: { xs: 1, md: 1.15 },
-          pl: 0.42,
+          gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 280px) minmax(0, 1fr)" },
+          alignItems: "center",
+          gap: 2,
         }}
       >
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="overline" sx={{ color: alpha("#13293D", 0.72), letterSpacing: 1.08 }}>
-            Herramientas
-          </Typography>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.12 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "#1E293B", fontSize: "1rem" }}>
             {title}
           </Typography>
           {subtitle ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.3 }}>
+            <Typography variant="body2" sx={{ mt: 0.5, color: "#64748B" }}>
               {subtitle}
             </Typography>
           ) : null}
@@ -56,20 +45,11 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({ title, subtitle, chi
           sx={{
             display: "flex",
             flexWrap: "wrap",
-            gap: 0.85,
+            gap: 1.5,
             width: "100%",
             minWidth: 0,
-            justifyContent: { xs: "stretch", xl: "flex-end" },
-            alignItems: "flex-start",
-            p: { xs: 0, xl: 0.8 },
-            borderRadius: 3,
-            backgroundColor: { xs: "transparent", xl: "rgba(255,255,255,0.75)" },
-            border: { xs: "none", xl: "1px solid rgba(19,41,61,0.1)" },
-            "& > *": {
-              flex: { xs: "1 1 100%", sm: "1 1 210px", xl: "0 1 auto" },
-              minWidth: 0,
-              maxWidth: "100%",
-            },
+            justifyContent: { xs: "stretch", lg: "flex-end" },
+            alignItems: "center",
           }}
         >
           {children}

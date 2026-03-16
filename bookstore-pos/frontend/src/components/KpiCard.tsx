@@ -1,6 +1,5 @@
 import React from "react";
 import { Box, Paper, Typography } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 
 type Props = {
   label: string;
@@ -10,52 +9,35 @@ type Props = {
 };
 
 export const KpiCard: React.FC<Props> = ({ label, value, accent, icon }) => {
-  const tone = accent || "#13293D";
+  const tone = accent || "#1E40AF";
 
   return (
     <Paper
-      className="glass-panel hover-lift"
+      className="card-interactive"
       sx={{
         position: "relative",
         overflow: "hidden",
-        p: { xs: 1.35, sm: 1.6 },
-        minHeight: 132,
+        p: { xs: 1.5, sm: 2 },
+        minHeight: 120,
         display: "grid",
         alignContent: "space-between",
         gap: 1,
         borderRadius: 3,
-        border: `1px solid ${alpha(tone, 0.2)}`,
-        background: `linear-gradient(135deg, rgba(255,255,255,0.98) 0%, ${alpha(tone, 0.08)} 100%)`,
-        boxShadow: `0 12px 26px ${alpha(tone, 0.12)}`,
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          inset: "0 0 auto 0",
-          height: 4,
-          background: `linear-gradient(90deg, ${tone} 0%, ${alpha(tone, 0.45)} 100%)`,
-        },
-        "&::after": {
-          content: '""',
-          position: "absolute",
-          bottom: -22,
-          right: -22,
-          width: 120,
-          height: 120,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${alpha(tone, 0.14)} 0%, transparent 70%)`,
-          pointerEvents: "none",
-        },
+        border: "1px solid #E2E8F0",
+        background: "#FFFFFF",
+        boxShadow: "var(--shadow-sm)",
       }}
     >
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", minWidth: 0, position: "relative", zIndex: 1 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", minWidth: 0 }}>
         <Typography
           variant="overline"
           sx={{
-            color: alpha("#13293D", 0.74),
-            letterSpacing: 1.15,
+            color: "#64748B",
+            letterSpacing: 1,
             lineHeight: 1.2,
-            fontWeight: 800,
+            fontWeight: 600,
             wordBreak: "break-word",
+            fontSize: "0.6875rem",
           }}
         >
           {label}
@@ -67,11 +49,10 @@ export const KpiCard: React.FC<Props> = ({ label, value, accent, icon }) => {
               color: tone,
               display: "grid",
               placeItems: "center",
-              width: 36,
-              height: 36,
+              width: 40,
+              height: 40,
               borderRadius: 2,
-              bgcolor: alpha(tone, 0.12),
-              border: `1px solid ${alpha(tone, 0.2)}`,
+              bgcolor: `${tone}15`,
               flexShrink: 0,
             }}
           >
@@ -81,15 +62,13 @@ export const KpiCard: React.FC<Props> = ({ label, value, accent, icon }) => {
       </Box>
 
       <Typography
-        variant="h4"
+        variant="h3"
         sx={{
-          fontWeight: 800,
-          color: tone,
-          fontSize: "clamp(1.45rem, 1.2vw + 1rem, 2.1rem)",
-          lineHeight: 1.08,
+          fontWeight: 700,
+          color: "#0F172A",
+          fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
+          lineHeight: 1.2,
           wordBreak: "break-word",
-          position: "relative",
-          zIndex: 1,
         }}
       >
         {value}
