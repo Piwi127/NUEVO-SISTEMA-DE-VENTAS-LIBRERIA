@@ -323,7 +323,7 @@ const Inventory: React.FC = () => {
   if (baseLoading) {
     return (
       <Box sx={{ display: "grid", gap: 1.5 }} className="fade-in">
-        <PageHeader title="Inventario" subtitle="Gestión centarlizada de stock" icon={<Inventory2Icon color="primary" />} loading />
+        <PageHeader title="Inventario" subtitle="Gestión centralizada de stock" icon={<Inventory2Icon color="primary" />} loading />
         <Paper className="glass-panel" sx={{ p: 4 }}>
           <LoadingState title="Inicializando inventario..." rows={3} />
         </Paper>
@@ -334,8 +334,8 @@ const Inventory: React.FC = () => {
   return (
     <Box sx={{ display: "grid", gap: 2 }} className="fade-in">
       <PageHeader
-        title="Gestión de Inventario"
-        subtitle="Carga masiva, operaciones manuales y Kardex."
+        title="Inventario"
+        subtitle="Carga masiva, ajustes manuales y consulta de kardex."
         icon={<Inventory2Icon color="primary" />}
         chips={[`Rol: ${role}`, `Productos: ${products.length}`, `Almacenes: ${warehouses.length}`]}
       />
@@ -392,11 +392,11 @@ const Inventory: React.FC = () => {
 
         <Box sx={{ mt: 3, display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fit, minmax(180px, 1fr))" } }}>
           <KpiCard label="Productos" value={`${products.length}`} accent="#60A5FA" />
-          <KpiCard label="Categorias" value={`${categoryCount}`} accent="#818CF8" />
+          <KpiCard label="Categorías" value={`${categoryCount}`} accent="#818CF8" />
           <KpiCard label="Stock en alerta" value={`${lowStockCount}`} accent="#F59E0B" />
           <KpiCard label="Sin stock" value={`${criticalStockCount}`} accent="#EF4444" />
           <KpiCard label="Unidades totales" value={`${inventoryUnits}`} accent="#10B981" />
-          <KpiCard label="Faltante (Estimado)" value={`${coverageGap}`} accent="#FBBF24" />
+          <KpiCard label="Faltante estimado" value={`${coverageGap}`} accent="#FBBF24" />
         </Box>
       </Paper>
 
@@ -433,19 +433,19 @@ const Inventory: React.FC = () => {
         <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
             <PublishIcon color="primary" fontSize="small" />
-            <Typography variant="h6" fontWeight="700">Panel de Control</Typography>
+            <Typography variant="h6" fontWeight="700">Panel de control</Typography>
           </Stack>
           <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" } }}>
             <Button variant={tab === 0 ? "contained" : "outlined"} onClick={() => setTab(0)}>Carga masiva (CSV/XLSX)</Button>
-            <Button variant={tab === 1 ? "contained" : "outlined"} onClick={() => setTab(1)}>Operaciones Manuales</Button>
-            <Button variant={tab === 2 ? "contained" : "outlined"} onClick={() => setTab(2)}>Reporte Kardex</Button>
+            <Button variant={tab === 1 ? "contained" : "outlined"} onClick={() => setTab(1)}>Operaciones manuales</Button>
+            <Button variant={tab === 2 ? "contained" : "outlined"} onClick={() => setTab(2)}>Kardex</Button>
             <Button
               variant="outlined"
               color="secondary"
               onClick={() => handleKardexProductChange(products[0]?.id ?? 0)}
               disabled={!products.length}
             >
-              Autoseleccionar Kardex
+              Usar primer producto
             </Button>
           </Box>
         </Paper>
@@ -460,8 +460,8 @@ const Inventory: React.FC = () => {
           textColor="primary"
           sx={{ '& .MuiTab-root': { py: 2, fontWeight: 600 } }}
         >
-          <Tab label="Importación Masiva" />
-          <Tab label="Operaciones de Bodega" />
+          <Tab label="Importación masiva" />
+          <Tab label="Ajustes y movimientos" />
           <Tab label="Movimientos Kardex" />
         </Tabs>
       </Paper>
@@ -474,7 +474,7 @@ const Inventory: React.FC = () => {
           </Paper>
         ) : (
           <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 }, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Asistente de Importación</Typography>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Asistente de importación</Typography>
             {uploadError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{uploadError}</Alert>}
             {job && (
               <Alert
@@ -557,97 +557,97 @@ const Inventory: React.FC = () => {
       {tab === 1 ? (
         <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", lg: "repeat(2, 1fr)" }, mt: 2 }}>
           <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Bodegas</Typography>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Almacenes</Typography>
             <Box component="form" onSubmit={handleWarehouseSubmit(onCreateWarehouse)} sx={{ display: "grid", gap: 2 }}>
               {warehouseSubmitError && <Alert severity="error">{warehouseSubmitError}</Alert>}
-              <TextField label="Identificador / Nombre" error={!!warehouseErrors.name} helperText={warehouseErrors.name?.message} fullWidth {...registerWarehouse("name", { onChange: () => setWarehouseSubmitError("") })} />
-              <TextField label="Dirección Física (Opcional)" error={!!warehouseErrors.location} helperText={warehouseErrors.location?.message} fullWidth {...registerWarehouse("location", { onChange: () => setWarehouseSubmitError("") })} />
+              <TextField label="Nombre del almacén" error={!!warehouseErrors.name} helperText={warehouseErrors.name?.message} fullWidth {...registerWarehouse("name", { onChange: () => setWarehouseSubmitError("") })} />
+              <TextField label="Ubicación" error={!!warehouseErrors.location} helperText={warehouseErrors.location?.message} fullWidth {...registerWarehouse("location", { onChange: () => setWarehouseSubmitError("") })} />
               <Button type="submit" variant="contained" disabled={!isWarehouseValid || isWarehouseSubmitting}>
-                {isWarehouseSubmitting ? "Emitiendo..." : "Registrar Bodega"}
+                {isWarehouseSubmitting ? "Guardando..." : "Guardar almacén"}
               </Button>
             </Box>
           </Paper>
 
           <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Desplazamiento / Transferencias</Typography>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Transferencias</Typography>
             <Box component="form" onSubmit={handleTransferSubmit(onTransfer)} sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(2, 1fr)" }}>
               {transferSubmitError && <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{transferSubmitError}</Alert>}
               <Controller
                 control={transferControl} name="from_warehouse_id"
                 render={({ field }) => (
-                  <TextField select label="Bodega Origen" value={field.value || ""} error={!!transferErrors.from_warehouse_id} helperText={transferErrors.from_warehouse_id?.message} onChange={(e) => { setTransferSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
-                    <MenuItem value="">Seleccione Origen</MenuItem>
+                  <TextField select label="Almacén origen" value={field.value || ""} error={!!transferErrors.from_warehouse_id} helperText={transferErrors.from_warehouse_id?.message} onChange={(e) => { setTransferSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Selecciona origen</MenuItem>
                     {warehouses.map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
                   </TextField>
                 )} />
               <Controller
                 control={transferControl} name="to_warehouse_id"
                 render={({ field }) => (
-                  <TextField select label="Bodega Destino" value={field.value || ""} error={!!transferErrors.to_warehouse_id} helperText={transferErrors.to_warehouse_id?.message} onChange={(e) => { setTransferSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
-                    <MenuItem value="">Seleccione Destino</MenuItem>
+                  <TextField select label="Almacén destino" value={field.value || ""} error={!!transferErrors.to_warehouse_id} helperText={transferErrors.to_warehouse_id?.message} onChange={(e) => { setTransferSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Selecciona destino</MenuItem>
                     {warehouses.map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
                   </TextField>
                 )} />
               <Controller
                 control={transferControl} name="product_id"
                 render={({ field }) => (
-                  <TextField select label="Producto Afectado" sx={{ gridColumn: "1 / -1" }} value={field.value || ""} error={!!transferErrors.product_id} helperText={transferErrors.product_id?.message} onChange={(e) => { setTransferSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
-                    <MenuItem value="">Elija el Producto</MenuItem>
+                  <TextField select label="Producto" sx={{ gridColumn: "1 / -1" }} value={field.value || ""} error={!!transferErrors.product_id} helperText={transferErrors.product_id?.message} onChange={(e) => { setTransferSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Selecciona un producto</MenuItem>
                     {products.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
                   </TextField>
                 )} />
-              <TextField label="Cantidad de Item" type="number" sx={{ gridColumn: "1 / -1" }} error={!!transferErrors.qty} helperText={transferErrors.qty?.message} inputProps={{ min: 1, step: 1 }} fullWidth {...registerTransfer("qty", { setValueAs: (v) => Number(v) || "0", onChange: () => setTransferSubmitError("") })} />
+              <TextField label="Cantidad" type="number" sx={{ gridColumn: "1 / -1" }} error={!!transferErrors.qty} helperText={transferErrors.qty?.message} inputProps={{ min: 1, step: 1 }} fullWidth {...registerTransfer("qty", { setValueAs: (v) => Number(v) || "0", onChange: () => setTransferSubmitError("") })} />
               <Button type="submit" variant="contained" sx={{ gridColumn: "1 / -1" }} disabled={!isTransferValid || isTransferSubmitting}>
-                Confirmar Transferencia
+                Confirmar transferencia
               </Button>
             </Box>
           </Paper>
 
           <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Auditorías y Ajustes de Stock</Typography>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Ajustes de stock</Typography>
             <Box component="form" onSubmit={handleAdjustmentSubmit(onAdjust)} sx={{ display: "grid", gap: 2 }}>
               {adjustmentSubmitError && <Alert severity="error">{adjustmentSubmitError}</Alert>}
               <Controller
                 control={adjustmentControl} name="product_id"
                 render={({ field }) => (
-                  <TextField select label="Artículo a Auditar" value={field.value || ""} error={!!adjustmentErrors.product_id} helperText={adjustmentErrors.product_id?.message} onChange={(e) => { setAdjustmentSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
-                    <MenuItem value="">Seleccione SKU</MenuItem>
+                  <TextField select label="Producto" value={field.value || ""} error={!!adjustmentErrors.product_id} helperText={adjustmentErrors.product_id?.message} onChange={(e) => { setAdjustmentSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Selecciona un producto</MenuItem>
                     {products.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
                   </TextField>
                 )} />
-              <TextField label="Diferencial de Ajuste (E.j. -5 o 10)" type="number" error={!!adjustmentErrors.qty} helperText={adjustmentErrors.qty?.message} fullWidth {...registerAdjustment("qty", { setValueAs: (v) => Number(v) || "0", onChange: () => setAdjustmentSubmitError("") })} />
-              <TextField label="Motivo (Ref)" error={!!adjustmentErrors.ref} helperText={adjustmentErrors.ref?.message} fullWidth {...registerAdjustment("ref", { onChange: () => setAdjustmentSubmitError("") })} />
+              <TextField label="Cantidad del ajuste (ej. -5 o 10)" type="number" error={!!adjustmentErrors.qty} helperText={adjustmentErrors.qty?.message} fullWidth {...registerAdjustment("qty", { setValueAs: (v) => Number(v) || "0", onChange: () => setAdjustmentSubmitError("") })} />
+              <TextField label="Referencia" error={!!adjustmentErrors.ref} helperText={adjustmentErrors.ref?.message} fullWidth {...registerAdjustment("ref", { onChange: () => setAdjustmentSubmitError("") })} />
               <Button type="submit" variant="contained" disabled={!isAdjustmentValid || isAdjustmentSubmitting}>
-                Efectuar Ajuste
+                Guardar ajuste
               </Button>
             </Box>
           </Paper>
 
           <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 } }}>
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Lotes del Proveedor</Typography>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 3, borderBottom: "1px solid var(--border-subtle)", pb: 1 }}>Lotes</Typography>
             <Box component="form" onSubmit={handleBatchSubmit(onBatch)} sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(2, 1fr)" }}>
               {batchSubmitError && <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{batchSubmitError}</Alert>}
               <Controller
                 control={batchControl} name="warehouse_id"
                 render={({ field }) => (
-                  <TextField select label="Recepción Bodega" value={field.value || ""} error={!!batchErrors.warehouse_id} helperText={batchErrors.warehouse_id?.message} onChange={(e) => { setBatchSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
-                    <MenuItem value="">Seleccione</MenuItem>
+                  <TextField select label="Almacén" value={field.value || ""} error={!!batchErrors.warehouse_id} helperText={batchErrors.warehouse_id?.message} onChange={(e) => { setBatchSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Selecciona</MenuItem>
                     {warehouses.map((w) => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
                   </TextField>
                 )} />
               <Controller
                 control={batchControl} name="product_id"
                 render={({ field }) => (
-                  <TextField select label="Lote de Producción" value={field.value || ""} error={!!batchErrors.product_id} helperText={batchErrors.product_id?.message} onChange={(e) => { setBatchSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
-                    <MenuItem value="">Asignar a Item</MenuItem>
+                  <TextField select label="Producto" value={field.value || ""} error={!!batchErrors.product_id} helperText={batchErrors.product_id?.message} onChange={(e) => { setBatchSubmitError(""); field.onChange(Number(e.target.value) || 0); }} fullWidth>
+                    <MenuItem value="">Selecciona un producto</MenuItem>
                     {products.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
                   </TextField>
                 )} />
-              <TextField label="Serial / Lote Code" sx={{ gridColumn: "1 / -1" }} error={!!batchErrors.lot} helperText={batchErrors.lot?.message} fullWidth {...registerBatch("lot", { onChange: () => setBatchSubmitError("") })} />
-              <TextField label="Vencimiento Comercial" type="date" InputLabelProps={{ shrink: true }} error={!!batchErrors.expiry_date} helperText={batchErrors.expiry_date?.message} fullWidth {...registerBatch("expiry_date", { onChange: () => setBatchSubmitError("") })} />
+              <TextField label="Código de lote" sx={{ gridColumn: "1 / -1" }} error={!!batchErrors.lot} helperText={batchErrors.lot?.message} fullWidth {...registerBatch("lot", { onChange: () => setBatchSubmitError("") })} />
+              <TextField label="Fecha de vencimiento" type="date" InputLabelProps={{ shrink: true }} error={!!batchErrors.expiry_date} helperText={batchErrors.expiry_date?.message} fullWidth {...registerBatch("expiry_date", { onChange: () => setBatchSubmitError("") })} />
               <TextField label="Unidades Iniciales" type="number" error={!!batchErrors.qty} helperText={batchErrors.qty?.message} inputProps={{ min: 1, step: 1 }} fullWidth {...registerBatch("qty", { setValueAs: (v) => Number(v) || "0", onChange: () => setBatchSubmitError("") })} />
               <Button type="submit" variant="contained" sx={{ gridColumn: "1 / -1" }} disabled={!isBatchValid || isBatchSubmitting}>
-                Grabar Datos de Recepción
+                Guardar lote
               </Button>
             </Box>
           </Paper>
@@ -656,11 +656,11 @@ const Inventory: React.FC = () => {
 
       {tab === 2 ? (
         <Paper className="glass-panel" sx={{ p: { xs: 2, md: 3 }, mt: 2 }}>
-          <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>Auditoría Histórica Multitemporal</Typography>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>Kardex</Typography>
           <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, mb: 3 }}>
             <TextField
               select
-              label="Inspeccionar Producto Específico"
+              label="Producto"
               value={kardexProductId || ""}
               onChange={(event) => handleKardexProductChange(event.target.value === "" ? 0 : Number(event.target.value))}
               helperText="Selecciona un ítem para revisar su movimiento histórico."
@@ -724,22 +724,22 @@ const Inventory: React.FC = () => {
           </Box>
 
           {kardexProductId === 0 ? (
-            <EmptyState title="Esperando Selección" description="La auditoría requiere que establezcas el artículo de interés antes de realizar consultas persistentes en el log." icon={<Inventory2Icon color="disabled" sx={{ fontSize: 40 }} />} />
+            <EmptyState title="Selecciona un producto" description="El kardex necesita un producto para mostrar sus movimientos." icon={<Inventory2Icon color="disabled" sx={{ fontSize: 40 }} />} />
           ) : kardexLoading ? (
-            <LoadingState title="Desempaquetando eventos..." rows={4} />
+            <LoadingState title="Cargando movimientos..." rows={4} />
           ) : kardexError ? (
-            <ErrorState title="Interrupción del repositorio de auditoría" onRetry={() => refetchKardex()} />
+            <ErrorState title="No se pudo cargar el kardex" onRetry={() => refetchKardex()} />
           ) : (kardex?.items || []).length === 0 ? (
-            <EmptyState title="Vacío Operacional" description="No hay movimientos con los filtros actuales." icon={<Inventory2Icon color="disabled" sx={{ fontSize: 40 }} />} />
+            <EmptyState title="Sin movimientos" description="No hay movimientos con los filtros actuales." icon={<Inventory2Icon color="disabled" sx={{ fontSize: 40 }} />} />
           ) : (
             <>
               <ResizableTable minHeight={400}>
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 800 }}>Timestamp del Evento</TableCell>
-                      <TableCell sx={{ fontWeight: 800 }}>Tipo Operación</TableCell>
-                      <TableCell sx={{ fontWeight: 800 }}>Impacto Neto (Cantidad)</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Fecha y hora</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Tipo de operación</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Cantidad</TableCell>
                       <TableCell sx={{ fontWeight: 800 }}>Comprobante</TableCell>
                     </TableRow>
                   </TableHead>

@@ -19,10 +19,10 @@ export const adminRoutes: AppRoute[] = [
 ];
 
 export const adminMenu: MenuSection = {
-  title: "Administracion",
+  title: "Administración",
   items: [
     { label: "Usuarios", path: "/users", roles: ["admin"], icon: <GroupIcon fontSize="small" /> },
-    { label: "Configuracion general", path: "/admin", roles: ["admin"], icon: <AdminPanelSettingsIcon fontSize="small" /> },
+    { label: "Configuración general", path: "/admin", roles: ["admin"], icon: <AdminPanelSettingsIcon fontSize="small" /> },
     { label: "Permisos por rol", path: "/admin/permissions", roles: ["admin"], icon: <SecurityIcon fontSize="small" /> },
     { label: "Plantillas de documentos", path: "/admin/document-templates", roles: ["admin"], icon: <DesignServicesIcon fontSize="small" /> },
   ],

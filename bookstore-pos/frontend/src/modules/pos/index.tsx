@@ -22,7 +22,7 @@ export const posRoutes: AppRoute[] = [
 ];
 
 export const posMenu: MenuSection = {
-  title: "Operacion",
+  title: "Operación",
   items: [
     { label: "Punto de venta", path: "/pos", roles: ["admin", "cashier"], icon: <PointOfSaleIcon fontSize="small" /> },
     { label: "Historial de ventas", path: "/sales-history", roles: ["admin", "cashier"], icon: <ReceiptLongIcon fontSize="small" /> },

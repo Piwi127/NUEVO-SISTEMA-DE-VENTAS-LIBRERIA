@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { apiLogin, ensureProduct } from "./helpers/api";
-import { loginFromUi } from "./helpers/ui";
+import { getPosSearchInput, loginFromUi } from "./helpers/ui";
 
 test("POS-Display: requiere auth y sincroniza carrito en pantalla dual", async ({ page, context, request }) => {
   await page.goto("/display/e2e-unauth");
@@ -28,7 +28,7 @@ test("POS-Display: requiere auth y sincroniza carrito en pantalla dual", async (
   await displayPage.goto(`/display/${sessionId}`);
   await expect(displayPage.getByText("Total:")).toBeVisible();
 
-  const searchInput = page.getByLabel(/A.*adir Item/i);
+  const searchInput = getPosSearchInput(page);
   await searchInput.fill(product.sku);
   await expect(page.getByText(product.name, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   await searchInput.press("Enter");

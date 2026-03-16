@@ -26,7 +26,7 @@ export const catalogRoutes: AppRoute[] = [
 ];
 
 export const catalogMenu: MenuSection = {
-  title: "Catalogo",
+  title: "Catálogo",
   items: [
     { label: "Clientes", path: "/customers", roles: ["admin", "cashier"], icon: <PeopleAltIcon fontSize="small" /> },
     { label: "Productos", path: "/products", roles: ["admin", "stock"], icon: <CategoryIcon fontSize="small" /> },

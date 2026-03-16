@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { apiLogin, createPackRule, ensureCashOpen, ensureProduct } from "./helpers/api";
-import { loginFromUi } from "./helpers/ui";
+import { getPosSearchInput, loginFromUi } from "./helpers/ui";
 
 type ReceiptItem = {
   product_id: number;
@@ -48,7 +48,7 @@ test("promo pack 3x2.50: aplica en POS y persiste en venta", async ({ page, requ
   await loginFromUi(page);
   await page.goto("/pos");
 
-  const searchInput = page.getByLabel(/A.*adir Item/i);
+  const searchInput = getPosSearchInput(page);
   await searchInput.fill(product.sku);
   const resultItem = page.locator("li").filter({ hasText: product.name }).first();
   await expect(resultItem).toBeVisible({ timeout: 15_000 });
@@ -56,11 +56,11 @@ test("promo pack 3x2.50: aplica en POS y persiste en venta", async ({ page, requ
   await searchInput.press("Enter");
   await searchInput.press("Enter");
 
-  const checkoutPanel = page.locator(".MuiPaper-root").filter({ hasText: /BOLETA EN CURSO/i }).first();
-  await expect(checkoutPanel.getByText(/Pack 3x2\.50 E2E/i).first()).toBeVisible({ timeout: 15_000 });
-  await expect(checkoutPanel.getByText(/2[.,]50/).first()).toBeVisible();
+  await expect(page.getByText(/Pack 3x2\.50 E2E/i).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Paquetes/i).first()).toBeVisible();
+  await expect(page.getByText(/-S\/\s*0\.50/).first()).toBeVisible();
 
-  await page.getByRole("button", { name: /Cobrar \/ Facturar/i }).first().click();
+  await page.getByRole("button", { name: /Cobrar venta|Cobrar \/ Facturar/i }).first().click();
   await page.getByRole("button", { name: /Autocompletar Efectivo|Completar efectivo/i }).click();
   const saleResponsePromise = page.waitForResponse((response) => {
     return response.url().includes("/sales") && response.request().method() === "POST" && response.status() === 201;

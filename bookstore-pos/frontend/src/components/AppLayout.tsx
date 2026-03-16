@@ -44,28 +44,28 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const SECTION_META: Record<string, SectionMeta> = {
-  Operacion: {
-    description: "Ventas, caja y atencion en mostrador.",
+  "Operación": {
+    description: "Ventas, caja y atención en mostrador.",
     accent: "#1E3A5F",
     surface: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
   },
-  Catalogo: {
+  "Catálogo": {
     description: "Productos, clientes, precios y promociones.",
     accent: "#0D9488",
     surface: "linear-gradient(180deg, #FFFFFF 0%, #F0FDFA 100%)",
   },
   "Inventario y compras": {
-    description: "Stock, recepcion y compras.",
+    description: "Stock, recepción y compras.",
     accent: "#6366F1",
     surface: "linear-gradient(180deg, #FFFFFF 0%, #EEF2FF 100%)",
   },
   Reportes: {
-    description: "Indicadores y consultas de gestion.",
+    description: "Indicadores y consultas de gestión.",
     accent: "#F59E0B",
     surface: "linear-gradient(180deg, #FFFFFF 0%, #FFFBEB 100%)",
   },
-  Administracion: {
-    description: "Usuarios, permisos y configuracion general.",
+  "Administración": {
+    description: "Usuarios, permisos y configuración general.",
     accent: "#EC4899",
     surface: "linear-gradient(180deg, #FFFFFF 0%, #FDF2F8 100%)",
   },
@@ -392,7 +392,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                   {projectLabel}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
-                  Sistema de gestion
+                  Sistema de gestión
                 </Typography>
               </Box>
             </Stack>
@@ -401,7 +401,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
               <IconButton
                 size="small"
                 onClick={() => closeDesktopNav(true)}
-                aria-label="Ocultar menu principal"
+                aria-label="Ocultar menú principal"
                 sx={{
                   border: "1px solid #E2E8F0",
                   bgcolor: "#FFFFFF",
@@ -427,7 +427,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
             <Chip
               size="small"
               icon={<CircleIcon sx={{ fontSize: "0.5rem !important" }} />}
-              label={healthOk ? "En linea" : "Sin conexion"}
+              label={healthOk ? "En línea" : "Sin conexión"}
               color={healthOk ? "success" : "error"}
               variant={healthOk ? "outlined" : "filled"}
               sx={{ fontWeight: 500 }}
@@ -456,7 +456,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           onClick={handleLogout}
           sx={{ width: "100%", justifyContent: "flex-start", minHeight: 44 }}
         >
-          Cerrar sesion
+          Cerrar sesión
         </Button>
       </Paper>
     </Box>
@@ -560,7 +560,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                   <IconButton
                     color="primary"
                     onClick={handleDesktopMenuToggle}
-                    aria-label={desktopNavOpen && !useDrawerNavigation ? "Ocultar menu principal" : "Abrir menu principal"}
+                    aria-label={desktopNavOpen && !useDrawerNavigation ? "Ocultar menú principal" : "Abrir menú principal"}
                     aria-expanded={useDrawerNavigation ? mobileNavOpen : desktopNavOpen}
                     sx={{
                       border: "1px solid #E2E8F0",
@@ -594,7 +594,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                 </Stack>
 
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-                  {!healthOk ? <Chip label="Sin conexion" size="small" color="error" /> : null}
+                  {!healthOk ? <Chip label="Sin conexión" size="small" color="error" /> : null}
                   {username ? (
                     <Chip
                       label={username}
@@ -610,7 +610,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                     <IconButton
                       color="primary"
                       onClick={handleLogout}
-                      aria-label="Cerrar sesion"
+                      aria-label="Cerrar sesión"
                       sx={{
                         border: "1px solid #E2E8F0",
                         bgcolor: "#F8FAFC",

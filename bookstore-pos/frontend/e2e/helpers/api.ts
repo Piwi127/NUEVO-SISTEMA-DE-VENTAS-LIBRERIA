@@ -16,6 +16,37 @@ type Product = {
   stock_min: number;
 };
 
+type Supplier = {
+  id: number;
+  name: string;
+  phone?: string | null;
+};
+
+type Warehouse = {
+  id: number;
+  name: string;
+  location: string;
+};
+
+type SystemSettings = {
+  project_name: string;
+  currency: string;
+  tax_rate: number;
+  tax_included: boolean;
+  store_address: string;
+  store_phone: string;
+  store_tax_id: string;
+  logo_url: string;
+  payment_methods: string;
+  invoice_prefix: string;
+  invoice_next: number;
+  receipt_header: string;
+  receipt_footer: string;
+  paper_width_mm: number;
+  print_templates_enabled: boolean;
+  default_warehouse_id?: number | null;
+};
+
 type SaleResponse = {
   id: number;
   invoice_number: string;
@@ -81,6 +112,59 @@ export const ensureProduct = async (
   });
   expect(createResp.ok()).toBeTruthy();
   return (await createResp.json()) as Product;
+};
+
+export const ensureSupplier = async (api: APIRequestContext, csrf: string, name: string): Promise<Supplier> => {
+  const listResp = await api.get(`${API_URL}/suppliers`);
+  expect(listResp.ok()).toBeTruthy();
+  const suppliers = (await listResp.json()) as Supplier[];
+  const found = suppliers.find((supplier) => supplier.name === name);
+  if (found) return found;
+
+  const createResp = await api.post(`${API_URL}/suppliers`, {
+    headers: { "X-CSRF-Token": csrf },
+    data: { name, phone: "999999999" },
+  });
+  expect(createResp.ok()).toBeTruthy();
+  return (await createResp.json()) as Supplier;
+};
+
+export const ensureDefaultWarehouse = async (
+  api: APIRequestContext,
+  csrf: string,
+  preferredName = "Almacen Principal E2E"
+): Promise<Warehouse> => {
+  const settingsResp = await api.get(`${API_URL}/settings`);
+  expect(settingsResp.ok()).toBeTruthy();
+  const settings = (await settingsResp.json()) as SystemSettings;
+
+  const listResp = await api.get(`${API_URL}/warehouses`);
+  expect(listResp.ok()).toBeTruthy();
+  const warehouses = (await listResp.json()) as Warehouse[];
+
+  let warehouse =
+    warehouses.find((item) => item.id === settings.default_warehouse_id) ||
+    warehouses.find((item) => item.name === preferredName) ||
+    warehouses[0];
+
+  if (!warehouse) {
+    const createResp = await api.post(`${API_URL}/warehouses`, {
+      headers: { "X-CSRF-Token": csrf },
+      data: { name: preferredName, location: "E2E" },
+    });
+    expect(createResp.ok()).toBeTruthy();
+    warehouse = (await createResp.json()) as Warehouse;
+  }
+
+  if (settings.default_warehouse_id !== warehouse.id) {
+    const updateResp = await api.put(`${API_URL}/settings`, {
+      headers: { "X-CSRF-Token": csrf },
+      data: { ...settings, default_warehouse_id: warehouse.id },
+    });
+    expect(updateResp.ok()).toBeTruthy();
+  }
+
+  return warehouse;
 };
 
 export const createPackRule = async (

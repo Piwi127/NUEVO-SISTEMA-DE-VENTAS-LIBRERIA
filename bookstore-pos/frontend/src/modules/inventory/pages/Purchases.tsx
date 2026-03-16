@@ -136,6 +136,7 @@ const Purchases: React.FC = () => {
   const [orderSubmitError, setOrderSubmitError] = useState("");
   const [receiveSubmitError, setReceiveSubmitError] = useState("");
   const [paymentSubmitError, setPaymentSubmitError] = useState("");
+  const [creatingOrder, setCreatingOrder] = useState(false);
 
   const { data: products, isLoading: loadingProducts } = useQuery({ queryKey: ["products"], queryFn: () => listProducts(), staleTime: 60_000 });
   const { data: suppliers, isLoading: loadingSuppliers } = useQuery({ queryKey: ["suppliers"], queryFn: () => listSuppliers(), staleTime: 60_000 });
@@ -157,8 +158,7 @@ const Purchases: React.FC = () => {
     setValue: setOrderValue,
     reset: resetOrder,
     trigger: triggerOrder,
-    handleSubmit: handleOrderSubmit,
-    formState: { errors: orderErrors, isDirty: isOrderDirty, isSubmitting: isOrderSubmitting, isValid: isOrderValid },
+    formState: { errors: orderErrors, isDirty: isOrderDirty, isValid: isOrderValid },
   } = useForm<OrderFormValues>({ resolver: zodResolver(orderFormSchema), mode: "onChange", defaultValues: defaultOrderValues });
 
   const {
@@ -233,7 +233,7 @@ const Purchases: React.FC = () => {
     setItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   };
 
-  const onCreateOrder = async (values: OrderFormValues) => {
+  const onCreateOrder = async (supplierId: number) => {
     setOrderSubmitError("");
     if (items.length === 0) {
       setOrderSubmitError("Agrega al menos un item antes de crear la orden.");
@@ -241,7 +241,8 @@ const Purchases: React.FC = () => {
       return;
     }
     try {
-      await createPurchaseOrder({ supplier_id: Number(values.supplier_id), items });
+      setCreatingOrder(true);
+      await createPurchaseOrder({ supplier_id: supplierId, items });
       showToast({ message: "OC creada", severity: "success" });
       setItems([]);
       resetOrder(defaultOrderValues);
@@ -250,7 +251,19 @@ const Purchases: React.FC = () => {
       const message = extractErrorDetail(error, "No se pudo crear la OC");
       setOrderSubmitError(message);
       showToast({ message, severity: "error" });
+    } finally {
+      setCreatingOrder(false);
     }
+  };
+
+  const handleCreateOrder = async () => {
+    setOrderSubmitError("");
+    const supplierValid = await triggerOrder("supplier_id");
+    if (!supplierValid) {
+      showToast({ message: "Selecciona un proveedor antes de crear la orden.", severity: "warning" });
+      return;
+    }
+    await onCreateOrder(Number(getOrderValues("supplier_id")));
   };
 
   const loadOrderItems = async (orderId: number) => {
@@ -294,7 +307,7 @@ const Purchases: React.FC = () => {
         lot_prefix: values.lot_prefix.trim(),
       });
       showToast({
-        message: `Recepcion registrada. Subtotal: ${formatMoney(result?.subtotal || 0)} | Total: ${formatMoney(result?.total || 0)}`,
+        message: `Recepción registrada. Subtotal: ${formatMoney(result?.subtotal || 0)} | Total: ${formatMoney(result?.total || 0)}`,
         severity: "success",
       });
       await Promise.all([
@@ -308,7 +321,7 @@ const Purchases: React.FC = () => {
         lot_prefix: values.lot_prefix.trim(),
       });
     } catch (error: unknown) {
-      const message = extractErrorDetail(error, "No se pudo registrar la recepcion");
+      const message = extractErrorDetail(error, "No se pudo registrar la recepción");
       setReceiveSubmitError(message);
       showToast({ message, severity: "error" });
     }
@@ -354,7 +367,7 @@ const Purchases: React.FC = () => {
     <Box sx={{ display: "grid", gap: 1.5 }}>
       <PageHeader
         title="Compras"
-        subtitle="Ordenes, recepcion y pagos de proveedores."
+        subtitle="Órdenes, recepción y pagos de proveedores."
         icon={<LocalShippingIcon color="primary" />}
         chips={[
           `OC abiertas: ${(orders || []).filter((order) => order.status === "OPEN").length}`,
@@ -366,7 +379,7 @@ const Purchases: React.FC = () => {
       <Paper sx={{ p: { xs: 0.9, md: 1.05 } }}>
         <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" allowScrollButtonsMobile>
           <Tab label="Orden de compra" />
-          <Tab label="Recepcion" />
+          <Tab label="Recepción" />
           <Tab label="Pagos" />
           <Tab label="Historial" />
         </Tabs>
@@ -377,7 +390,7 @@ const Purchases: React.FC = () => {
           <Typography variant="h6" sx={{ mb: 2 }}>
             Orden de compra
           </Typography>
-          <Box component="form" onSubmit={handleOrderSubmit(onCreateOrder)} sx={{ display: "grid", gap: 2 }}>
+          <Box component="form" onSubmit={(event) => event.preventDefault()} sx={{ display: "grid", gap: 2 }}>
             {orderSubmitError ? <Alert severity="error">{orderSubmitError}</Alert> : null}
             {isOrderDirty || items.length > 0 ? (
               <Typography variant="caption" color="text.secondary">
@@ -502,8 +515,8 @@ const Purchases: React.FC = () => {
               )
             ) : null}
 
-            <Button type="submit" fullWidth={isCompact} variant="contained" disabled={isOrderSubmitting || items.length === 0}>
-              {isOrderSubmitting ? "Creando..." : "Crear OC"}
+            <Button type="button" fullWidth={isCompact} variant="contained" disabled={creatingOrder || items.length === 0} onClick={handleCreateOrder}>
+              {creatingOrder ? "Creando..." : "Crear OC"}
             </Button>
           </Box>
         </Paper>
@@ -512,13 +525,13 @@ const Purchases: React.FC = () => {
       {tab === 1 ? (
         <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
-            Recepcion parcial
+            Recepción parcial
           </Typography>
           <Box component="form" onSubmit={handleReceiveSubmit(onReceive)} sx={{ display: "grid", gap: 2 }}>
             {receiveSubmitError ? <Alert severity="error">{receiveSubmitError}</Alert> : null}
             {isReceiveDirty ? (
               <Typography variant="caption" color="text.secondary">
-                Hay cambios pendientes en la recepcion. Verifica cantidades y costos directos antes de registrar.
+                Hay cambios pendientes en la recepción. Verifica cantidades y costos directos antes de registrar.
               </Typography>
             ) : null}
             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: isCompact ? "1fr" : "repeat(auto-fit, minmax(220px, 1fr))" }}>
@@ -629,11 +642,11 @@ const Purchases: React.FC = () => {
               <TextField
                 label="Prefijo lote"
                 error={!!receiveErrors.lot_prefix}
-                helperText={receiveErrors.lot_prefix?.message || "Prefijo usado para generar lotes de recepcion."}
+                    helperText={receiveErrors.lot_prefix?.message || "Prefijo usado para generar lotes de recepción."}
                 {...registerReceive("lot_prefix", { onChange: () => setReceiveSubmitError("") })}
               />
               <Button type="submit" variant="contained" fullWidth={isCompact} disabled={!isReceiveValid || isReceiveSubmitting || loadingOrderItems}>
-                {isReceiveSubmitting ? "Registrando..." : "Registrar recepcion"}
+                {isReceiveSubmitting ? "Registrando..." : "Registrar recepción"}
               </Button>
             </Box>
 
@@ -709,7 +722,7 @@ const Purchases: React.FC = () => {
                 })}
               />
               <TextField
-                label="Metodo"
+                label="Método"
                 error={!!paymentErrors.pay_method}
                 helperText={paymentErrors.pay_method?.message || "Ejemplo: TRANSFER, CASH, CARD."}
                 {...registerPayment("pay_method", { onChange: () => setPaymentSubmitError("") })}
@@ -730,7 +743,7 @@ const Purchases: React.FC = () => {
 
       {tab === 3 ? (
         <>
-          <TableToolbar title="Historial de compras" subtitle="Consulta y exportacion por fecha y proveedor.">
+          <TableToolbar title="Historial de compras" subtitle="Consulta y exportación por fecha y proveedor.">
             <TextField type="date" label="Desde" value={histFrom} onChange={(event) => setHistFrom(event.target.value)} InputLabelProps={{ shrink: true }} />
             <TextField type="date" label="Hasta" value={histTo} onChange={(event) => setHistTo(event.target.value)} InputLabelProps={{ shrink: true }} />
             <TextField
