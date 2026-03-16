@@ -1,5 +1,23 @@
 export type Currency = "PEN" | "USD" | "EUR";
 
+export type PublicSettingsPatch = {
+  project_name: string;
+  currency: string;
+  tax_rate: number;
+  tax_included: boolean;
+  store_address: string;
+  store_phone: string;
+  store_tax_id: string;
+  logo_url: string;
+  payment_methods: string;
+  invoice_prefix: string;
+  invoice_next: number;
+  receipt_header: string;
+  receipt_footer: string;
+  paper_width_mm: number;
+  default_warehouse_id?: number | null;
+};
+
 type SettingsState = {
   currency: Currency;
   projectName: string;
@@ -48,6 +66,29 @@ const listeners = new Set<Listener>();
 
 let snapshot: SettingsState = { ...state };
 
+const normalizeCurrency = (currency: string): Currency => {
+  if (currency === "USD" || currency === "EUR") return currency;
+  return "PEN";
+};
+
+const updateState = (patch: Partial<SettingsState>) => {
+  let changed = false;
+  const mutableState = state as Record<keyof SettingsState, SettingsState[keyof SettingsState]>;
+  const nextState = patch as Partial<Record<keyof SettingsState, SettingsState[keyof SettingsState]>>;
+
+  (Object.keys(nextState) as Array<keyof SettingsState>).forEach((key) => {
+    const nextValue = nextState[key];
+    if (nextValue === undefined) return;
+    if (mutableState[key] === nextValue) return;
+    mutableState[key] = nextValue;
+    changed = true;
+  });
+
+  if (!changed) return;
+  persist();
+  emit();
+};
+
 const emit = () => {
   snapshot = { ...state };
   listeners.forEach((l) => l());
@@ -58,7 +99,7 @@ const load = () => {
   if (!raw) return;
   try {
     const parsed = JSON.parse(raw) as Partial<SettingsState>;
-    if (parsed.currency) state.currency = parsed.currency;
+    if (typeof parsed.currency === "string") state.currency = normalizeCurrency(parsed.currency);
     if (parsed.projectName) state.projectName = parsed.projectName;
     if (typeof parsed.taxRate === "number") state.taxRate = parsed.taxRate;
     if (typeof parsed.taxIncluded === "boolean") state.taxIncluded = parsed.taxIncluded;
@@ -90,89 +131,74 @@ load();
 export const settingsStore = {
   get: () => snapshot,
   setCurrency: (currency: Currency) => {
-    state.currency = currency;
-    persist();
-    emit();
+    updateState({ currency });
   },
   setProjectName: (projectName: string) => {
-    state.projectName = projectName;
-    persist();
-    emit();
+    updateState({ projectName });
   },
   setTaxRate: (taxRate: number) => {
-    state.taxRate = taxRate;
-    persist();
-    emit();
+    updateState({ taxRate });
   },
   setTaxIncluded: (taxIncluded: boolean) => {
-    state.taxIncluded = taxIncluded;
-    persist();
-    emit();
+    updateState({ taxIncluded });
   },
   setCompactMode: (compactMode: boolean) => {
-    state.compactMode = compactMode;
-    persist();
-    emit();
+    updateState({ compactMode });
   },
   setStoreAddress: (storeAddress: string) => {
-    state.storeAddress = storeAddress;
-    persist();
-    emit();
+    updateState({ storeAddress });
   },
   setStorePhone: (storePhone: string) => {
-    state.storePhone = storePhone;
-    persist();
-    emit();
+    updateState({ storePhone });
   },
   setStoreTaxId: (storeTaxId: string) => {
-    state.storeTaxId = storeTaxId;
-    persist();
-    emit();
+    updateState({ storeTaxId });
   },
   setLogoUrl: (logoUrl: string) => {
-    state.logoUrl = logoUrl;
-    persist();
-    emit();
+    updateState({ logoUrl });
   },
   setPaymentMethods: (paymentMethods: string) => {
-    state.paymentMethods = paymentMethods;
-    persist();
-    emit();
+    updateState({ paymentMethods });
   },
   setInvoicePrefix: (invoicePrefix: string) => {
-    state.invoicePrefix = invoicePrefix;
-    persist();
-    emit();
+    updateState({ invoicePrefix });
   },
   setInvoiceNext: (invoiceNext: number) => {
-    state.invoiceNext = invoiceNext;
-    persist();
-    emit();
+    updateState({ invoiceNext });
   },
   setReceiptHeader: (receiptHeader: string) => {
-    state.receiptHeader = receiptHeader;
-    persist();
-    emit();
+    updateState({ receiptHeader });
   },
   setReceiptFooter: (receiptFooter: string) => {
-    state.receiptFooter = receiptFooter;
-    persist();
-    emit();
+    updateState({ receiptFooter });
   },
   setPaperWidthMm: (paperWidthMm: number) => {
-    state.paperWidthMm = paperWidthMm;
-    persist();
-    emit();
+    updateState({ paperWidthMm });
   },
   setPrintTemplatesEnabled: (printTemplatesEnabled: boolean) => {
-    state.printTemplatesEnabled = printTemplatesEnabled;
-    persist();
-    emit();
+    updateState({ printTemplatesEnabled });
   },
   setDefaultWarehouseId: (defaultWarehouseId: number | null) => {
-    state.defaultWarehouseId = defaultWarehouseId;
-    persist();
-    emit();
+    updateState({ defaultWarehouseId });
+  },
+  applyPublicSettings: (settings: PublicSettingsPatch) => {
+    updateState({
+      projectName: settings.project_name,
+      currency: normalizeCurrency(settings.currency),
+      taxRate: settings.tax_rate,
+      taxIncluded: settings.tax_included,
+      storeAddress: settings.store_address,
+      storePhone: settings.store_phone,
+      storeTaxId: settings.store_tax_id,
+      logoUrl: settings.logo_url,
+      paymentMethods: settings.payment_methods,
+      invoicePrefix: settings.invoice_prefix,
+      invoiceNext: settings.invoice_next,
+      receiptHeader: settings.receipt_header,
+      receiptFooter: settings.receipt_footer,
+      paperWidthMm: settings.paper_width_mm,
+      defaultWarehouseId: settings.default_warehouse_id ?? null,
+    });
   },
   subscribe: (listener: Listener) => {
     listeners.add(listener);

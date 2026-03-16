@@ -155,6 +155,7 @@ export const useProductForm = (props?: UseProductFormProps) => {
     const qc = useQueryClient();
     const { showToast } = useToast();
     const { productId: routeId } = useParams();
+    const onComplete = props?.onComplete;
 
     const resolvedId = props?.productId !== undefined ? props.productId : Number(routeId);
     const isEditing = Number.isFinite(resolvedId) && (resolvedId ?? 0) > 0;
@@ -269,11 +270,17 @@ export const useProductForm = (props?: UseProductFormProps) => {
     };
 
     const closeTabOrGoBack = () => {
-        if (typeof window !== "undefined" && window.opener && !window.opener.closed) {
-            window.close();
+        if (onComplete) {
+            onComplete();
             return;
         }
-        navigate("/products");
+
+        // Try navigate first, fallback to window.location
+        try {
+            navigate("/products", { replace: true });
+        } catch {
+            window.location.href = "/products";
+        }
     };
 
     const pricingPayload = (values: MarginInputs): PricingPreviewPayload => {

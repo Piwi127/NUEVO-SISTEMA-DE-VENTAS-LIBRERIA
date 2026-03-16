@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { settingsStore, Currency } from "@/store/settingsStore";
+import { settingsStore, Currency, PublicSettingsPatch } from "@/store/settingsStore";
 
 export const useSettings = () => {
   const snapshot = useSyncExternalStore(settingsStore.subscribe, settingsStore.get, settingsStore.get);
@@ -22,6 +22,7 @@ export const useSettings = () => {
     setPaperWidthMm: settingsStore.setPaperWidthMm,
     setPrintTemplatesEnabled: settingsStore.setPrintTemplatesEnabled,
     setDefaultWarehouseId: settingsStore.setDefaultWarehouseId,
+    applyPublicSettings: settingsStore.applyPublicSettings,
   } as {
     currency: Currency;
     projectName: string;
@@ -57,5 +58,6 @@ export const useSettings = () => {
     setPaperWidthMm: (n: number) => void;
     setPrintTemplatesEnabled: (n: boolean) => void;
     setDefaultWarehouseId: (n: number | null) => void;
+    applyPublicSettings: (settings: PublicSettingsPatch) => void;
   };
 };

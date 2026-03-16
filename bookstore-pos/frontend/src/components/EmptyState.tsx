@@ -1,6 +1,5 @@
 import React from "react";
 import { Box, Button, Paper, Typography } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 
 type EmptyStateProps = {
   title: string;

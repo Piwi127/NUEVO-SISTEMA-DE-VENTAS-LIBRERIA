@@ -1,6 +1,5 @@
 import React from "react";
 import { Box, Paper, Typography } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 
 type Field = {
   label: string;

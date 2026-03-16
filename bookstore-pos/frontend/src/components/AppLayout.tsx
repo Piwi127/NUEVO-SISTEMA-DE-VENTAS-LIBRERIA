@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Box,
   Button,
   ButtonBase,
   Chip,
-  Divider,
   Drawer,
   IconButton,
   Paper,
@@ -14,8 +14,8 @@ import {
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/Menu";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import LogoutIcon from "@mui/icons-material/Logout";
-import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import CircleIcon from "@mui/icons-material/Circle";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -25,6 +25,9 @@ import { getPublicSettings } from "@/modules/admin/api";
 import { api } from "@/modules/shared/api";
 import { menuSections } from "@/modules/registry";
 import type { MenuSection } from "@/modules/shared/registryTypes";
+
+const DESKTOP_NAV_WIDTH = 296;
+const EDGE_TRIGGER_WIDTH = 18;
 
 const matchesPath = (pathname: string, itemPath: string) => pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 
@@ -42,7 +45,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const SECTION_META: Record<string, SectionMeta> = {
   Operacion: {
-    description: "Ventas, caja y atención en mostrador.",
+    description: "Ventas, caja y atencion en mostrador.",
     accent: "#1E3A5F",
     surface: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
   },
@@ -52,17 +55,17 @@ const SECTION_META: Record<string, SectionMeta> = {
     surface: "linear-gradient(180deg, #FFFFFF 0%, #F0FDFA 100%)",
   },
   "Inventario y compras": {
-    description: "Stock, recepción y compras.",
+    description: "Stock, recepcion y compras.",
     accent: "#6366F1",
     surface: "linear-gradient(180deg, #FFFFFF 0%, #EEF2FF 100%)",
   },
   Reportes: {
-    description: "Indicadores y consultas de gestión.",
+    description: "Indicadores y consultas de gestion.",
     accent: "#F59E0B",
     surface: "linear-gradient(180deg, #FFFFFF 0%, #FFFBEB 100%)",
   },
   Administracion: {
-    description: "Usuarios, permisos y configuración general.",
+    description: "Usuarios, permisos y configuracion general.",
     accent: "#EC4899",
     surface: "linear-gradient(180deg, #FFFFFF 0%, #FDF2F8 100%)",
   },
@@ -79,32 +82,28 @@ const getSectionMeta = (title?: string) => (title ? SECTION_META[title] ?? DEFAU
 export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const theme = useTheme();
   const useDrawerNavigation = useMediaQuery(theme.breakpoints.down("lg"));
+  const closeTimerRef = useRef<number | null>(null);
   const [desktopNavOpen, setDesktopNavOpen] = useState(false);
+  const [desktopNavPinned, setDesktopNavPinned] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [healthOk, setHealthOk] = useState(true);
 
   const { role, username, logout } = useAuth();
-  const {
-    projectName,
-    logoUrl,
-    setProjectName,
-    setCurrency,
-    setTaxRate,
-    setTaxIncluded,
-    setStoreAddress,
-    setStorePhone,
-    setStoreTaxId,
-    setLogoUrl,
-    setPaymentMethods,
-    setInvoicePrefix,
-    setInvoiceNext,
-    setReceiptHeader,
-    setReceiptFooter,
-    setPaperWidthMm,
-    setDefaultWarehouseId,
-  } = useSettings();
+  const { projectName, logoUrl, applyPublicSettings } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const publicSettingsQuery = useQuery({
+    queryKey: ["public-settings"],
+    queryFn: getPublicSettings,
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (!publicSettingsQuery.data) return;
+    applyPublicSettings(publicSettingsQuery.data);
+  }, [applyPublicSettings, publicSettingsQuery.data]);
 
   const filteredSections = useMemo(
     () =>
@@ -122,53 +121,44 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
     flatItems.filter((item) => matchesPath(location.pathname, item.path)).sort((a, b) => b.path.length - a.path.length)[0] ||
     flatItems[0];
   const activeSection =
-    filteredSections.find((section) => section.items.some((item) => item.path === activeItem?.path)) || filteredSections[0];
+    filteredSections.find((section) => section.items.some((item) => matchesPath(location.pathname, item.path))) ||
+    filteredSections[0];
   const activeMeta = getSectionMeta(activeSection?.title);
   const projectLabel = projectName || "Sistema";
   const roleLabel = role ? ROLE_LABELS[role] ?? role : "Usuario";
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const settings = await getPublicSettings();
-        setProjectName(settings.project_name);
-        setCurrency(settings.currency as any);
-        setTaxRate(settings.tax_rate);
-        setTaxIncluded(settings.tax_included);
-        setStoreAddress(settings.store_address);
-        setStorePhone(settings.store_phone);
-        setStoreTaxId(settings.store_tax_id);
-        setLogoUrl(settings.logo_url);
-        setPaymentMethods(settings.payment_methods);
-        setInvoicePrefix(settings.invoice_prefix);
-        setInvoiceNext(settings.invoice_next);
-        setReceiptHeader(settings.receipt_header);
-        setReceiptFooter(settings.receipt_footer);
-        setPaperWidthMm(settings.paper_width_mm);
-        setDefaultWarehouseId(settings.default_warehouse_id ?? null);
-      } catch {
-        // ignore
-      }
-    };
+  const clearDesktopCloseTimer = () => {
+    if (closeTimerRef.current === null) return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  };
 
-    load();
-  }, [
-    setCurrency,
-    setDefaultWarehouseId,
-    setInvoiceNext,
-    setInvoicePrefix,
-    setLogoUrl,
-    setPaperWidthMm,
-    setPaymentMethods,
-    setProjectName,
-    setReceiptFooter,
-    setReceiptHeader,
-    setStoreAddress,
-    setStorePhone,
-    setStoreTaxId,
-    setTaxIncluded,
-    setTaxRate,
-  ]);
+  const openDesktopNav = (pinned = false) => {
+    if (useDrawerNavigation) return;
+    clearDesktopCloseTimer();
+    setDesktopNavOpen(true);
+    if (pinned) setDesktopNavPinned(true);
+  };
+
+  const scheduleDesktopNavClose = () => {
+    if (useDrawerNavigation || desktopNavPinned) return;
+    clearDesktopCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      setDesktopNavOpen(false);
+    }, 140);
+  };
+
+  const closeDesktopNav = (force = false) => {
+    clearDesktopCloseTimer();
+    if (force || !desktopNavPinned) {
+      setDesktopNavOpen(false);
+      setDesktopNavPinned(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => clearDesktopCloseTimer();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -193,13 +183,30 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   useEffect(() => {
     setMobileNavOpen(false);
     setDesktopNavOpen(false);
+    setDesktopNavPinned(false);
+    clearDesktopCloseTimer();
   }, [location.pathname]);
 
   useEffect(() => {
-    if (useDrawerNavigation) {
-      setDesktopNavOpen(false);
-    }
+    if (!useDrawerNavigation) return;
+    setDesktopNavOpen(false);
+    setDesktopNavPinned(false);
+    clearDesktopCloseTimer();
   }, [useDrawerNavigation]);
+
+  useEffect(() => {
+    if (useDrawerNavigation || !desktopNavOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setDesktopNavPinned(false);
+      setDesktopNavOpen(false);
+      clearDesktopCloseTimer();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [desktopNavOpen, useDrawerNavigation]);
 
   const handleLogout = () => {
     logout();
@@ -210,16 +217,22 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
     navigate(path);
   };
 
-  const handleDesktopNavOpen = () => {
-    if (!useDrawerNavigation) {
-      setDesktopNavOpen(true);
+  const handleDesktopMenuToggle = () => {
+    if (useDrawerNavigation) {
+      setMobileNavOpen(true);
+      return;
     }
-  };
 
-  const handleDesktopNavClose = () => {
-    if (!useDrawerNavigation) {
+    clearDesktopCloseTimer();
+
+    if (desktopNavPinned) {
+      setDesktopNavPinned(false);
       setDesktopNavOpen(false);
+      return;
     }
+
+    setDesktopNavPinned(true);
+    setDesktopNavOpen(true);
   };
 
   const renderSection = (section: MenuSection) => {
@@ -227,13 +240,13 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
     return (
       <Box key={section.title} sx={{ display: "grid", gap: 1.5 }}>
         <Box sx={{ px: 0.5 }}>
-          <Typography 
-            variant="overline" 
-            sx={{ 
-              color: meta.accent, 
-              letterSpacing: 1.5, 
+          <Typography
+            variant="overline"
+            sx={{
+              color: meta.accent,
+              letterSpacing: 1.5,
               lineHeight: 1,
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
             {section.title}
@@ -252,12 +265,12 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                   textAlign: "left",
                   justifyContent: "flex-start",
                   borderRadius: 2.5,
-                  border: selected ? `1px solid ${alpha(meta.accent, 0.3)}` : "1px solid transparent",
+                  border: selected ? `1px solid ${alpha(meta.accent, 0.24)}` : "1px solid transparent",
                   bgcolor: selected ? alpha(meta.accent, 0.08) : "transparent",
                   transition: "all 150ms ease",
                   "&:hover": {
                     bgcolor: alpha(meta.accent, 0.06),
-                    transform: "translateX(4px)",
+                    transform: "translateX(2px)",
                   },
                 }}
               >
@@ -279,10 +292,10 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                   </Box>
 
                   <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                    <Typography 
-                      sx={{ 
-                        fontWeight: selected ? 700 : 500, 
-                        lineHeight: 1.2, 
+                    <Typography
+                      sx={{
+                        fontWeight: selected ? 700 : 500,
+                        lineHeight: 1.2,
                         color: selected ? "#1E293B" : "#475569",
                         fontSize: "0.9375rem",
                       }}
@@ -291,7 +304,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                     </Typography>
                   </Box>
 
-                  {selected && (
+                  {selected ? (
                     <Box
                       sx={{
                         width: 8,
@@ -301,7 +314,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                         flexShrink: 0,
                       }}
                     />
-                  )}
+                  ) : null}
                 </Stack>
               </ButtonBase>
             );
@@ -333,69 +346,88 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
         }}
       >
         <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            {logoUrl ? (
-              <Box
-                component="img"
-                src={logoUrl}
-                alt="logo"
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 2,
-                  objectFit: "cover",
-                  border: "1px solid #E2E8F0",
-                }}
-              />
-            ) : (
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 2,
-                  display: "grid",
-                  placeItems: "center",
-                  color: activeMeta.accent,
-                  bgcolor: alpha(activeMeta.accent, 0.1),
-                }}
-              >
-                <StorefrontIcon />
-              </Box>
-            )}
+          <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between">
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0, flexGrow: 1 }}>
+              {logoUrl ? (
+                <Box
+                  component="img"
+                  src={logoUrl}
+                  alt="logo"
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 2,
+                    objectFit: "cover",
+                    border: "1px solid #E2E8F0",
+                    flexShrink: 0,
+                  }}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 2,
+                    display: "grid",
+                    placeItems: "center",
+                    color: activeMeta.accent,
+                    bgcolor: alpha(activeMeta.accent, 0.1),
+                    flexShrink: 0,
+                  }}
+                >
+                  <StorefrontIcon />
+                </Box>
+              )}
 
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                variant="subtitle2"
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    color: "#1E293B",
+                    fontSize: "1rem",
+                  }}
+                >
+                  {projectLabel}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                  Sistema de gestion
+                </Typography>
+              </Box>
+            </Stack>
+
+            {!useDrawerNavigation ? (
+              <IconButton
+                size="small"
+                onClick={() => closeDesktopNav(true)}
+                aria-label="Ocultar menu principal"
                 sx={{
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                  color: "#1E293B",
-                  fontSize: "1rem",
+                  border: "1px solid #E2E8F0",
+                  bgcolor: "#FFFFFF",
+                  flexShrink: 0,
                 }}
               >
-                {projectLabel}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
-                Sistema de gestión
-              </Typography>
-            </Box>
+                <CloseRoundedIcon fontSize="small" />
+              </IconButton>
+            ) : null}
           </Stack>
 
           <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-            <Chip 
-              label={roleLabel} 
-              size="small" 
-              sx={{ 
+            <Chip
+              label={roleLabel}
+              size="small"
+              sx={{
                 fontWeight: 600,
                 bgcolor: alpha(activeMeta.accent, 0.1),
                 color: activeMeta.accent,
-              }} 
+              }}
             />
             {username ? <Chip label={username} size="small" variant="outlined" sx={{ fontWeight: 500 }} /> : null}
             <Chip
               size="small"
               icon={<CircleIcon sx={{ fontSize: "0.5rem !important" }} />}
-              label={healthOk ? "En línea" : "Sin conexión"}
+              label={healthOk ? "En linea" : "Sin conexion"}
               color={healthOk ? "success" : "error"}
               variant={healthOk ? "outlined" : "filled"}
               sx={{ fontWeight: 500 }}
@@ -424,7 +456,7 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
           onClick={handleLogout}
           sx={{ width: "100%", justifyContent: "flex-start", minHeight: 44 }}
         >
-          Cerrar sesión
+          Cerrar sesion
         </Button>
       </Paper>
     </Box>
@@ -438,58 +470,73 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
         backgroundImage: "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
       }}
     >
-      {/* Trigger zone - aparece cuando el usuario pasa el mouse por el borde izquierdo */}
-      {!useDrawerNavigation && (
+      {!useDrawerNavigation ? (
         <Box
-          onMouseEnter={handleDesktopNavOpen}
+          onMouseEnter={() => openDesktopNav(false)}
+          aria-hidden="true"
           sx={{
             position: "fixed",
             top: 0,
             left: 0,
             bottom: 0,
-            width: 20,
+            width: EDGE_TRIGGER_WIDTH,
             zIndex: (currentTheme) => currentTheme.zIndex.drawer + 1,
             cursor: "pointer",
-            "&:hover": {
-              width: 30,
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: 2,
+              background: "linear-gradient(180deg, rgba(30,64,175,0) 0%, rgba(30,64,175,0.4) 50%, rgba(30,64,175,0) 100%)",
+              opacity: desktopNavOpen ? 0 : 1,
+              transition: "opacity 160ms ease",
             },
           }}
         />
-      )}
+      ) : null}
 
-      {/* Desktop Sidebar - Aparece al pasar el mouse por el borde */}
-      {!useDrawerNavigation && (
+      {!useDrawerNavigation && desktopNavPinned ? (
+        <Box
+          onClick={() => closeDesktopNav(true)}
+          sx={{
+            position: "fixed",
+            inset: 0,
+            bgcolor: "rgba(15, 23, 42, 0.12)",
+            backdropFilter: "blur(2px)",
+            zIndex: (currentTheme) => currentTheme.zIndex.drawer + 1,
+          }}
+        />
+      ) : null}
+
+      {!useDrawerNavigation ? (
         <Box
           component="aside"
-          onMouseEnter={handleDesktopNavOpen}
-          onMouseLeave={handleDesktopNavClose}
+          onMouseEnter={() => openDesktopNav(desktopNavPinned)}
+          onMouseLeave={scheduleDesktopNavClose}
           sx={{
             position: "fixed",
             top: 0,
             left: 0,
             bottom: 0,
-            width: 280,
-            zIndex: (currentTheme) => currentTheme.zIndex.drawer + 3,
-            transform: desktopNavOpen ? "translateX(0)" : "translateX(-100%)",
-            transition: "transform 200ms ease",
+            width: DESKTOP_NAV_WIDTH,
+            zIndex: (currentTheme) => currentTheme.zIndex.drawer + 2,
+            transform: desktopNavOpen ? "translateX(0)" : "translateX(calc(-100% - 12px))",
+            opacity: desktopNavOpen ? 1 : 0,
+            transition: "transform 180ms ease, opacity 180ms ease",
             boxShadow: desktopNavOpen ? "var(--shadow-xl)" : "none",
             borderRight: "1px solid #E2E8F0",
             bgcolor: "#FFFFFF",
             overflow: "hidden",
+            pointerEvents: desktopNavOpen ? "auto" : "none",
           }}
         >
           {navigationContent}
         </Box>
-      )}
+      ) : null}
 
-      {/* Main Content */}
-      <Box 
-        sx={{ 
-          minHeight: "100vh",
-          ml: { xs: 0, lg: desktopNavOpen ? "280px" : 0 },
-          transition: "margin-left 200ms ease",
-        }}
-      >
+      <Box sx={{ minHeight: "100vh" }}>
         <Box sx={{ minWidth: 0, display: "grid", gridTemplateRows: "auto 1fr" }}>
           <Paper
             component="header"
@@ -510,19 +557,19 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
             <Box sx={{ px: { xs: 1.5, sm: 2, md: 3 }, py: { xs: 1.5, md: 1.5 } }}>
               <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between">
                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0, flexGrow: 1 }}>
-                  {useDrawerNavigation ? (
-                    <IconButton
-                      color="primary"
-                      onClick={() => setMobileNavOpen(true)}
-                      aria-label="Abrir menu principal"
-                      sx={{
-                        border: "1px solid #E2E8F0",
-                        bgcolor: "#F8FAFC",
-                      }}
-                    >
-                      <MenuIcon />
-                    </IconButton>
-                  ) : null}
+                  <IconButton
+                    color="primary"
+                    onClick={handleDesktopMenuToggle}
+                    aria-label={desktopNavOpen && !useDrawerNavigation ? "Ocultar menu principal" : "Abrir menu principal"}
+                    aria-expanded={useDrawerNavigation ? mobileNavOpen : desktopNavOpen}
+                    sx={{
+                      border: "1px solid #E2E8F0",
+                      bgcolor: "#F8FAFC",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <MenuIcon />
+                  </IconButton>
 
                   <Box sx={{ minWidth: 0 }}>
                     <Typography variant="overline" sx={{ color: "#64748B", letterSpacing: 1.2, lineHeight: 1 }}>
@@ -540,11 +587,14 @@ export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
                     >
                       {activeItem?.label || "Inicio"}
                     </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.25, color: "#64748B" }}>
+                      {activeMeta.description}
+                    </Typography>
                   </Box>
                 </Stack>
 
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-                  {!healthOk ? <Chip label="Sin conexión" size="small" color="error" /> : null}
+                  {!healthOk ? <Chip label="Sin conexion" size="small" color="error" /> : null}
                   {username ? (
                     <Chip
                       label={username}
