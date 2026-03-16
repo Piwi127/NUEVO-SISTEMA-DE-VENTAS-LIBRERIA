@@ -46,7 +46,7 @@ def main():
         """)
         cartulinas = cursor.fetchall()
         
-        print(f"=== Despues de actualizar: ===")
+        print("=== Despues de actualizar: ===")
         for c in cartulinas:
             print(f"  {c[1][:50]}: Precio={c[2]}, Costo={c[3]}")
         

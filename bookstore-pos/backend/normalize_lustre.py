@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Normalize papel lustre names and remove duplicates."""
 import sqlite3
-import re
 from collections import defaultdict
 
 def extract_color(name):

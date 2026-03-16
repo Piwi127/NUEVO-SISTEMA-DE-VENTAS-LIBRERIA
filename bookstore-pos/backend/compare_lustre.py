@@ -32,7 +32,7 @@ def main():
     for c in pagoda_colors:
         print(f'  {c[1]}')
 
-    print(f'\n--- Otros colores (sin PAGODA) ---')
+    print('\n--- Otros colores (sin PAGODA) ---')
     for c in other:
         print(f'  {c[1]}')
 

@@ -53,7 +53,7 @@ def main():
         ''')
         products = cursor.fetchall()
         
-        print(f"\n=== Despues de actualizar: ===")
+        print("\n=== Despues de actualizar: ===")
         for p in products:
             print(f"  {p[1][:50]}: Precio={p[2]}, Costo={p[3]}")
         

@@ -9,7 +9,6 @@ def main():
     db_path = "bookstore.db"
     
     # Try different paths
-    import os
     for path in [db_path, os.path.join('..', db_path), os.path.join('backend', db_path)]:
         if os.path.exists(path):
             db_path = path
@@ -54,7 +53,7 @@ def main():
         """)
         products = cursor.fetchall()
         
-        print(f"=== Despues de actualizar: ===")
+        print("=== Despues de actualizar: ===")
         for p in products:
             print(f"  {p[1][:50]}: Precio={p[2]}, Costo={p[3]}")
         

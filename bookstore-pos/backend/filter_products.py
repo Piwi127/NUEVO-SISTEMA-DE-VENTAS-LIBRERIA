@@ -14,7 +14,6 @@ by setting stock=0 and adding a tag "INACTIVO" to preserve historical data.
 import asyncio
 import sys
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 # Add the app directory to the path so we can import from it
 sys.path.append('./app')
@@ -51,9 +50,9 @@ async def filter_products() -> None:
             all_products = result.scalars().all()
             
             total_products = len(all_products)
-            print(f"=" * 60)
-            print(f"RESUMEN DE PRODUCTOS EN LA BASE DE DATOS")
-            print(f"=" * 60)
+            print("=" * 60)
+            print("RESUMEN DE PRODUCTOS EN LA BASE DE DATOS")
+            print("=" * 60)
             print(f"Total de productos encontrados: {total_products}")
             print()
             
@@ -78,7 +77,7 @@ async def filter_products() -> None:
                     cartulinas_to_delete.append(cart)
             
             # Print detailed information
-            print(f"--- CARTULINAS ---")
+            print("--- CARTULINAS ---")
             print(f"Total de cartulinas en la base de datos: {len(cartulinas)}")
             print(f"Cartulinas que se MANTENDRAN: {len(cartulinas_to_keep)}")
             for cart in cartulinas_to_keep:
@@ -91,15 +90,15 @@ async def filter_products() -> None:
                 print("  )")
             print()
             
-            print(f"--- OTROS PRODUCTOS (NO CARTULINAS) ---")
+            print("--- OTROS PRODUCTOS (NO CARTULINAS) ---")
             print(f"Total de productos no-cartulina: {len(non_cartulinas)}")
-            print(f"Estos productos se mantendran sin cambios.")
+            print("Estos productos se mantendran sin cambios.")
             print()
             
             # Summary
-            print(f"=" * 60)
-            print(f"RESUMEN DE OPERACION")
-            print(f"=" * 60)
+            print("=" * 60)
+            print("RESUMEN DE OPERACION")
+            print("=" * 60)
             print(f"Cartulinas a marcar como inactivas: {len(cartulinas_to_delete)}")
             print(f"Productos a mantener sin cambios: {len(cartulinas_to_keep) + len(non_cartulinas)}")
             print()
@@ -126,9 +125,9 @@ async def filter_products() -> None:
             await session.commit()
             
             print()
-            print(f"=" * 60)
-            print(f"OPERACION COMPLETADA EXITOSAMENTE")
-            print(f"=" * 60)
+            print("=" * 60)
+            print("OPERACION COMPLETADA EXITOSAMENTE")
+            print("=" * 60)
             print(f"Cartulinas marcadas como inactivas: {len(cartulinas_to_delete)}")
             print(f"Cartulinas mantenidas activas: {len(cartulinas_to_keep)}")
             print(f"Otros productos mantenidos: {len(non_cartulinas)}")
