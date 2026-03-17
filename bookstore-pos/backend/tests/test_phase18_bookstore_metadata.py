@@ -45,6 +45,10 @@ async def test_product_bookstore_metadata_is_searchable(client):
     assert isbn_search.status_code == 200
     assert any(item["id"] == created["id"] for item in isbn_search.json())
 
+    formatted_isbn_search = await client.get("/products?search=978-612-0000001", headers=headers)
+    assert formatted_isbn_search.status_code == 200
+    assert any(item["id"] == created["id"] for item in formatted_isbn_search.json())
+
     barcode_search = await client.get("/products?search=750123450001", headers=headers)
     assert barcode_search.status_code == 200
     assert any(item["id"] == created["id"] for item in barcode_search.json())

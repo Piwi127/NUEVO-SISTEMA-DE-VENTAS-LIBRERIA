@@ -1,8 +1,10 @@
 ﻿import React from "react";
 import {
+  Alert,
   Box,
   Button,
   Checkbox,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -67,6 +69,9 @@ const Products: React.FC = () => {
     categories,
     isLoading,
     isError,
+    isSearching,
+    searchSuggestions,
+    smartHint,
     productsQuery,
     deleteMutation,
     bulkPricingMutation,
@@ -74,6 +79,8 @@ const Products: React.FC = () => {
     handleDeleteOne,
     handleDeleteSelected,
     handleBulkApply,
+    replaceQuery,
+    appendSuggestion,
     MAX_PRODUCTS,
   } = useProductsList();
 
@@ -210,6 +217,26 @@ const Products: React.FC = () => {
             ))}
           </TextField>
         </TableToolbar>
+
+        {normalizedQuery ? (
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1.5 }}>
+            <Chip label={`${rows.length} coincidencias`} color="primary" size="small" variant="outlined" />
+            {isSearching ? <Chip label="Buscando..." size="small" /> : null}
+            {searchSuggestions.slice(0, 4).map((term) => (
+              <Chip key={term} label={term} size="small" onClick={() => appendSuggestion(term)} sx={{ fontWeight: 600 }} />
+            ))}
+          </Box>
+        ) : null}
+
+        {smartHint ? (
+          <Alert severity="info" sx={{ mb: 1.5, borderRadius: 2 }}>
+            No hubo coincidencias exactas. Prueba con{" "}
+            <Button size="small" onClick={() => replaceQuery(smartHint)} sx={{ fontWeight: 800, textTransform: "none", minWidth: 0, p: 0 }}>
+              {smartHint}
+            </Button>
+            .
+          </Alert>
+        ) : null}
 
         {isCompact ? (
           <Box sx={{ mt: 2 }}>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useDeferredValue, useMemo, useState } from "react";
 import { Alert, Box, Button, Chip, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -9,6 +9,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { CardTable, EmptyState, PageHeader, ResizableTable, useToast } from "@/app/components";
 import { useQuery } from "@tanstack/react-query";
 import { getReceipt, listSales } from "@/modules/pos/api";
+import { searchSalesHistoryRows } from "@/modules/shared/search/presets";
 import { todayISO, detectTimeContext, formatDateTimeRegional, formatMoney } from "@/app/utils";
 import { useSettings } from "@/app/store";
 import { openReceiptWindow } from "@/modules/pos/utils/receiptWindow";
@@ -33,6 +34,7 @@ const inputStyles = {
 
 const SalesHistory: React.FC = () => {
   const [status, setStatus] = useState<string>("");
+  const [search, setSearch] = useState("");
   const [from, setFrom] = useState(daysAgoISO(30));
   const [to, setTo] = useState(todayISO());
   const [limit, setLimit] = useState(200);
@@ -42,15 +44,17 @@ const SalesHistory: React.FC = () => {
   const { showToast } = useToast();
   const { timeZone } = detectTimeContext();
   const invalidDateRange = !!from && !!to && from > to;
+  const deferredSearch = useDeferredValue(search);
 
   const params = useMemo(
     () => ({
+      search: deferredSearch.trim() || undefined,
       status: status || undefined,
       from_date: from || undefined,
       to_date: to || undefined,
       limit,
     }),
-    [status, from, to, limit]
+    [deferredSearch, status, from, to, limit]
   );
 
   const { data, refetch, isFetching } = useQuery({
@@ -58,8 +62,15 @@ const SalesHistory: React.FC = () => {
     queryFn: () => listSales(params),
   });
 
-  const rows = data || [];
+  const rawRows = data || [];
+  const searchResult = useMemo(() => searchSalesHistoryRows(rawRows, deferredSearch), [rawRows, deferredSearch]);
+  const rows = useMemo(() => (searchResult.canSearch ? searchResult.items.map((entry) => entry.item) : rawRows), [searchResult, rawRows]);
   const hasRows = rows.length > 0;
+  const smartHint = useMemo(() => {
+    if (!searchResult.canSearch || !searchResult.correctedQuery) return null;
+    if (rows.length > 0) return null;
+    return searchResult.correctedQuery;
+  }, [searchResult, rows.length]);
 
   const handleOpenReceipt = async (saleId: number) => {
     try {
@@ -99,8 +110,8 @@ const SalesHistory: React.FC = () => {
           </Button>
         ) : <Typography variant="caption" color="text.disabled" fontWeight="600">No Emitido</Typography>,
       },
-      { label: "Ejecutivo / Cajero", value: sale.user_id },
-      { label: "Identificador Cliente", value: sale.customer_id ?? "-" },
+      { label: "Ejecutivo / Cajero", value: sale.user_name || sale.user_id },
+      { label: "Cliente", value: sale.customer_name || sale.customer_id || "-" },
       {
         label: "Fase de Documento",
         value: <Chip size="small" label={sale.status} color={sale.status === 'PAID' ? 'success' : sale.status === 'VOID' ? 'error' : 'default'} sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700 }} />
@@ -115,7 +126,7 @@ const SalesHistory: React.FC = () => {
         subtitle="Visualiza, filtra y descarga el registro histórico de todas las transacciones procesadas."
         icon={<ReceiptLongIcon color="primary" sx={{ fontSize: 32 }} />}
         chips={[
-          `${data?.length ?? 0} tickets cargados`,
+          `${rows.length} tickets cargados`,
           `Horario Local: ${timeZone}`
         ]}
       />
@@ -128,6 +139,14 @@ const SalesHistory: React.FC = () => {
               <FilterListIcon fontSize="small" /> Opciones de Búsqueda
             </Typography>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} flexWrap="wrap" useFlexGap>
+              <TextField
+                label="Buscar"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                size="small"
+                placeholder="Ticket, cliente, RUC, telefono o cajero"
+                sx={{ ...inputStyles, minWidth: { xs: "100%", sm: 280 } }}
+              />
               <TextField
                 select
                 label="Fase"
@@ -170,7 +189,7 @@ const SalesHistory: React.FC = () => {
           </Box>
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: { xs: 2, md: 0 } }}>
-            <Button variant="text" color="inherit" onClick={() => { setFrom(""); setTo(""); setStatus(""); }} startIcon={<RestartAltIcon />} sx={{ fontWeight: 700 }}>
+            <Button variant="text" color="inherit" onClick={() => { setSearch(""); setFrom(""); setTo(""); setStatus(""); }} startIcon={<RestartAltIcon />} sx={{ fontWeight: 700 }}>
               Resetear
             </Button>
             <Button
@@ -199,6 +218,25 @@ const SalesHistory: React.FC = () => {
           <Chip label="Últimos 7 días" onClick={() => { setFrom(daysAgoISO(7)); setTo(todayISO()); }} size="small" icon={<CalendarTodayIcon fontSize="small" />} sx={{ fontWeight: 600 }} />
           <Chip label="Últimos 30 días" onClick={() => { setFrom(daysAgoISO(30)); setTo(todayISO()); }} size="small" icon={<CalendarTodayIcon fontSize="small" />} sx={{ fontWeight: 600 }} />
         </Stack>
+
+        {searchResult.canSearch ? (
+          <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap", rowGap: 1 }}>
+            <Chip label={`${rows.length} coincidencias`} color="primary" size="small" variant="outlined" />
+            {searchResult.suggestions.slice(0, 3).map((term) => (
+              <Chip key={term} label={term} size="small" onClick={() => setSearch((prev) => `${prev} ${term}`.trim())} sx={{ fontWeight: 600 }} />
+            ))}
+          </Stack>
+        ) : null}
+
+        {smartHint ? (
+          <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+            No hubo coincidencias exactas. Prueba con{" "}
+            <Button size="small" onClick={() => setSearch(smartHint)} sx={{ fontWeight: 800, textTransform: "none", minWidth: 0, p: 0 }}>
+              {smartHint}
+            </Button>
+            .
+          </Alert>
+        ) : null}
 
         {invalidDateRange && (
           <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
@@ -259,7 +297,7 @@ const SalesHistory: React.FC = () => {
                         </Button>
                       ) : <Typography variant="caption" color="text.disabled" fontWeight="600">N/A</Typography>}
                     </TableCell>
-                    <TableCell>{sale.user_id}</TableCell>
+                    <TableCell>{sale.user_name || sale.user_id}</TableCell>
                     <TableCell>{sale.customer_id ?? <Typography variant="caption" color="text.secondary">Cliente Genérico</Typography>}</TableCell>
                     <TableCell>
                       <Chip

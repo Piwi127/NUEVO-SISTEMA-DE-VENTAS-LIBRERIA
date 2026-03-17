@@ -183,6 +183,10 @@ export type SaleListResponse = {
   id: number;
   user_id: number;
   customer_id?: number | null;
+  user_name?: string | null;
+  customer_name?: string | null;
+  customer_tax_id?: string | null;
+  customer_phone?: string | null;
   status: string;
   subtotal: number;
   tax: number;

@@ -58,6 +58,78 @@ async def test_product_sale_flow(client):
     updated = products_resp.json()[0]
     assert updated["stock"] == 8
 
+
+@pytest.mark.asyncio
+async def test_sales_history_search_returns_customer_and_user_metadata(client):
+    headers = await _login_admin(client)
+
+    customer_resp = await client.post(
+        "/customers",
+        json={
+            "name": "Lucia Torres",
+            "phone": "999111222",
+            "tax_id": "10455667789",
+            "address": "Av. Central 123",
+            "email": "lucia@example.com",
+            "price_list_id": None,
+        },
+        headers=headers,
+    )
+    assert customer_resp.status_code == 201
+    customer = customer_resp.json()
+
+    product_resp = await client.post(
+        "/products",
+        json={
+            "sku": "BK-SALE-SEARCH-001",
+            "name": "Agenda Ejecutiva",
+            "category": "Oficina",
+            "price": 25.0,
+            "cost": 10.0,
+            "stock": 12,
+            "stock_min": 2,
+        },
+        headers=headers,
+    )
+    assert product_resp.status_code == 201
+    product = product_resp.json()
+
+    open_resp = await client.post("/cash/open", json={"opening_amount": 80.0}, headers=headers)
+    assert open_resp.status_code in {201, 409}
+
+    sale_resp = await client.post(
+        "/sales",
+        json={
+            "customer_id": customer["id"],
+            "items": [{"product_id": product["id"], "qty": 1}],
+            "payments": [{"method": "CASH", "amount": 25.0}],
+            "subtotal": 25.0,
+            "tax": 0.0,
+            "discount": 0.0,
+            "total": 25.0,
+            "promotion_id": None,
+        },
+        headers=headers,
+    )
+    assert sale_resp.status_code == 201
+    sale = sale_resp.json()
+
+    search_by_customer = await client.get("/sales?search=Lucia", headers=headers)
+    assert search_by_customer.status_code == 200
+    customer_rows = search_by_customer.json()
+    assert any(row["id"] == sale["id"] for row in customer_rows)
+    row = next(row for row in customer_rows if row["id"] == sale["id"])
+    assert row["customer_name"] == "Lucia Torres"
+    assert row["user_name"] == "admin"
+
+    search_by_tax = await client.get("/sales?search=10455667789", headers=headers)
+    assert search_by_tax.status_code == 200
+    assert any(row["id"] == sale["id"] for row in search_by_tax.json())
+
+    search_by_invoice = await client.get(f"/sales?search={sale['invoice_number']}", headers=headers)
+    assert search_by_invoice.status_code == 200
+    assert any(row["id"] == sale["id"] for row in search_by_invoice.json())
+
 @pytest.mark.asyncio
 async def test_returns_history_endpoint(client):
     headers = await _login_admin(client)

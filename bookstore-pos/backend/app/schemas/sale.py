@@ -49,6 +49,10 @@ class SaleListOut(BaseModel):
     id: int
     user_id: int
     customer_id: int | None
+    user_name: str | None = None
+    customer_name: str | None = None
+    customer_tax_id: str | None = None
+    customer_phone: str | None = None
     status: str
     subtotal: float
     tax: float

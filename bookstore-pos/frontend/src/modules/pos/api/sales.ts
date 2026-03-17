@@ -69,6 +69,7 @@ export const getReceipt = async (saleId: number): Promise<SaleReceipt> => {
 };
 
 export const listSales = async (params: {
+  search?: string;
   status?: string;
   from_date?: string;
   to_date?: string;

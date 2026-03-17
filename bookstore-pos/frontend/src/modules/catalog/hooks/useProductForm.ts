@@ -413,6 +413,7 @@ export const useProductForm = (props?: UseProductFormProps) => {
                 qc.invalidateQueries({ queryKey: ["products"] }),
                 qc.invalidateQueries({ queryKey: ["products-smart-search"] }),
                 qc.invalidateQueries({ queryKey: ["products-smart-search-corrected"] }),
+                qc.invalidateQueries({ queryKey: ["products-corrected-search"] }),
             ]);
 
             showToast({
@@ -472,6 +473,7 @@ export const useProductForm = (props?: UseProductFormProps) => {
                 qc.invalidateQueries({ queryKey: ["product-categories"] }),
                 qc.invalidateQueries({ queryKey: ["products-smart-search"] }),
                 qc.invalidateQueries({ queryKey: ["products-smart-search-corrected"] }),
+                qc.invalidateQueries({ queryKey: ["products-corrected-search"] }),
             ]);
 
             if (closeAfterSave) {

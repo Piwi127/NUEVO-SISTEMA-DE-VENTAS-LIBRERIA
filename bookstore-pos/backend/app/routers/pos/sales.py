@@ -1,20 +1,89 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import String, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_current_user, require_permission, require_role
+from app.core.deps import get_current_user, get_db, require_permission, require_role
 from app.core.rate_limit import rate_limit
-from app.models.product import Product
+from app.core.search import compact_column, compact_search_text, normalize_search_text, normalized_column, split_search_terms
 from app.models.customer import Customer
+from app.models.product import Product
 from app.models.sale import Sale, SaleItem
 from app.models.settings import SystemSettings
-from app.schemas.sale import SaleCreate, SaleOut, SaleListOut
+from app.models.user import User
+from app.schemas.sale import SaleCreate, SaleListOut, SaleOut
 from app.services.pos.sales_service import SalesService
 
 router = APIRouter(prefix="/sales", tags=["sales"], dependencies=[Depends(require_role("admin", "cashier"))])
 
+SALES_STOP_WORDS = {"a", "al", "con", "de", "del", "el", "en", "la", "las", "los", "para", "por", "un", "una", "y"}
+SALES_CODE_FIELDS = (
+    (Sale.invoice_number, 112),
+    (Sale.id.cast(String), 100),
+    (Customer.tax_id, 108),
+    (Customer.phone, 96),
+)
+SALES_TEXT_FIELDS = (
+    (Customer.name, 82),
+    (User.username, 58),
+    (Sale.status, 40),
+    (Sale.document_type, 36),
+)
+
+
+def _prepare_sales_tokens(search: str) -> list[str]:
+    return [token for token in split_search_terms(search) if token and token not in SALES_STOP_WORDS]
+
+
+def _build_sales_search_clause(term: str):
+    normalized_term = normalize_search_text(term)
+    compact_term = compact_search_text(term)
+    normalized_pattern = f"%{normalized_term}%"
+    clauses = [normalized_column(column).like(normalized_pattern) for column, _ in (*SALES_TEXT_FIELDS, *SALES_CODE_FIELDS)]
+    if compact_term:
+        compact_pattern = f"%{compact_term}%"
+        clauses.extend(compact_column(column).like(compact_pattern) for column, _ in SALES_CODE_FIELDS)
+    return or_(*clauses)
+
+
+def _build_sales_score_expression(search: str, tokens: list[str]):
+    normalized_query = normalize_search_text(search)
+    compact_query = compact_search_text(search)
+    score = 0
+
+    for column, weight in SALES_CODE_FIELDS:
+        if compact_query:
+            score += case((compact_column(column) == compact_query, weight * 6), else_=0)
+            score += case((compact_column(column).like(f"{compact_query}%"), weight * 5), else_=0)
+            score += case((compact_column(column).like(f"%{compact_query}%"), weight * 4), else_=0)
+
+    for column, weight in SALES_TEXT_FIELDS:
+        if normalized_query:
+            score += case((normalized_column(column) == normalized_query, weight * 5), else_=0)
+            score += case((normalized_column(column).like(f"{normalized_query}%"), weight * 4), else_=0)
+            score += case((normalized_column(column).like(f"%{normalized_query}%"), weight * 3), else_=0)
+
+    for token in tokens:
+        compact_token = compact_search_text(token)
+        for column, weight in SALES_CODE_FIELDS:
+            if compact_token:
+                score += case((compact_column(column) == compact_token, weight * 6), else_=0)
+                score += case((compact_column(column).like(f"{compact_token}%"), weight * 5), else_=0)
+                score += case((compact_column(column).like(f"%{compact_token}%"), weight * 4), else_=0)
+
+        for column, weight in SALES_TEXT_FIELDS:
+            score += case((normalized_column(column) == token, weight * 5), else_=0)
+            score += case((normalized_column(column).like(f"{token}%"), weight * 4), else_=0)
+            score += case((normalized_column(column).like(f"%{token}%"), weight * 3), else_=0)
+
+    if tokens:
+        score += case((and_(*[_build_sales_search_clause(token) for token in tokens]), 48 + (len(tokens) * 12)), else_=0)
+
+    return score
+
+
 @router.get("", response_model=list[SaleListOut], dependencies=[Depends(require_permission("sales.read"))])
 async def list_sales(
+    search: str | None = None,
     status: str | None = None,
     from_date: str | None = None,
     to_date: str | None = None,
@@ -23,7 +92,29 @@ async def list_sales(
     limit: int = 200,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Sale)
+    stmt = (
+        select(
+            Sale.id.label("id"),
+            Sale.user_id.label("user_id"),
+            Sale.customer_id.label("customer_id"),
+            User.username.label("user_name"),
+            Customer.name.label("customer_name"),
+            Customer.tax_id.label("customer_tax_id"),
+            Customer.phone.label("customer_phone"),
+            Sale.status.label("status"),
+            Sale.subtotal.label("subtotal"),
+            Sale.tax.label("tax"),
+            Sale.discount.label("discount"),
+            Sale.total.label("total"),
+            Sale.invoice_number.label("invoice_number"),
+            Sale.document_type.label("document_type"),
+            Sale.created_at.label("created_at"),
+        )
+        .select_from(Sale)
+        .outerjoin(User, User.id == Sale.user_id)
+        .outerjoin(Customer, Customer.id == Sale.customer_id)
+    )
+
     if status:
         stmt = stmt.where(Sale.status == status)
     if from_date:
@@ -34,9 +125,20 @@ async def list_sales(
         stmt = stmt.where(Sale.customer_id == customer_id)
     if user_id:
         stmt = stmt.where(Sale.user_id == user_id)
-    stmt = stmt.order_by(Sale.id.desc()).limit(min(max(limit, 1), 500))
+
+    if search:
+        tokens = _prepare_sales_tokens(search)
+        if tokens:
+            stmt = stmt.where(and_(*[_build_sales_search_clause(token) for token in tokens]))
+            stmt = stmt.order_by(_build_sales_score_expression(search, tokens).desc(), Sale.created_at.desc(), Sale.id.desc())
+        else:
+            stmt = stmt.order_by(Sale.created_at.desc(), Sale.id.desc())
+    else:
+        stmt = stmt.order_by(Sale.created_at.desc(), Sale.id.desc())
+
+    stmt = stmt.limit(min(max(limit, 1), 500))
     result = await db.execute(stmt)
-    return result.scalars().all()
+    return result.mappings().all()
 
 
 @router.post("", response_model=SaleOut, status_code=201, dependencies=[Depends(require_permission("sales.create"))])

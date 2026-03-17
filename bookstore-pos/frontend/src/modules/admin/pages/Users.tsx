@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Box, Button, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
+import React, { useDeferredValue, useMemo, useState } from "react";
+import { Alert, Box, Button, Chip, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, useMediaQuery } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -7,6 +7,7 @@ import { z } from "zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CardTable, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeader, ResizableTable, TableToolbar, useToast } from "@/app/components";
 import { confirmUser2FA, createUser, listUsers, resetUser2FA, setupUser2FA, unlockUser, updateUser, updateUserPassword, updateUserStatus } from "@/modules/admin/api";
+import { searchUsers } from "@/modules/shared/search/presets";
 import { User } from "@/modules/shared/types";
 import { getPasswordStrengthLabel, getPasswordStrengthScore, hasRequiredPasswordStrength } from "@/app/utils";
 import { useSettings } from "@/app/store";
@@ -62,6 +63,7 @@ const Users: React.FC = () => {
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;
+  const deferredQuery = useDeferredValue(query);
 
   const {
     register,
@@ -76,12 +78,14 @@ const Users: React.FC = () => {
     defaultValues,
   });
 
-  const filtered = (data || []).filter((user) => {
-    if (roleFilter && user.role !== roleFilter) return false;
-    const term = query.trim().toLowerCase();
-    if (!term) return true;
-    return `${user.username} ${user.role}`.toLowerCase().includes(term);
-  });
+  const scopedUsers = useMemo(() => (roleFilter ? (data || []).filter((user) => user.role === roleFilter) : data || []), [data, roleFilter]);
+  const searchResult = useMemo(() => searchUsers(scopedUsers, deferredQuery), [scopedUsers, deferredQuery]);
+  const filtered = useMemo(() => (searchResult.canSearch ? searchResult.items.map((entry) => entry.item) : scopedUsers), [searchResult, scopedUsers]);
+  const smartHint = useMemo(() => {
+    if (!searchResult.canSearch || !searchResult.correctedQuery) return null;
+    if (filtered.length > 0) return null;
+    return searchResult.correctedQuery;
+  }, [searchResult, filtered.length]);
 
   const passwordValue = watch("password");
   const passwordScore = getPasswordStrengthScore(passwordValue);
@@ -290,6 +294,25 @@ const Users: React.FC = () => {
           ))}
         </TextField>
       </TableToolbar>
+
+      {searchResult.canSearch ? (
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1.5 }}>
+          <Chip label={`${filtered.length} coincidencias`} color="primary" size="small" variant="outlined" />
+          {searchResult.suggestions.slice(0, 3).map((term) => (
+            <Chip key={term} label={term} size="small" onClick={() => setQuery((prev) => `${prev} ${term}`.trim())} sx={{ fontWeight: 600 }} />
+          ))}
+        </Box>
+      ) : null}
+
+      {smartHint ? (
+        <Alert severity="info" sx={{ mb: 1.5, borderRadius: 2 }}>
+          No hubo coincidencias exactas. Prueba con{" "}
+          <Button size="small" onClick={() => setQuery(smartHint)} sx={{ fontWeight: 800, textTransform: "none", minWidth: 0, p: 0 }}>
+            {smartHint}
+          </Button>
+          .
+        </Alert>
+      ) : null}
 
       <Paper sx={{ p: { xs: 1, md: 1.15 } }}>
         <Typography variant="h6" sx={{ mb: 1.1 }}>

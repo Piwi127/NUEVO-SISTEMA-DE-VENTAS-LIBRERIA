@@ -23,35 +23,15 @@ import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import { useQuery } from "@tanstack/react-query";
 import { listProductCategories, listProducts } from "@/modules/catalog/api";
+import { SearchChipColor, searchProducts } from "@/modules/shared/search/presets";
 import { Product } from "@/modules/shared/types";
 import { useCartStore, useSettings } from "@/app/store";
 import { formatMoney } from "@/app/utils";
+import { normalizeSearchText } from "@/utils/search";
 
 const SEARCH_LIMIT = 500;
 
-const TERM_GROUPS: string[][] = [
-  ["cuaderno", "cuadernos", "hoja", "hojas", "libreta", "notebook", "rayado", "cuadriculado", "apuntes"],
-  ["lapiz", "lapices", "portaminas", "grafito", "hb", "dibujar"],
-  ["lapicero", "lapiceros", "boligrafo", "boligrafos", "pluma", "tinta", "escribir"],
-  ["borrador", "borradores", "goma", "corrector", "corregir"],
-  ["resaltador", "resaltadores", "marcador", "marcadores", "fluorescente", "subrayar"],
-  ["plumon", "plumones", "color", "colores", "marker", "markers", "punta", "delgado"],
-  ["folder", "carpeta", "archivador", "funda", "micas", "archivar"],
-  ["papel", "papeles", "resma", "a4", "oficio", "bond", "imprimir", "fotocopia"],
-  ["regla", "escuadra", "transportador", "compas", "geometria"],
-  ["cartulina", "cartulinas", "carton", "cartonina", "manualidades", "escolar"],
-  ["pegamento", "goma", "silicona", "adhesivo", "pegar"],
-  ["tijera", "tijeras", "cutter", "cuchilla", "cortar"],
-  ["tempera", "acrilico", "pintura", "oleo", "acuarela", "pincel", "colorear"],
-  ["oficina", "papeleria", "utiles", "utilidad", "funcion", "funcionamiento"],
-  ["libro", "libros", "novela", "novelas", "cuento", "cuentos", "texto", "diccionario", "agenda"],
-];
-
-const DEFAULT_HINTS = ["tinta", "hojas", "imprimir", "manualidades", "escribir", "archivar"];
-const STOP_WORDS = new Set(["de", "del", "la", "el", "y", "para", "con", "por", "en"]);
-
 type ProductSearchView = "dropdown" | "panel";
-type SearchChipColor = "default" | "primary" | "secondary" | "success" | "info" | "warning" | "error";
 
 type RankedResult = {
   product: Product;
@@ -72,166 +52,6 @@ const normalize = (value: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
-
-const tokenize = (value: string): string[] => normalize(value).split(/[^a-z0-9]+/).filter(Boolean);
-
-const singularize = (token: string): string => {
-  if (token.length <= 3) return token;
-  if (token.endsWith("es") && token.length > 4) return token.slice(0, -2);
-  if (token.endsWith("s") && token.length > 3) return token.slice(0, -1);
-  return token;
-};
-
-const buildCorrection = (value: string): string => {
-  const knownTerms = Array.from(new Set(TERM_GROUPS.flat()));
-  const tokens = tokenize(value);
-  if (!tokens.length) return "";
-
-  const corrected = tokens.map((token) => {
-    const base = singularize(token);
-    if (knownTerms.includes(base)) return base;
-
-    let best = base;
-    let bestDistance = Infinity;
-    for (const known of knownTerms) {
-      if (Math.abs(known.length - base.length) > 2) continue;
-      let mismatches = 0;
-      for (let index = 0; index < Math.min(known.length, base.length); index += 1) {
-        if (known[index] !== base[index]) mismatches += 1;
-        if (mismatches > 2) break;
-      }
-      const distance = mismatches + Math.abs(known.length - base.length);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        best = known;
-      }
-      if (bestDistance === 0) break;
-    }
-    return bestDistance <= 2 ? best : base;
-  });
-
-  return corrected.join(" ").trim();
-};
-
-const expandTokens = (tokens: string[]): string[] => {
-  const result = new Set(tokens);
-  TERM_GROUPS.forEach((group) => {
-    if (group.some((term) => result.has(term))) {
-      group.forEach((term) => result.add(term));
-    }
-  });
-  return Array.from(result);
-};
-
-const fuzzyIncludes = (token: string, value: string): boolean => {
-  if (!token || !value) return false;
-  if (value.includes(token)) return true;
-
-  const words = value.split(/[^a-z0-9]+/).filter(Boolean);
-  return words.some((word) => {
-    if (Math.abs(word.length - token.length) > 1) return false;
-    let mismatches = 0;
-    for (let index = 0; index < Math.min(word.length, token.length); index += 1) {
-      if (word[index] !== token[index]) mismatches += 1;
-      if (mismatches > 1) return false;
-    }
-    mismatches += Math.abs(word.length - token.length);
-    return mismatches <= 1;
-  });
-};
-
-const scoreProduct = (product: Product, rawTokens: string[], expandedTokens: string[]): number => {
-  if (rawTokens.length === 0) return 0;
-
-  const name = normalize(product.name);
-  const category = normalize(product.category || "");
-  const tags = normalize(product.tags || "");
-  const sku = normalize(product.sku || "");
-  const author = normalize(product.author || "");
-  const publisher = normalize(product.publisher || "");
-  const isbn = normalize(product.isbn || "");
-  const barcode = normalize(product.barcode || "");
-  const shelfLocation = normalize(product.shelf_location || "");
-  let score = 0;
-  let strictHits = 0;
-
-  rawTokens.forEach((token) => {
-    let hit = false;
-    if (isbn === token || barcode === token) {
-      score += 170;
-      hit = true;
-    } else if (isbn.startsWith(token) || barcode.startsWith(token)) {
-      score += 130;
-      hit = true;
-    }
-
-    if (sku === token) {
-      score += 140;
-      hit = true;
-    } else if (sku.startsWith(token)) {
-      score += 95;
-      hit = true;
-    }
-
-    if (name === token) {
-      score += 90;
-      hit = true;
-    } else if (name.startsWith(token)) {
-      score += 75;
-      hit = true;
-    } else if (name.includes(token)) {
-      score += 58;
-      hit = true;
-    }
-
-    if (author.includes(token)) {
-      score += 54;
-      hit = true;
-    }
-    if (publisher.includes(token)) {
-      score += 36;
-      hit = true;
-    }
-    if (category.includes(token)) {
-      score += 40;
-      hit = true;
-    }
-    if (tags.includes(token)) {
-      score += 45;
-      hit = true;
-    }
-    if (shelfLocation.includes(token)) {
-      score += 20;
-      hit = true;
-    }
-    if (!hit) {
-      if (fuzzyIncludes(token, name) || fuzzyIncludes(token, author)) {
-        score += 26;
-        hit = true;
-      } else if (fuzzyIncludes(token, category) || fuzzyIncludes(token, tags) || fuzzyIncludes(token, publisher)) {
-        score += 18;
-        hit = true;
-      }
-    }
-
-    if (hit) strictHits += 1;
-  });
-
-  expandedTokens.forEach((token) => {
-    if (rawTokens.includes(token)) return;
-    if (name.includes(token)) score += 17;
-    if (category.includes(token)) score += 15;
-    if (tags.includes(token)) score += 19;
-    if (author.includes(token)) score += 18;
-    if (publisher.includes(token)) score += 14;
-  });
-
-  if (strictHits === rawTokens.length && rawTokens.length > 0) score += 45;
-  if (strictHits === 0) return 0;
-  if (product.stock > 0) score += 3;
-
-  return score;
-};
 
 const getStockMeta = (product: Product): { label: string; color: SearchChipColor } => {
   if (product.stock <= 0) return { label: "Sin stock", color: "error" };
@@ -327,9 +147,10 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  const normalizedSearch = useMemo(() => normalize(debounced), [debounced]);
-  const canSearch = normalizedSearch.length >= 2;
-  const correctedSearch = useMemo(() => buildCorrection(normalizedSearch), [normalizedSearch]);
+  const normalizedSearch = useMemo(() => normalizeSearchText(debounced), [debounced]);
+  const queryInsights = useMemo(() => searchProducts([], normalizedSearch), [normalizedSearch]);
+  const canSearch = queryInsights.canSearch;
+  const correctedSearch = queryInsights.correctedQuery || "";
 
   const categoriesQuery = useQuery({
     queryKey: ["product-categories"],
@@ -353,19 +174,17 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
   const products = productsQuery.data || [];
   const categories = categoriesQuery.data || [];
-
-  const rawTokens = useMemo(
-    () => tokenize(normalizedSearch).map(singularize).filter((token) => !STOP_WORDS.has(token)),
-    [normalizedSearch]
+  const sourceProducts = useMemo(
+    () => (products.length > 0 ? products : fallbackQuery.data && fallbackQuery.data.length > 0 ? fallbackQuery.data : products),
+    [products, fallbackQuery.data]
   );
-  const expandedTokens = useMemo(() => expandTokens(rawTokens), [rawTokens]);
-
-  const suggestionTerms = useMemo(() => {
-    if (!rawTokens.length) return DEFAULT_HINTS;
-    const matchedGroups = TERM_GROUPS.filter((group) => group.some((term) => rawTokens.includes(term)));
-    const related = Array.from(new Set(matchedGroups.flat())).filter((term) => !rawTokens.includes(term));
-    return related.slice(0, 8);
-  }, [rawTokens]);
+  const rankedSearch = useMemo(
+    () => (canSearch ? searchProducts(sourceProducts, normalizedSearch) : null),
+    [canSearch, sourceProducts, normalizedSearch]
+  );
+  const rawTokens = rankedSearch?.tokens || queryInsights.tokens;
+  const expandedTokens = rankedSearch?.expandedTokens || queryInsights.expandedTokens;
+  const suggestionTerms = rankedSearch?.suggestions || queryInsights.suggestions;
 
   const cartQtyById = useMemo(() => {
     const next = new Map<number, number>();
@@ -374,22 +193,18 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   }, [cart.items]);
 
   const rankedResults = useMemo(() => {
-    if (!canSearch) return [] as RankedResult[];
+    if (!canSearch || !rankedSearch) return [] as RankedResult[];
 
-    const sourceProducts =
-      products.length > 0 ? products : fallbackQuery.data && fallbackQuery.data.length > 0 ? fallbackQuery.data : products;
-
-    return sourceProducts
-      .map((product) => {
-        const score = scoreProduct(product, rawTokens, expandedTokens);
-        if (score <= 0) return null;
+    return rankedSearch.items
+      .map((entry) => {
+        const product = entry.item;
         const price = getAppliedPrice(product, priceMap);
         const basePrice = product.sale_price ?? product.price;
         const matchMeta = getMatchMeta(product, rawTokens, expandedTokens);
         const stockMeta = getStockMeta(product);
         return {
           product,
-          score,
+          score: entry.score,
           price,
           matchLabel: matchMeta.label,
           matchColor: matchMeta.color,
@@ -397,15 +212,11 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
           stockColor: stockMeta.color,
           inCartQty: cartQtyById.get(product.id) || 0,
           hasSpecialPrice: Math.abs(price - basePrice) > 0.001,
-          isRelated: matchMeta.isRelated,
+          isRelated: entry.isRelated || matchMeta.isRelated,
         };
       })
-      .filter(Boolean)
-      .sort((a, b) => {
-        if (!a || !b) return 0;
-        return b.score - a.score || b.product.stock - a.product.stock || a.product.name.localeCompare(b.product.name);
-      }) as RankedResult[];
-  }, [products, fallbackQuery.data, canSearch, rawTokens, expandedTokens, priceMap, cartQtyById]);
+      .sort((a, b) => b.score - a.score || b.product.stock - a.product.stock || a.product.name.localeCompare(b.product.name));
+  }, [canSearch, rankedSearch, rawTokens, expandedTokens, priceMap, cartQtyById]);
 
   const visibleResults = useMemo(() => rankedResults.slice(0, 10), [rankedResults]);
   const topResult = rankedResults[0] || null;

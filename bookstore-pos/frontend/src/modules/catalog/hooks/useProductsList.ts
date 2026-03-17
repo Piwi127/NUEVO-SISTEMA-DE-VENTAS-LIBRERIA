@@ -2,6 +2,8 @@ import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/app/components";
 import { listProducts, listProductCategories, deleteProduct, applyBulkProductPricing } from "@/modules/catalog/api";
+import { searchProducts } from "@/modules/shared/search/presets";
+import { normalizeSearchText } from "@/utils/search";
 
 const MAX_PRODUCTS = 500;
 
@@ -19,15 +21,31 @@ export const useProductsList = () => {
     const [bulkMarginPercent, setBulkMarginPercent] = useState("35");
 
     const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
+    const [debouncedQuery, setDebouncedQuery] = useState("");
 
-    const normalizedQuery = query.trim();
+    useEffect(() => {
+        const timer = window.setTimeout(() => setDebouncedQuery(query), 220);
+        return () => window.clearTimeout(timer);
+    }, [query]);
+
+    const normalizedQuery = useMemo(() => normalizeSearchText(debouncedQuery), [debouncedQuery]);
+    const queryInsights = useMemo(() => searchProducts([], normalizedQuery), [normalizedQuery]);
+    const correctedQuery = queryInsights.correctedQuery || "";
+    const canSearch = queryInsights.canSearch;
 
     // Queries
     const productsQuery = useQuery({
         queryKey: ["products", normalizedQuery, category],
-        queryFn: () => listProducts(normalizedQuery || undefined, MAX_PRODUCTS, 0, category || undefined, undefined, false),
+        queryFn: () => listProducts(normalizedQuery || undefined, MAX_PRODUCTS, 0, category || undefined, undefined, canSearch),
         staleTime: 30_000,
         placeholderData: (previous) => previous,
+    });
+
+    const fallbackQuery = useQuery({
+        queryKey: ["products-corrected-search", correctedQuery, category],
+        queryFn: () => listProducts(correctedQuery, MAX_PRODUCTS, 0, category || undefined, undefined, true),
+        staleTime: 30_000,
+        enabled: canSearch && correctedQuery.length >= 2 && correctedQuery !== normalizedQuery,
     });
 
     const categoriesQuery = useQuery({
@@ -36,9 +54,21 @@ export const useProductsList = () => {
         staleTime: 5 * 60_000,
     });
 
-    const rows = productsQuery.data || [];
+    const sourceRows = useMemo(
+        () => ((productsQuery.data || []).length > 0 ? productsQuery.data || [] : fallbackQuery.data || []),
+        [productsQuery.data, fallbackQuery.data]
+    );
+    const rankedSearch = useMemo(() => (canSearch ? searchProducts(sourceRows, normalizedQuery) : null), [canSearch, sourceRows, normalizedQuery]);
+    const rows = useMemo(() => (canSearch && rankedSearch ? rankedSearch.items.map((entry) => entry.item) : productsQuery.data || []), [canSearch, rankedSearch, productsQuery.data]);
     const displayRows = useMemo(() => rows.map((row) => ({ ...row, price: row.sale_price ?? row.price })), [rows]);
     const categories = categoriesQuery.data || [];
+    const searchSuggestions = rankedSearch?.suggestions || queryInsights.suggestions;
+    const smartHint = useMemo(() => {
+        if (!canSearch || correctedQuery === normalizedQuery) return null;
+        if ((productsQuery.data || []).length > 0) return null;
+        if (!(fallbackQuery.data || []).length) return null;
+        return correctedQuery;
+    }, [canSearch, correctedQuery, normalizedQuery, productsQuery.data, fallbackQuery.data]);
 
     const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
@@ -62,6 +92,7 @@ export const useProductsList = () => {
                 qc.invalidateQueries({ queryKey: ["product-categories"] }),
                 qc.invalidateQueries({ queryKey: ["products-smart-search"] }),
                 qc.invalidateQueries({ queryKey: ["products-smart-search-corrected"] }),
+                qc.invalidateQueries({ queryKey: ["products-corrected-search"] }),
             ]);
             showToast({
                 message: deletedIds.length === 1 ? "Producto eliminado" : `${deletedIds.length} productos eliminados`,
@@ -96,6 +127,7 @@ export const useProductsList = () => {
                 qc.invalidateQueries({ queryKey: ["products"] }),
                 qc.invalidateQueries({ queryKey: ["products-smart-search"] }),
                 qc.invalidateQueries({ queryKey: ["products-smart-search-corrected"] }),
+                qc.invalidateQueries({ queryKey: ["products-corrected-search"] }),
             ]);
             showToast({
                 message: `Ajuste masivo aplicado: ${result.updated_count} productos actualizados`,
@@ -127,6 +159,9 @@ export const useProductsList = () => {
         bulkPricingMutation.mutate();
     };
 
+    const replaceQuery = (value: string) => setQuery(value);
+    const appendSuggestion = (value: string) => setQuery((previous) => `${previous} ${value}`.trim());
+
     return {
         // State
         query,
@@ -154,9 +189,13 @@ export const useProductsList = () => {
         categories,
         isLoading: productsQuery.isLoading,
         isError: productsQuery.isError,
+        isSearching: productsQuery.isFetching || fallbackQuery.isFetching,
+        searchSuggestions,
+        smartHint,
 
         // Actions & Flags
         productsQuery,
+        fallbackQuery,
         deleteMutation,
         bulkPricingMutation,
         requestDeleteIds,
@@ -164,6 +203,8 @@ export const useProductsList = () => {
         handleDeleteOne,
         handleDeleteSelected,
         handleBulkApply,
+        replaceQuery,
+        appendSuggestion,
         MAX_PRODUCTS,
     };
 };
