@@ -5,6 +5,7 @@ import { ProtectedRoute } from "@/auth/ProtectedRoute";
 import { useAuth } from "@/auth/AuthProvider";
 import { getLandingRoute } from "@/auth/navigation";
 import { AppLayout, ErrorState, LoadingState } from "@/app/components";
+import { recoverFromModuleLoadError } from "@/app/utils/moduleLoadRecovery";
 import { appRoutes } from "@/modules/registry";
 
 class RouteErrorBoundary extends React.Component<React.PropsWithChildren, { hasError: boolean }> {
@@ -15,6 +16,9 @@ class RouteErrorBoundary extends React.Component<React.PropsWithChildren, { hasE
   }
 
   componentDidCatch(error: unknown) {
+    if (recoverFromModuleLoadError(error)) {
+      return;
+    }
     console.error("Route render error", error);
   }
 

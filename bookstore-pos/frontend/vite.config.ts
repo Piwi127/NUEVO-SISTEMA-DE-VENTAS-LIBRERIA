@@ -45,6 +45,7 @@ export default defineConfig({
       "react-router-dom",
       "react-hook-form",
       "@hookform/resolvers",
+      "@hookform/resolvers/zod",
       "zod",
       "axios",
       "qrcode",

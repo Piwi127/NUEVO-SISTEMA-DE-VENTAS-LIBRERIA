@@ -7,25 +7,13 @@ import { CssBaseline, ThemeProvider } from "@mui/material";
 import App from "@/routes/App";
 import { AuthProvider } from "@/auth/AuthProvider";
 import { ToastProvider } from "@/app/components";
+import { registerModuleLoadRecovery } from "@/app/utils/moduleLoadRecovery";
 import { theme } from "@/theme";
 import "./index.css";
 
 const queryClient = new QueryClient();
-const PRELOAD_RELOAD_GUARD = "bookstore_preload_reload_guard";
 
-if (typeof window !== "undefined") {
-  window.addEventListener("vite:preloadError", (event) => {
-    event.preventDefault();
-    if (window.sessionStorage.getItem(PRELOAD_RELOAD_GUARD) === "1") {
-      return;
-    }
-    window.sessionStorage.setItem(PRELOAD_RELOAD_GUARD, "1");
-    window.location.reload();
-  });
-  window.addEventListener("load", () => {
-    window.sessionStorage.removeItem(PRELOAD_RELOAD_GUARD);
-  });
-}
+registerModuleLoadRecovery();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
