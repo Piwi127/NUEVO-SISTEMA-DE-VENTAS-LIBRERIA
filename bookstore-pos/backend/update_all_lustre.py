@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Update all papel lustre prices to S/ 0.60 and cost to S/ 0.18."""
+"""Update all papel lustre prices to S/ 0.50 and cost to S/ 0.18."""
 import sqlite3
 
 def main():
@@ -15,7 +15,7 @@ def main():
     products = cursor.fetchall()
 
     print(f'=== Actualizando {len(products)} papeles lustre ===')
-    print('Nuevo Precio: S/ 0.60, Nuevo Costo: S/ 0.18')
+    print('Nuevo Precio: S/ 0.50, Nuevo Costo: S/ 0.18')
     print()
 
     for p in products:
@@ -25,7 +25,7 @@ def main():
         # Update
         cursor.execute('''
             UPDATE products 
-            SET price = 0.60, sale_price = 0.60, cost = 0.18, unit_cost = 0.18
+            SET price = 0.50, sale_price = 0.50, cost = 0.18, unit_cost = 0.18
             WHERE id = ?
         ''', (p[0],))
         
