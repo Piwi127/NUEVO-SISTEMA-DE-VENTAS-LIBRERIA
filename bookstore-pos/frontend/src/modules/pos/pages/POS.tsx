@@ -28,6 +28,7 @@ import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import HistoryIcon from "@mui/icons-material/History";
 import TuneIcon from "@mui/icons-material/Tune";
+import CalculateIcon from "@mui/icons-material/Calculate";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
@@ -44,7 +45,7 @@ import {
 import { listActiveProductPromotionRules, listActivePromotions, listCustomers } from "@/modules/catalog/api";
 import { getCurrentCash } from "@/modules/pos/api";
 import { calculatePackPricing, calculatePosTotalsSummary } from "@/modules/pos/utils/pricing";
-import { Cart, PaymentDialog, ProductSearch } from "@/modules/pos/components";
+import { Cart, PaymentDialog, ProductSearch, Calculator } from "@/modules/pos/components";
 import { useHeldCarts, usePosCheckout, usePosKeyboard, usePosPricing, usePosWebSocket } from "@/modules/pos/hooks";
 
 const makeSessionId = () => {
@@ -55,9 +56,22 @@ const makeSessionId = () => {
 
 const panelSx = {
   p: { xs: 2, md: 2.5 },
-  borderRadius: 4,
+  borderRadius: 3,
   border: "1px solid rgba(19,41,61,0.08)",
   boxShadow: "0 18px 32px rgba(19,41,61,0.08)",
+};
+
+const modernPanelSx = {
+  p: 2.5,
+  borderRadius: 3,
+  background: "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+  border: "1px solid rgba(226, 232, 240, 0.8)",
+  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1)",
+  transition: "all 0.3s ease",
+  "&:hover": {
+    boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.12)",
+    transform: "translateY(-2px)",
+  },
 };
 
 const POS: React.FC = () => {
@@ -72,6 +86,7 @@ const POS: React.FC = () => {
   const [cartOpen, setCartOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState(0);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement | null>(null);
   const prevItemCountRef = useRef(0);
@@ -340,18 +355,50 @@ const POS: React.FC = () => {
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ sm: "center" }}>
             <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-              <Chip label={`${itemCount} item${itemCount === 1 ? "" : "s"}`} size="small" />
-              {customerId ? <Chip label={selectedCustomerName} size="small" color="secondary" variant="outlined" /> : null}
+              <Chip 
+                label={`${itemCount} item${itemCount === 1 ? "" : "s"}`} 
+                size="small" 
+                sx={{ 
+                  fontWeight: 600,
+                  background: "linear-gradient(135deg, #1E40AF 0%, #2563EB 100%)",
+                  color: "white",
+                  "&:hover": { background: "linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)" }
+                }}
+              />
+              {customerId ? (
+                <Chip 
+                  label={selectedCustomerName} 
+                  size="small" 
+                  color="secondary" 
+                  variant="filled" 
+                  sx={{ fontWeight: 500 }}
+                />
+              ) : null}
               {(promoId || adjustedTotalsSummary.promotionDiscount > 0) ? (
-                <Chip label={promoSummaryLabel} size="small" variant="outlined" />
+                <Chip 
+                  label={promoSummaryLabel} 
+                  size="small" 
+                  sx={{ 
+                    fontWeight: 500,
+                    background: "linear-gradient(135deg, #059669 0%, #10B981 100%)",
+                    color: "white",
+                  }}
+                />
               ) : null}
             </Stack>
 
-            <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                Total actual
+            <Box sx={{ 
+              textAlign: { xs: "left", sm: "right" },
+              background: "linear-gradient(135deg, #1E40AF 0%, #2563EB 100%)",
+              borderRadius: 2,
+              p: 1.5,
+              px: 2.5,
+              boxShadow: "0 4px 14px rgba(30, 64, 175, 0.25)",
+            }}>
+              <Typography variant="caption" sx={{ display: "block", color: "rgba(255,255,255,0.8)", fontWeight: 500 }}>
+                Total a pagar
               </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 900, color: "primary.main", lineHeight: 1.05 }}>
+              <Typography variant="h3" sx={{ fontWeight: 900, color: "white", lineHeight: 1.1, textShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
                 {formatMoney(total)}
               </Typography>
             </Box>
@@ -378,6 +425,7 @@ const POS: React.FC = () => {
           {!cashQuery.isLoading && !cash?.is_open ? (
             <Alert
               severity="warning"
+              sx={{ borderRadius: 2 }}
               action={
                 <Button color="inherit" size="small" onClick={() => navigate("/cash")}>
                   Ir a caja
@@ -388,7 +436,29 @@ const POS: React.FC = () => {
             </Alert>
           ) : null}
 
-          <Button fullWidth variant="contained" disabled={primaryActionDisabled} onClick={handlePrimaryAction} sx={{ minHeight: 54 }}>
+          <Button 
+            fullWidth 
+            variant="contained" 
+            disabled={primaryActionDisabled} 
+            onClick={handlePrimaryAction} 
+            sx={{ 
+              minHeight: 56,
+              fontSize: "1.1rem",
+              fontWeight: 700,
+              background: "linear-gradient(135deg, #059669 0%, #10B981 50%, #34D399 100%)",
+              backgroundSize: "200% 200%",
+              boxShadow: "0 4px 14px rgba(5, 150, 105, 0.35)",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                background: "linear-gradient(135deg, #10B981 0%, #34D399 50%, #6EE7B7 100%)",
+                boxShadow: "0 8px 25px rgba(5, 150, 105, 0.45)",
+                transform: "translateY(-2px)",
+              },
+              "&:active": {
+                transform: "translateY(0)",
+              },
+            }}
+          >
             {primaryActionLabel}
           </Button>
 
@@ -426,6 +496,15 @@ const POS: React.FC = () => {
               onClick={handleStartFreshSale}
             >
               Nueva venta
+            </Button>
+            <Button
+              fullWidth
+              variant="text"
+              color="info"
+              startIcon={<CalculateIcon />}
+              onClick={() => setCalculatorOpen(true)}
+            >
+              Calculadora
             </Button>
           </Stack>
 
@@ -502,20 +581,31 @@ const POS: React.FC = () => {
         </Paper>
       ) : null}
 
-      <Grid container spacing={2}>
+      <Grid container spacing={2.5}>
         <Grid item xs={12} lg={7}>
-          <Paper sx={panelSx}>
+          <Paper sx={modernPanelSx}>
             <Stack spacing={1.75}>
-              <Box>
-                <Typography variant="overline" sx={{ letterSpacing: 1.1, color: "warning.main" }}>
-                  Paso 1
-                </Typography>
-                <Typography variant="h6" sx={{ mt: 0.35, fontWeight: 800 }}>
-                  Buscar productos
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
-                  Usa el lector de codigo de barras o escribe nombre, SKU, ISBN o categoria.
-                </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box sx={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 2,
+                  background: "linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)",
+                }}>
+                  <Typography sx={{ fontWeight: 900, color: "white", fontSize: "1.2rem" }}>1</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="h6" sx={{ mt: 0.35, fontWeight: 800, lineHeight: 1.2 }}>
+                    Buscar productos
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Escanea o escribe nombre, SKU, ISBN o categoría
+                  </Typography>
+                </Box>
               </Box>
 
               <ProductSearch priceMap={priceMap} inputRef={searchRef} view="panel" minimal={isCashierMode} />
@@ -635,6 +725,8 @@ const POS: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <Calculator open={calculatorOpen} onClose={() => setCalculatorOpen(false)} />
     </Box>
   );
 };

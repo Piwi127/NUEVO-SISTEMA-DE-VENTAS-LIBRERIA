@@ -19,6 +19,7 @@ from app.core.metrics import (
 )
 from app.core.rate_limit import rate_limiter
 from app.core.security import decode_token
+from app.core.security_validation import build_csp, validate_security_settings
 from app.routers.auth import router as auth_router
 from app.routers.admin import admin as admin_router
 from app.routers.admin import permissions as permissions_router
@@ -61,14 +62,19 @@ def _validate_table_name(table_name: str) -> str:
 async def verify_schema_compatibility() -> None:
     async with AsyncSessionLocal() as session:
         dialect = session.bind.dialect.name if session.bind else ""
+
         async def table_columns(table_name: str) -> set[str]:
             # Validar nombre de tabla para prevenir SQL injection
             safe_table_name = _validate_table_name(table_name)
             if dialect == "sqlite":
-                result = await session.execute(text(f"PRAGMA table_info({safe_table_name})"))
+                result = await session.execute(
+                    text(f"PRAGMA table_info({safe_table_name})")
+                )
                 return {row[1] for row in result.fetchall()}
             result = await session.execute(
-                text("SELECT column_name FROM information_schema.columns WHERE table_name = :table_name"),
+                text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = :table_name"
+                ),
                 {"table_name": safe_table_name},
             )
             return {row[0] for row in result.fetchall()}
@@ -86,14 +92,44 @@ async def verify_schema_compatibility() -> None:
             },
             "purchases": {"subtotal", "direct_costs_breakdown", "direct_costs_total"},
             "purchase_items": {"base_unit_cost", "direct_cost_allocated"},
-            "stock_batches": {"unit_cost", "direct_cost_allocated", "source_type", "source_ref"},
+            "stock_batches": {
+                "unit_cost",
+                "direct_cost_allocated",
+                "source_type",
+                "source_ref",
+            },
             "sale_items": {"unit_cost_snapshot"},
-            "customers": {"loyalty_points", "loyalty_total_earned", "loyalty_total_redeemed", "tax_id", "address", "email"},
-            "sales": {"loyalty_discount", "loyalty_points_earned", "loyalty_points_redeemed", "document_type"},
+            "customers": {
+                "loyalty_points",
+                "loyalty_total_earned",
+                "loyalty_total_redeemed",
+                "tax_id",
+                "address",
+                "email",
+            },
+            "sales": {
+                "loyalty_discount",
+                "loyalty_points_earned",
+                "loyalty_points_redeemed",
+                "document_type",
+            },
             "system_settings": {"print_templates_enabled"},
             "user_sessions": {"family_id"},
-            "refresh_tokens": {"family_id", "jti", "token_hash", "expires_at", "revoked_at"},
-            "inventory_import_jobs": {"status", "filename", "file_type", "processed_rows", "success_rows", "error_rows"},
+            "refresh_tokens": {
+                "family_id",
+                "jti",
+                "token_hash",
+                "expires_at",
+                "revoked_at",
+            },
+            "inventory_import_jobs": {
+                "status",
+                "filename",
+                "file_type",
+                "processed_rows",
+                "success_rows",
+                "error_rows",
+            },
             "inventory_import_job_errors": {"job_id", "row_number", "detail"},
             "document_sequences": {"document_type", "series", "next_number"},
             "print_templates": {"name", "document_type"},
@@ -111,6 +147,7 @@ async def verify_schema_compatibility() -> None:
                     "Ejecute 'alembic upgrade head' antes de iniciar la API."
                 )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await verify_schema_compatibility()
@@ -125,57 +162,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Bookstore POS API", lifespan=lifespan)
 logger = logging.getLogger("bookstore")
 
-def _validate_security_settings() -> None:
-    env = settings.environment.lower()
-    is_prod = env in {"prod", "production"}
-    # JWT_SECRET ya es validado por el field_validator en config.py
-    if is_prod and not settings.cookie_secure:
-        raise RuntimeError("COOKIE_SECURE debe ser true en produccion")
-    samesite = settings.cookie_samesite.lower()
-    if samesite not in {"lax", "strict", "none"}:
-        raise RuntimeError("COOKIE_SAMESITE debe ser lax, strict o none")
-    if is_prod and samesite == "none" and not settings.cookie_secure:
-        raise RuntimeError("COOKIE_SAMESITE=none requiere COOKIE_SECURE=true")
-    if is_prod and not settings.twofa_encryption_key:
-        raise RuntimeError("2FA_ENCRYPTION_KEY debe configurarse en produccion")
-    if is_prod:
-        origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
-        if not origins:
-            raise RuntimeError("CORS_ORIGINS debe definirse en produccion")
-        if any("localhost" in o or "127.0.0.1" in o for o in origins):
-            raise RuntimeError("CORS_ORIGINS no debe incluir localhost en produccion")
-    # Validar DATABASE_URL
-    if not settings.database_url:
-        raise RuntimeError("DATABASE_URL debe estar configurada")
-    if not settings.database_url.startswith(("sqlite", "postgresql", "mysql")):
-        raise RuntimeError("DATABASE_URL debe usar sqlite, postgresql o mysql")
-    # Validar Redis URL si se proporciona
-    if settings.redis_url and not settings.redis_url.startswith(("redis://", "rediss://")):
-        raise RuntimeError("REDIS_URL debe comenzar con redis:// o rediss://")
+validate_security_settings()
 
-_validate_security_settings()
-
-def _build_csp() -> str:
-    origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
-    connect_src = {"'self'"}
-    for origin in origins:
-        connect_src.add(origin)
-        if origin.startswith("http://"):
-            connect_src.add(origin.replace("http://", "ws://", 1))
-        if origin.startswith("https://"):
-            connect_src.add(origin.replace("https://", "wss://", 1))
-    connect_src_value = " ".join(sorted(connect_src))
-    return (
-        "default-src 'self'; "
-        "base-uri 'self'; "
-        "object-src 'none'; "
-        "frame-ancestors 'none'; "
-        "form-action 'self'; "
-        "img-src 'self' data:; "
-        "style-src 'self' 'unsafe-inline'; "
-        "script-src 'self'; "
-        f"connect-src {connect_src_value}"
-    )
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -222,7 +210,9 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         elapsed_ms = elapsed_seconds * 1000
         status = str(response.status_code)
         http_requests_total.labels(request.method, route_path, status).inc()
-        http_request_duration_seconds.labels(request.method, route_path).observe(elapsed_seconds)
+        http_request_duration_seconds.labels(request.method, route_path).observe(
+            elapsed_seconds
+        )
         response.headers[header_name] = request_id
         logger.info(
             "request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
@@ -241,12 +231,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "same-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=()"
+        )
         response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
         response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
-        response.headers["Content-Security-Policy"] = _build_csp()
-        if settings.environment.lower() in {"prod", "production"} and settings.cookie_secure:
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = build_csp()
+        if (
+            settings.environment.lower() in {"prod", "production"}
+            and settings.cookie_secure
+        ):
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
         return response
 
 
@@ -266,6 +263,7 @@ class HealthGuardMiddleware(BaseHTTPMiddleware):
                     return Response(status_code=404)
         return await call_next(request)
 
+
 class CsrfMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method == "OPTIONS":
@@ -275,14 +273,19 @@ class CsrfMiddleware(BaseHTTPMiddleware):
         if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             has_auth_header = bool(request.headers.get("authorization"))
             has_session_cookie = bool(
-                request.cookies.get(settings.auth_cookie_name) or request.cookies.get(settings.refresh_cookie_name)
+                request.cookies.get(settings.auth_cookie_name)
+                or request.cookies.get(settings.refresh_cookie_name)
             )
             if not has_auth_header and has_session_cookie:
                 csrf_cookie = request.cookies.get(settings.csrf_cookie_name)
                 csrf_header = request.headers.get(settings.csrf_header_name)
                 if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
-                    return Response(content="CSRF token missing or invalid", status_code=403)
+                    return Response(
+                        content="CSRF token missing or invalid", status_code=403
+                    )
         return await call_next(request)
+
+
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(CsrfMiddleware)
 app.add_middleware(HealthGuardMiddleware)
@@ -320,6 +323,7 @@ app.include_router(pricing_router.router)
 app.include_router(returns_router.router)
 app.include_router(purchasing_router.router)
 app.include_router(printing_router.router)
+
 
 def _error_response(request: Request, status_code: int, code: str, detail):
     request_id = getattr(request.state, "request_id", "-")
@@ -370,6 +374,7 @@ async def health():
 async def healthz():
     return {"status": "ok"}
 
+
 @app.get("/health/ready")
 async def health_ready():
     try:
@@ -377,7 +382,11 @@ async def health_ready():
             await session.execute(text("SELECT 1"))
         return {"status": "ok", "checks": {"database": "ok"}}
     except Exception:
-        return JSONResponse(status_code=503, content={"status": "degraded", "checks": {"database": "error"}})
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "checks": {"database": "error"}},
+        )
+
 
 @app.get("/metrics")
 async def metrics():

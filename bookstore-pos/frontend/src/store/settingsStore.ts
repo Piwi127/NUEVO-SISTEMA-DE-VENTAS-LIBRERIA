@@ -18,12 +18,15 @@ export type PublicSettingsPatch = {
   default_warehouse_id?: number | null;
 };
 
+export type ThemeMode = "light" | "dark" | "system";
+
 type SettingsState = {
   currency: Currency;
   projectName: string;
   taxRate: number;
   taxIncluded: boolean;
   compactMode: boolean;
+  darkMode: ThemeMode;
   storeAddress: string;
   storePhone: string;
   storeTaxId: string;
@@ -48,6 +51,7 @@ const state: SettingsState = {
   taxRate: 0,
   taxIncluded: false,
   compactMode: false,
+  darkMode: "system",
   storeAddress: "",
   storePhone: "",
   storeTaxId: "",
@@ -104,6 +108,7 @@ const load = () => {
     if (typeof parsed.taxRate === "number") state.taxRate = parsed.taxRate;
     if (typeof parsed.taxIncluded === "boolean") state.taxIncluded = parsed.taxIncluded;
     if (typeof parsed.compactMode === "boolean") state.compactMode = parsed.compactMode;
+    if (parsed.darkMode === "light" || parsed.darkMode === "dark" || parsed.darkMode === "system") state.darkMode = parsed.darkMode;
     if (typeof parsed.storeAddress === "string") state.storeAddress = parsed.storeAddress;
     if (typeof parsed.storePhone === "string") state.storePhone = parsed.storePhone;
     if (typeof parsed.storeTaxId === "string") state.storeTaxId = parsed.storeTaxId;
@@ -124,6 +129,7 @@ const load = () => {
 
 const persist = () => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  window.dispatchEvent(new Event("bookstore-settings-changed"));
 };
 
 load();
@@ -144,6 +150,9 @@ export const settingsStore = {
   },
   setCompactMode: (compactMode: boolean) => {
     updateState({ compactMode });
+  },
+  setDarkMode: (darkMode: ThemeMode) => {
+    updateState({ darkMode });
   },
   setStoreAddress: (storeAddress: string) => {
     updateState({ storeAddress });
@@ -204,4 +213,5 @@ export const settingsStore = {
     listeners.add(listener);
     return () => listeners.delete(listener);
   },
+  getState: () => state,
 };

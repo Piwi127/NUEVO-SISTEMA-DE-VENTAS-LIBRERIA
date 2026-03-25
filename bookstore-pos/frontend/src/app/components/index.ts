@@ -1,5 +1,6 @@
 ﻿export * from "@/components/AppLayout";
 export * from "@/components/CardTable";
+export * from "./Charts";
 export * from "@/components/ConfirmDialog";
 export * from "@/components/EmptyState";
 export * from "@/components/ErrorState";

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { settingsStore, Currency, PublicSettingsPatch } from "@/store/settingsStore";
+import { settingsStore, Currency, PublicSettingsPatch, ThemeMode } from "@/store/settingsStore";
 
 export const useSettings = () => {
   const snapshot = useSyncExternalStore(settingsStore.subscribe, settingsStore.get, settingsStore.get);
@@ -10,6 +10,7 @@ export const useSettings = () => {
     setTaxRate: settingsStore.setTaxRate,
     setTaxIncluded: settingsStore.setTaxIncluded,
     setCompactMode: settingsStore.setCompactMode,
+    setDarkMode: settingsStore.setDarkMode,
     setStoreAddress: settingsStore.setStoreAddress,
     setStorePhone: settingsStore.setStorePhone,
     setStoreTaxId: settingsStore.setStoreTaxId,
@@ -29,6 +30,7 @@ export const useSettings = () => {
     taxRate: number;
     taxIncluded: boolean;
     compactMode: boolean;
+    darkMode: ThemeMode;
     storeAddress: string;
     storePhone: string;
     storeTaxId: string;
@@ -46,6 +48,7 @@ export const useSettings = () => {
     setTaxRate: (n: number) => void;
     setTaxIncluded: (n: boolean) => void;
     setCompactMode: (n: boolean) => void;
+    setDarkMode: (m: ThemeMode) => void;
     setStoreAddress: (n: string) => void;
     setStorePhone: (n: string) => void;
     setStoreTaxId: (n: string) => void;
