@@ -5,8 +5,7 @@ import { PageHeader } from "@/app/components";
 import { useToast } from "@/app/components";
 import { getRolePermissions, updateRolePermissions } from "@/modules/admin/api";
 
-// Página de gestión de permisos por rol
-// Configura qué permisos tiene cada rol (admin, cashier, stock)
+const PERMISSION_GROUPS: {
   title: string;
   items: { key: string; label: string; description: string }[];
 }[] = [

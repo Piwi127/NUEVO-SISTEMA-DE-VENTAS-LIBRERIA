@@ -37,8 +37,7 @@ import { useProductsList } from "@/modules/catalog/hooks/useProductsList";
 import { ProductsDataGrid } from "@/modules/catalog/components/ProductsDataGrid";
 import { ProductFormModal } from "./ProductFormModal";
 
-// Página de gestión de productos
-// Lista, crea, edita y elimina productos del catálogo
+const Products: React.FC = () => {
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const isCompact = compactMode || compact;

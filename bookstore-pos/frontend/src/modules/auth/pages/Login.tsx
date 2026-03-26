@@ -46,8 +46,7 @@ const fieldSx = {
   },
 };
 
-// Página de login
-// Formulario de autenticación con usuario y contraseña
+const Login: React.FC = () => {
   const { login: doLogin } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();

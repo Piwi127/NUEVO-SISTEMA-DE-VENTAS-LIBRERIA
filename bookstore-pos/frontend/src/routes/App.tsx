@@ -43,8 +43,7 @@ const RoleHomeRedirect: React.FC = () => {
   return <Navigate to={getLandingRoute(role)} replace />;
 };
 
-// Componente principal de rutas
-// Define las rutas públicas y protegidas de la aplicación
+const App: React.FC = () => {
   const withSuspense = (node: React.ReactNode) => (
     <RouteErrorBoundary>
       <React.Suspense

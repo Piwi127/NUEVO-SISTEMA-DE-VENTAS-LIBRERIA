@@ -6,9 +6,7 @@ type Props = {
   children: React.ReactNode;
 };
 
-// Componente de protección por rol
-// Renderiza hijos solo si el usuario tiene el rol requerido
-// Props: roles - array de roles permitidos, children - contenido a renderizar
+export const RoleGuard: React.FC<Props> = ({ roles, children }) => {
   const { role } = useAuth();
   if (!role || !roles.includes(role)) return null;
   return <>{children}</>;

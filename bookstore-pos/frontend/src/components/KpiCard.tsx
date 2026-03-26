@@ -8,9 +8,7 @@ type Props = {
   icon?: React.ReactNode;
 };
 
-// Componente de tarjeta KPI
-// Muestra indicadores clave de rendimiento con etiqueta y valor
-// Props: label - etiqueta, value - valor a mostrar, accent - color de acento, icon - icono
+export const KpiCard: React.FC<Props> = ({ label, value, accent, icon }) => {
   const tone = accent || "#1E40AF";
 
   return (

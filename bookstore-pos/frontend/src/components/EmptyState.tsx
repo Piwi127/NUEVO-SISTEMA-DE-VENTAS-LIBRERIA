@@ -9,9 +9,7 @@ type EmptyStateProps = {
   icon?: React.ReactNode;
 };
 
-// Componente para mostrar cuando no hay datos
-// Muestra un mensaje con icono, título y opcionalmente un botón de acción
-// Props: title - título, description - descripción, actionLabel - texto del botón, onAction - función del botón
+export const EmptyState: React.FC<EmptyStateProps> = ({ title, description, actionLabel, onAction, icon }) => {
   return (
     <Paper
       sx={{

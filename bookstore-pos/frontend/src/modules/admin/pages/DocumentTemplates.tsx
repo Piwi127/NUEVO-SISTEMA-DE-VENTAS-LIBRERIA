@@ -165,8 +165,7 @@ const nextElementId = (elements: TemplateElement[], prefix: string) => {
 
 const elementLabel = (element: TemplateElement) => `${element.id} (${element.type})`;
 
-// Página de plantillas de documentos
-// Diseña y gestiona plantillas para tickets, boletas y facturas
+const DocumentTemplates: React.FC = () => {
   const { showToast } = useToast();
   const qc = useQueryClient();
   const [documentType, setDocumentType] = useState<"TICKET" | "BOLETA" | "FACTURA">("TICKET");

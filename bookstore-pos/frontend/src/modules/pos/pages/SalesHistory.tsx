@@ -32,8 +32,7 @@ const inputStyles = {
   "& .MuiInputLabel-root": { fontWeight: 600, color: "text.secondary" },
 };
 
-// Página de historial de ventas
-// Muestra el historial de ventas con filtros por fecha, estado y búsqueda
+const SalesHistory: React.FC = () => {
   const [status, setStatus] = useState<string>("");
   const [search, setSearch] = useState("");
   const [from, setFrom] = useState(daysAgoISO(30));

@@ -74,8 +74,7 @@ const modernPanelSx = {
   },
 };
 
-// Página principal del Punto de Venta (POS)
-// Maneja el carrito de compras, búsqueda de productos, pago y gestión de ventas
+const POS: React.FC = () => {
   const cart = useCartStore();
   const { role } = useAuth();
   const { taxRate, taxIncluded, paymentMethods, compactMode } = useSettings();

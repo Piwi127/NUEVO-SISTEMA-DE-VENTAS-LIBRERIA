@@ -7,9 +7,7 @@ type ErrorStateProps = {
   onRetry?: () => void;
 };
 
-// Componente para mostrar errores
-// Muestra un mensaje de error con opción de reintentar
-// Props: title - título del error, description - descripción, onRetry - función para reintentar
+export const ErrorState: React.FC<ErrorStateProps> = ({
   title = "No se pudo cargar",
   description = "Intenta nuevamente.",
   onRetry,

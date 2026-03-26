@@ -42,8 +42,7 @@ import * as QRCode from "qrcode";
 import { api } from "@/modules/shared/api";
 import { detectTimeContext } from "@/app/utils";
 
-// Página del panel de administración
-// Configuración general del sistema, permisos y auditoría
+const AdminPanel: React.FC = () => {
   const {
     currency,
     setCurrency,

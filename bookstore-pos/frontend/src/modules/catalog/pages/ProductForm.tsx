@@ -13,9 +13,7 @@ export type ProductFormProps = UseProductFormProps & {
   isModal?: boolean;
 };
 
-// Página de formulario de producto
-// Crea o edita un producto con toda su información (precios, stock, categoría, etc.)
-// Props: productId - ID del producto a editar (opcional), isModal - si es modal, onComplete - callback al completar
+const ProductForm: React.FC<ProductFormProps> = ({ productId, onComplete }) => {
   const {
     isEditing,
     parsedId,

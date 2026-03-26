@@ -18,9 +18,7 @@ export interface ProductFormModalProps {
     productId?: number | null;
 }
 
-// Componente modal de formulario de producto
-// Envuelve ProductForm en un diálogo modal
-// Props: open - estado, onClose - función para cerrar, productId - ID del producto (opcional)
+export const ProductFormModal: React.FC<ProductFormModalProps> = ({ open, onClose, productId }) => {
     // We need to inject the productId to the form hook somehow if we mount it directly,
     // currently `useProductForm` reads from React Router `useParams()`.
 

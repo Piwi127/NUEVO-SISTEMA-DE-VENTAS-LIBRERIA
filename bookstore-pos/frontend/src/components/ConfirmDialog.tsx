@@ -16,9 +16,7 @@ type Props = {
   maxWidth?: "xs" | "sm" | "md" | "lg";
 };
 
-// Componente de diálogo de confirmación
-// Muestra un mensaje de confirmación con botones de aceptar/cancelar
-// Props: open - estado del diálogo, title - título, description - descripción, onConfirm - función al confirmar, onCancel - función al cancelar
+export const ConfirmDialog: React.FC<Props> = ({
   open,
   title,
   content,

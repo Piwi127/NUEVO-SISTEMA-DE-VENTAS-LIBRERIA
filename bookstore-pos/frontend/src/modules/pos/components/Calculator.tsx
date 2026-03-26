@@ -33,9 +33,7 @@ const buttonStyle = {
   },
 };
 
-// Componente de calculadora
-// Calculadora científica para operaciones básicas y avanzadas
-// Props: open - estado del diálogo, onClose - función para cerrar, initialValue - valor inicial
+export const Calculator: React.FC<CalculatorProps> = ({ open, onClose, initialValue = "" }) => {
   const [display, setDisplay] = useState(initialValue);
   const [operator, setOperator] = useState<string | null>(null);
   const [previousValue, setPreviousValue] = useState<string | null>(null);

@@ -79,9 +79,7 @@ const DEFAULT_SECTION_META: SectionMeta = {
 
 const getSectionMeta = (title?: string) => (title ? SECTION_META[title] ?? DEFAULT_SECTION_META : DEFAULT_SECTION_META);
 
-// Componente principal de diseño de la aplicación
-// Proporciona el layout con navegación lateral, header y contenido
-// Props: children - componentes hijos a renderizar dentro del layout
+export const AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const theme = useTheme();
   const useDrawerNavigation = useMediaQuery(theme.breakpoints.down("lg"));
   const closeTimerRef = useRef<number | null>(null);

@@ -42,9 +42,7 @@ const METHOD_LABELS: Record<string, string> = {
 
 const getMethodLabel = (method: string) => METHOD_LABELS[method] || method;
 
-// Componente de diálogo de pago
-// Maneja los métodos de pago y cálculo de cambio
-// Props: open - estado, total - total a pagar, methods - métodos disponibles, onConfirm - confirmación
+export const PaymentDialog: React.FC<Props> = ({
   open,
   total,
   methods,

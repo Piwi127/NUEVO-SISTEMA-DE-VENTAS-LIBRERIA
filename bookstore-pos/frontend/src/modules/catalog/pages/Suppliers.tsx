@@ -24,8 +24,7 @@ const defaultValues: SupplierFormValues = {
   phone: "",
 };
 
-// Página de gestión de proveedores
-// Lista, crea, edita y elimina proveedores
+const Suppliers: React.FC = () => {
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers, staleTime: 60_000 });
