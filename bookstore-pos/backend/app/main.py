@@ -1,3 +1,10 @@
+"""
+Bookstore POS - Sistema de Punto de Venta para Librería
+
+Este módulo es el punto de entrada principal de la aplicación FastAPI.
+Configura la aplicación, middlewares, rutas y manejo de errores.
+"""
+
 from contextlib import asynccontextmanager
 import logging
 from time import perf_counter
@@ -48,12 +55,23 @@ from app.db.session import AsyncSessionLocal
 import re
 
 
-# Validar nombres de tablas para prevenir SQL injection
+# Patrón para validar nombres de tablas y prevenir SQL injection
 _TABLE_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
 def _validate_table_name(table_name: str) -> str:
-    """Valida que el nombre de la tabla solo contenga caracteres alfanuméricos y guiones bajos."""
+    """
+    Valida que el nombre de la tabla solo contenga caracteres válidos.
+
+    Args:
+        table_name: Nombre de la tabla a validar.
+
+    Returns:
+        El nombre de la tabla validado.
+
+    Raises:
+        ValueError: Si el nombre contiene caracteres inválidos.
+    """
     if not _TABLE_NAME_PATTERN.match(table_name):
         raise ValueError(f"Nombre de tabla invalido: {table_name}")
     return table_name
