@@ -22,26 +22,48 @@ const getDesignTokens = (mode: PaletteMode) => ({
     mode,
     ...(mode === "light"
       ? {
-          primary: { main: "#1E40AF", dark: "#1E3A8A", light: "#3B82F6", contrastText: "#FFFFFF" },
-          secondary: { main: "#059669", dark: "#047857", light: "#10B981", contrastText: "#FFFFFF" },
-          info: { main: "#2563EB", light: "#3B82F6", darkest: "#1D4ED8" },
+          primary: { 
+            main: "#2563EB", 
+            dark: "#1D4ED8", 
+            light: "#3B82F6", 
+            lighter: "#60A5FA",
+            contrastText: "#FFFFFF" 
+          },
+          secondary: { 
+            main: "#0D9488", 
+            dark: "#0F766E", 
+            light: "#14B8A6", 
+            contrastText: "#FFFFFF" 
+          },
+          info: { main: "#0284C7", light: "#0EA5E9", darkest: "#0369A1" },
           success: { main: "#059669", light: "#10B981", darkest: "#047857" },
           warning: { main: "#D97706", light: "#F59E0B", darkest: "#B45309" },
           error: { main: "#DC2626", light: "#EF4444", darkest: "#B91C1C" },
           background: { default: "#F8FAFC", paper: "#FFFFFF" },
-          text: { primary: "#0F172A", secondary: "#475569" },
+          text: { primary: "#0F172A", secondary: "#64748B" },
           divider: "#E2E8F0",
         }
       : {
-          primary: { main: "#3B82F6", dark: "#2563EB", light: "#60A5FA", contrastText: "#FFFFFF" },
-          secondary: { main: "#10B981", dark: "#059669", light: "#34D399", contrastText: "#FFFFFF" },
-          info: { main: "#3B82F6", light: "#60A5FA", darkest: "#2563EB" },
-          success: { main: "#10B981", light: "#34D399", darkest: "#059669" },
-          warning: { main: "#F59E0B", light: "#FBBF24", darkest: "#D97706" },
-          error: { main: "#EF4444", light: "#F87171", darkest: "#DC2626" },
-          background: { default: "#0F172A", paper: "#1E293B" },
+          primary: { 
+            main: "#3B82F6", 
+            dark: "#2563EB", 
+            light: "#60A5FA",
+            lighter: "#93C5FD",
+            contrastText: "#FFFFFF" 
+          },
+          secondary: { 
+            main: "#14B8A6", 
+            dark: "#0D9488", 
+            light: "#2DD4BF", 
+            contrastText: "#FFFFFF" 
+          },
+          info: { main: "#38BDF8", light: "#7DD3FC", darkest: "#0EA5E9" },
+          success: { main: "#22C55E", light: "#4ADE80", darkest: "#16A34A" },
+          warning: { main: "#FBBF24", light: "#FCD34D", darkest: "#F59E0B" },
+          error: { main: "#F87171", light: "#FCA5A5", darkest: "#EF4444" },
+          background: { default: "#0C1222", paper: "#131B2E" },
           text: { primary: "#F1F5F9", secondary: "#94A3B8" },
-          divider: "#334155",
+          divider: "#1E293B",
         }),
   },
 });
@@ -66,9 +88,9 @@ const colors = {
     lightest: "#D1FAE5",
     contrastText: "#FFFFFF",
   },
-  // Colores neutros para backgrounds
+  // Colores neutros para backgrounds - paleta sofisticada
   neutral: {
-    50: "#F8FAFC", // Fondo principal
+    50: "#FAFBFC", // Fondo principal - más limpio
     100: "#F1F5F9", // Fondo secundario
     200: "#E2E8F0", // Bordes sutiles
     300: "#CBD5E1", // Bordes
@@ -78,6 +100,12 @@ const colors = {
     700: "#334155", // Texto body
     800: "#1E293B", // Texto headings
     900: "#0F172A", // Texto principal
+  },
+  // Colores para sombras y superficies (glassmorphism)
+  surface: {
+    glass: "rgba(255, 255, 255, 0.8)",
+    glassDark: "rgba(19, 27, 46, 0.85)",
+    overlay: "rgba(15, 23, 42, 0.6)",
   },
   // Colores semánticos
   success: {
@@ -121,7 +149,7 @@ export const createAppTheme = (mode: PaletteMode = "light") => {
         xl: 1280,
       },
     },
-    shape: { borderRadius: 12 },
+    shape: { borderRadius: 16 },
   typography: {
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     h1: {

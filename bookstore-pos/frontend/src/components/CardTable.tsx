@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Paper, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 
 type Field = {
   label: string;
@@ -26,14 +27,15 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
     return (
       <Paper
         sx={{
-          p: 4,
-          border: "1px dashed #E2E8F0",
-          background: "#F8FAFC",
+          p: 5,
+          border: "1px dashed",
+          borderColor: alpha("#000", 0.08),
+          background: "linear-gradient(135deg, #FAFBFC 0%, #F1F5F9 100%)",
           textAlign: "center",
-          borderRadius: 3,
+          borderRadius: 4,
         }}
       >
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "#64748B" }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.secondary" }}>
           Sin registros para mostrar
         </Typography>
       </Paper>
@@ -62,13 +64,18 @@ export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, mi
           sx={{
             position: "relative",
             overflow: "hidden",
-            p: 1.5,
-            border: "1px solid #E2E8F0",
-            background: "#FFFFFF",
-            boxShadow: "var(--shadow-sm)",
-            borderRadius: 2.5,
+            p: 2,
+            border: "1px solid",
+            borderColor: alpha("#000", 0.05),
+            background: "linear-gradient(135deg, #FFFFFF 0%, #FAFBFC 100%)",
+            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.02)",
+            borderRadius: 3,
+            transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+            cursor: "pointer",
             "&:hover": {
-              borderColor: "#CBD5E1",
+              borderColor: alpha("#2563EB", 0.25),
+              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.08), 0 0 0 1px rgba(37, 99, 235, 0.05)",
+              transform: "translateY(-1px)",
             },
           }}
         >

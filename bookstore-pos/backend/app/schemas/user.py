@@ -17,7 +17,7 @@ class UserBase(BaseModel):
     is_active: bool = True
 
 
-class UserCreate(UserCreate):
+class UserCreate(UserBase):
     """Esquema para crear usuario."""
 
     password: str

@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 
 type PageHeaderProps = {
   title: string;
@@ -30,11 +31,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             label="Cargando"
             size="small"
             sx={{
-              height: 26,
-              bgcolor: "#F1F5F9",
-              color: "#475569",
+              height: 28,
+              bgcolor: alpha("#2563EB", 0.08),
+              color: "#2563EB",
               fontWeight: 500,
-              border: "1px solid #E2E8F0",
+              border: `1px solid ${alpha("#2563EB", 0.15)}`,
+              "& .MuiChip-label": { px: 1.5 },
             }}
           />,
         ]
@@ -45,11 +47,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         label={chip}
         size="small"
         sx={{
-          height: 26,
-          bgcolor: "#DBEAFE",
-          color: "#1D4ED8",
+          height: 28,
+          bgcolor: alpha("#0D9488", 0.08),
+          color: "#0D9488",
           fontWeight: 500,
-          border: "1px solid #BFDBFE",
+          border: `1px solid ${alpha("#0D9488", 0.15)}`,
+          "& .MuiChip-label": { px: 1.5 },
         }}
       />
     ))),
@@ -87,9 +90,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         alignItems: "center",
         gap: 1.5,
         p: metaBand && rightNode ? 1.5 : 0,
-        borderRadius: 2,
-        bgcolor: metaBand && rightNode ? "#F8FAFC" : "transparent",
-        border: metaBand && rightNode ? "1px solid #E2E8F0" : "none",
+        borderRadius: 3,
+        bgcolor: metaBand && rightNode ? alpha("#2563EB", 0.02) : "transparent",
+        border: metaBand && rightNode ? `1px solid ${alpha("#2563EB", 0.08)}` : "none",
       }}
     >
       {metaBand ? <Box sx={{ minWidth: 0 }}>{metaBand}</Box> : null}
@@ -102,43 +105,50 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       sx={{
         position: "relative",
         overflow: "hidden",
-        p: { xs: 1.5, sm: 2, md: 2.5 },
-        background: "#FFFFFF",
-        border: "1px solid #E2E8F0",
-        boxShadow: "var(--shadow-sm)",
-        borderRadius: 3,
+        p: { xs: 2, sm: 2.5, md: 3 },
+        background: "linear-gradient(135deg, #FFFFFF 0%, #FAFBFC 100%)",
+        border: "1px solid",
+        borderColor: alpha("#000", 0.06),
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02)",
+        borderRadius: 4,
       }}
     >
-      <Stack spacing={2} sx={{ minWidth: 0 }}>
+      <Stack spacing={2.5} sx={{ minWidth: 0 }}>
         {rightPlacement === "beforeTitle" ? accessoryBand : null}
 
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "flex-start", sm: "center" }} sx={{ minWidth: 0 }}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2.5} alignItems={{ xs: "flex-start", sm: "center" }} sx={{ minWidth: 0 }}>
           {icon ? (
             <Box
               sx={{
-                width: 48,
-                height: 48,
-                borderRadius: 2,
-                background: "linear-gradient(135deg, #1E40AF 0%, #059669 100%)",
-                display: "grid",
-                placeItems: "center",
+                width: 52,
+                height: 52,
+                borderRadius: 3,
+                background: "linear-gradient(135deg, #2563EB 0%, #0D9488 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 flexShrink: 0,
-                boxShadow: "var(--shadow-md)",
-                "& .MuiSvgIcon-root": { fontSize: 24, color: "#FFFFFF" },
+                boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+                transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                "&:hover": {
+                  transform: "scale(1.02)",
+                  boxShadow: "0 6px 16px rgba(37, 99, 235, 0.3)",
+                },
+                "& .MuiSvgIcon-root": { fontSize: 26, color: "#FFFFFF" },
               }}
             >
               {icon}
             </Box>
           ) : null}
 
-          <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography 
               variant="h4" 
               sx={{
                 fontWeight: 700,
-                fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" },
-                lineHeight: 1.2,
-                letterSpacing: "-0.02em",
+                fontSize: { xs: "1.375rem", sm: "1.625rem", md: "1.875rem" },
+                lineHeight: 1.15,
+                letterSpacing: "-0.025em",
                 wordBreak: "break-word",
                 color: "#0F172A",
               }}
@@ -146,7 +156,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               {title}
             </Typography>
             {subtitle ? (
-              <Typography variant="body1" sx={{ mt: 0.5, maxWidth: "min(760px, 100%)", color: "#475569" }}>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  mt: 0.75, 
+                  maxWidth: "min(760px, 100%)", 
+                  color: "text.secondary",
+                  fontWeight: 400,
+                  lineHeight: 1.5,
+                }}
+              >
                 {subtitle}
               </Typography>
             ) : null}

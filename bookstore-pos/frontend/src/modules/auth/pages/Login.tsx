@@ -41,8 +41,16 @@ const steps = [
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
     minHeight: 56,
-    borderRadius: 4,
+    borderRadius: 3,
     bgcolor: "rgba(255,255,255,0.96)",
+    transition: "all 0.2s ease",
+    "&:hover": {
+      bgcolor: "rgba(255,255,255,1)",
+    },
+    "&.Mui-focused": {
+      bgcolor: "rgba(255,255,255,1)",
+      boxShadow: "0 0 0 3px rgba(37, 99, 235, 0.12)",
+    },
   },
 };
 
@@ -108,11 +116,22 @@ const Login: React.FC = () => {
         placeItems: "center",
         p: { xs: 1.25, md: 2 },
         bgcolor: "background.default",
-        backgroundImage:
-          "radial-gradient(circle at 14% 16%, rgba(180,83,9,0.12) 0%, rgba(180,83,9,0) 28%), radial-gradient(circle at 84% 20%, rgba(15,118,110,0.12) 0%, rgba(15,118,110,0) 30%), linear-gradient(180deg, #FBF8F2 0%, #F4F0E8 58%, #EDE4D4 100%)",
+        backgroundImage: `
+          radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.08) 0%, transparent 50%),
+          radial-gradient(circle at 80% 80%, rgba(13, 148, 136, 0.08) 0%, transparent 50%),
+          radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.03) 0%, transparent 70%),
+          linear-gradient(180deg, #FAFBFC 0%, #F1F5F9 100%)
+        `,
       }}
     >
-      <Paper sx={{ width: "100%", maxWidth: 1080, overflow: "hidden", borderRadius: { xs: 4, md: 5 } }}>
+      <Paper sx={{ 
+        width: "100%", 
+        maxWidth: 1080, 
+        overflow: "hidden", 
+        borderRadius: { xs: 4, md: 5 },
+        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
+        border: "1px solid rgba(0, 0, 0, 0.05)",
+      }}>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.05fr 0.95fr" } }}>
           <Box
             sx={{

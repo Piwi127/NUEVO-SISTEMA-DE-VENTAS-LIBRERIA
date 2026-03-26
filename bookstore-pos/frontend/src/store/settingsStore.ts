@@ -18,7 +18,7 @@ export type PublicSettingsPatch = {
   default_warehouse_id?: number | null;
 };
 
-export type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "light";
 
 type SettingsState = {
   currency: Currency;
@@ -51,7 +51,7 @@ const state: SettingsState = {
   taxRate: 0,
   taxIncluded: false,
   compactMode: false,
-  darkMode: "system",
+  darkMode: "light",
   storeAddress: "",
   storePhone: "",
   storeTaxId: "",
@@ -108,7 +108,7 @@ const load = () => {
     if (typeof parsed.taxRate === "number") state.taxRate = parsed.taxRate;
     if (typeof parsed.taxIncluded === "boolean") state.taxIncluded = parsed.taxIncluded;
     if (typeof parsed.compactMode === "boolean") state.compactMode = parsed.compactMode;
-    if (parsed.darkMode === "light" || parsed.darkMode === "dark" || parsed.darkMode === "system") state.darkMode = parsed.darkMode;
+    state.darkMode = "light";
     if (typeof parsed.storeAddress === "string") state.storeAddress = parsed.storeAddress;
     if (typeof parsed.storePhone === "string") state.storePhone = parsed.storePhone;
     if (typeof parsed.storeTaxId === "string") state.storeTaxId = parsed.storeTaxId;

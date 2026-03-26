@@ -1,0 +1,106 @@
+=======================================================
+RESGUARDO DEL SISTEMA BOOKSTORE POS
+=======================================================
+
+CONTENIDO DEL RESGUARDO:
+------------------------
+1. bookstore.db - Base de datos completa con:
+   - Productos (SKU, precios, stock)
+   - Clientes y proveedores
+   - Historial de ventas
+   - Usuarios y permisos
+   - Configuraciones del sistema
+   - Promociones y listas de precios
+
+2. .env - Variables de entorno del servidor
+
+3. README.txt - Documentación general del proyecto
+
+4. run_project.sh - Script para ejecutar el sistema (Linux)
+
+=======================================================
+INSTALACIÓN EN ARCH LINUX
+=======================================================
+
+PASO 1: COPIAR ARCHIVOS
+------------------------
+Copia toda la carpeta del proyecto al servidor Arch Linux:
+  - bookstore-pos/
+
+PASO 2: INSTALAR DEPENDENCIAS
+------------------------------
+
+# Instalar Python y dependencias del backend
+sudo pacman -S python python-pip python-venv
+
+# Instalar Node.js y npm
+sudo pacman -S nodejs npm
+
+# Instalar dependencias del backend
+cd bookstore-pos/backend
+pip install -r requirements.txt
+
+# Instalar dependencias del frontend
+cd ../frontend
+npm install
+
+PASO 3: BASE DE DATOS
+-----------------------
+La base de datos (bookstore.db) ya viene incluida.
+Copia el archivo bookstore.db a la carpeta backend:
+  cp RESGUARDO_SISTEMA/bookstore.db backend/
+
+PASO 4: EJECUTAR EL SISTEMA
+-----------------------------
+# Opción 1: Usar el script (desde la carpeta bookstore-pos)
+chmod +x run_project.sh
+./run_project.sh
+
+# Opción 2: Manual en terminales separadas
+
+# Terminal 1 - Backend:
+cd bookstore-pos/backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2 - Frontend:
+cd bookstore-pos/frontend
+npm run dev -- --host 0.0.0.0
+
+PASO 5: ACCEDER AL SISTEMA
+---------------------------
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- Documentación API: http://localhost:8000/docs
+
+Para acceder desde otra PC en la red:
+  http://192.168.x.x:5173  (reemplaza con la IP del servidor)
+
+=======================================================
+NOTAS IMPORTANTES
+=======================================================
+
+1. La base de datos SQLite es portable:
+   - Funciona en Windows, Linux, Mac
+   - No requiere PostgreSQL
+
+2. Permisos de scripts:
+   chmod +x run_project.sh
+   chmod +x scripts/*.sh
+
+3. CORS configurado para:
+   - http://localhost:5173
+   - http://127.0.0.1:5173
+   - http://192.168.1.3:5173
+   - http://192.168.1.6:5173
+
+   Para agregar más IPs, edita backend/.env
+
+4. Backup de la base de datos:
+   python scripts/backup_db.py
+
+5. Si necesitas crear un admin:
+   python scripts/create_admin.py
+
+=======================================================
+Fecha de creación: 2026-03-26
+=======================================================
