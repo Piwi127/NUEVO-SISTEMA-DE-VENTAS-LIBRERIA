@@ -1,4 +1,5 @@
-﻿import { useSyncExternalStore } from "react";
+﻿// Store del carrito de compras
+// Gestiona el estado global del carrito con addItem, removeItem, setQty, clear, setDiscount
 
 export type CartItem = {
   product_id: number;

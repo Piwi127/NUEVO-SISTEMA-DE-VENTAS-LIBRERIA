@@ -16,7 +16,8 @@ type CartPayload = {
   totals?: { total: number };
 };
 
-const Display: React.FC = () => {
+// Página de display para cliente
+// Muestra el carrito en una pantalla externa via WebSocket
   const { sessionId } = useParams();
   const wsRef = useRef<WebSocket | null>(null);
   const [items, setItems] = useState<CartItem[]>([]);

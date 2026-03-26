@@ -118,7 +118,8 @@ const defaultRuleValues: RulePromotionValues = {
   is_active: true,
 };
 
-const Promotions: React.FC = () => {
+// Página de gestión de promociones
+// Crea, edita y elimina promociones y descuentos
   const qc = useQueryClient();
   const { showToast } = useToast();
   const globalFormRef = useRef<HTMLDivElement | null>(null);

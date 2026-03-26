@@ -1,3 +1,8 @@
+"""
+Servicio de precios y márgenes.
+Calcula precios de venta basados en costos y margen deseado.
+"""
+
 import json
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -80,7 +85,9 @@ def preview_pricing(
     )
 
 
-async def apply_pricing_to_product(db: AsyncSession, product_id: int, payload: PricingPreviewIn):
+async def apply_pricing_to_product(
+    db: AsyncSession, product_id: int, payload: PricingPreviewIn
+):
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
     if not product:
@@ -99,7 +106,10 @@ async def apply_pricing_to_product(db: AsyncSession, product_id: int, payload: P
     product.cost_total = _quantize_money(_to_decimal(payload.cost_total, "cost_total"))
     product.cost_qty = preview.qty
     product.direct_costs_breakdown = json.dumps(
-        {key: float(_quantize_money(value)) for key, value in preview.direct_costs_breakdown.items()},
+        {
+            key: float(_quantize_money(value))
+            for key, value in preview.direct_costs_breakdown.items()
+        },
         ensure_ascii=False,
     )
     product.direct_costs_total = preview.direct_costs_total
@@ -160,7 +170,9 @@ async def apply_bulk_pricing(db: AsyncSession, payload: PricingBulkApplyIn):
         qty = max(int(product.cost_qty or 1), 1)
         stored_cost_total = _to_decimal(product.cost_total or 0, "cost_total")
         if stored_cost_total <= 0:
-            fallback_unit_cost = _to_decimal(product.unit_cost or product.cost or 0, "unit_cost")
+            fallback_unit_cost = _to_decimal(
+                product.unit_cost or product.cost or 0, "unit_cost"
+            )
             stored_cost_total = _quantize_money(fallback_unit_cost * Decimal(qty))
 
         direct_breakdown = _parse_breakdown_json(product.direct_costs_breakdown)
@@ -177,7 +189,10 @@ async def apply_bulk_pricing(db: AsyncSession, payload: PricingBulkApplyIn):
         product.cost_total = _quantize_money(stored_cost_total)
         product.cost_qty = preview.qty
         product.direct_costs_breakdown = json.dumps(
-            {key: float(_quantize_money(value)) for key, value in preview.direct_costs_breakdown.items()},
+            {
+                key: float(_quantize_money(value))
+                for key, value in preview.direct_costs_breakdown.items()
+            },
             ensure_ascii=False,
         )
         product.direct_costs_total = preview.direct_costs_total

@@ -20,7 +20,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const STORAGE_KEY = "bookstore_auth";
 const IS_DEV = import.meta.env.DEV;
 
-export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
+// Proveedor de autenticación
+// Maneja el estado global de autenticación del usuario
+// Hook: useAuth() - devuelve username, role, login, logout, refreshMe
   const [state, setState] = useState<AuthState>({ username: null, role: null, csrfToken: null });
   const [ready, setReady] = useState(false);
 

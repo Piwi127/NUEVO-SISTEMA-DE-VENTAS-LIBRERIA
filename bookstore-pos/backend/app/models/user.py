@@ -1,3 +1,8 @@
+"""
+Modelo de usuario.
+Contiene información de autenticación, roles y seguridad.
+"""
+
 from sqlalchemy import Boolean, Integer, String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -5,6 +10,8 @@ from app.db.base import Base
 
 
 class User(Base):
+    """Usuario del sistema con credenciales y permisos."""
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

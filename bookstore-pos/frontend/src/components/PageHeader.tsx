@@ -12,7 +12,9 @@ type PageHeaderProps = {
   loading?: boolean;
 };
 
-export const PageHeader: React.FC<PageHeaderProps> = ({
+// Componente de encabezado de página
+// Muestra título, subtítulo, icono, chips y contenido adicional
+// Props: title - título principal, subtitle - descripción, icon - icono, chips - etiquetas, right - contenido adicional
   title,
   subtitle,
   icon,

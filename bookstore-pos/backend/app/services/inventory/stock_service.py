@@ -1,3 +1,8 @@
+"""
+Servicio de stock e inventario.
+Gestiona movimientos de inventario e importaciones masivas.
+"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
@@ -21,23 +26,31 @@ class StockService:
         async with service_transaction(self.db):
             yield
 
-    def _parse_float(self, row_number: int, row: dict, field: str, *, min_value: float = 0.0) -> float:
+    def _parse_float(
+        self, row_number: int, row: dict, field: str, *, min_value: float = 0.0
+    ) -> float:
         raw = row.get(field)
         try:
             value = float(raw)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Fila {row_number}: '{field}' invalido") from exc
         if value < min_value:
-            raise ValueError(f"Fila {row_number}: '{field}' debe ser mayor o igual a {min_value}")
+            raise ValueError(
+                f"Fila {row_number}: '{field}' debe ser mayor o igual a {min_value}"
+            )
         return value
 
-    def _parse_int(self, row_number: int, row: dict, field: str, *, min_value: int = 0) -> int:
+    def _parse_int(
+        self, row_number: int, row: dict, field: str, *, min_value: int = 0
+    ) -> int:
         number = self._parse_float(row_number, row, field, min_value=float(min_value))
         if not number.is_integer():
             raise ValueError(f"Fila {row_number}: '{field}' debe ser entero")
         return int(number)
 
-    def parse_import_row(self, row_number: int, row: dict) -> dict[str, str | int | float] | None:
+    def parse_import_row(
+        self, row_number: int, row: dict
+    ) -> dict[str, str | int | float] | None:
         if all(str(value or "").strip() == "" for value in row.values()):
             return None
         sku = str(row.get("sku") or "").strip()
@@ -56,7 +69,9 @@ class StockService:
             "stock_min": self._parse_int(row_number, row, "stock_min"),
         }
 
-    async def upsert_import_row(self, row: dict[str, str | int | float], *, default_warehouse_id: int, ref: str) -> None:
+    async def upsert_import_row(
+        self, row: dict[str, str | int | float], *, default_warehouse_id: int, ref: str
+    ) -> None:
         sku = str(row["sku"])
         name = str(row["name"])
         category = str(row["category"])
@@ -131,16 +146,22 @@ class StockService:
             raise HTTPException(status_code=400, detail="Cantidad invalida")
 
         async with self._transaction():
-            result = await self.db.execute(select(Product).where(Product.id == data.product_id))
+            result = await self.db.execute(
+                select(Product).where(Product.id == data.product_id)
+            )
             product = result.scalar_one_or_none()
             if not product:
                 raise HTTPException(status_code=404, detail="Producto no encontrado")
             default_warehouse_id = await require_default_warehouse_id(self.db)
             delta = data.qty if data.type in {"IN", "ADJ"} else -data.qty
             try:
-                await apply_stock_delta(self.db, data.product_id, delta, default_warehouse_id)
+                await apply_stock_delta(
+                    self.db, data.product_id, delta, default_warehouse_id
+                )
             except ValueError as exc:
-                raise HTTPException(status_code=409, detail="Stock insuficiente") from exc
+                raise HTTPException(
+                    status_code=409, detail="Stock insuficiente"
+                ) from exc
             movement = StockMovement(
                 product_id=data.product_id,
                 type=data.type,
@@ -149,7 +170,14 @@ class StockService:
             )
             self.db.add(movement)
             await self.db.flush()
-            await log_event(self.db, self.user.id, "inventory_movement", "stock_movement", str(movement.id), data.type)
+            await log_event(
+                self.db,
+                self.user.id,
+                "inventory_movement",
+                "stock_movement",
+                str(movement.id),
+                data.type,
+            )
             await self.db.refresh(movement)
             return movement
 
@@ -173,7 +201,11 @@ class StockService:
         async with self._transaction():
             for parsed in parsed_rows:
                 try:
-                    await self.upsert_import_row(parsed, default_warehouse_id=default_warehouse_id, ref="BULK_IMPORT")
+                    await self.upsert_import_row(
+                        parsed,
+                        default_warehouse_id=default_warehouse_id,
+                        ref="BULK_IMPORT",
+                    )
                 except ValueError as exc:
                     raise HTTPException(status_code=409, detail=str(exc)) from exc
             await log_event(

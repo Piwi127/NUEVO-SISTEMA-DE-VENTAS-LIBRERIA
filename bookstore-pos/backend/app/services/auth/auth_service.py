@@ -1,3 +1,8 @@
+"""
+Servicio de autenticación.
+Gestiona login, logout, refresh tokens y 2FA.
+"""
+
 from datetime import datetime, timedelta, timezone
 
 import pyotp
@@ -62,7 +67,9 @@ class AuthService:
         session_family_id = family_id or generate_jti()
         access_jti = generate_jti()
         refresh_jti = generate_jti()
-        access_token = create_access_token(subject=user.username, role=user.role, jti=access_jti)
+        access_token = create_access_token(
+            subject=user.username, role=user.role, jti=access_jti
+        )
         refresh_token = create_refresh_token(
             subject=user.username,
             role=user.role,
@@ -75,7 +82,8 @@ class AuthService:
                 family_id=session_family_id,
                 jti=access_jti,
                 created_at=now,
-                expires_at=now + timedelta(minutes=settings.access_token_expire_minutes),
+                expires_at=now
+                + timedelta(minutes=settings.access_token_expire_minutes),
                 revoked_at=None,
                 ip=ip,
                 user_agent=user_agent,
@@ -90,7 +98,8 @@ class AuthService:
                 parent_jti=parent_refresh_jti,
                 replaced_by_jti=None,
                 created_at=now,
-                expires_at=now + timedelta(minutes=settings.refresh_token_expire_minutes),
+                expires_at=now
+                + timedelta(minutes=settings.refresh_token_expire_minutes),
                 revoked_at=None,
             )
         )
@@ -103,95 +112,185 @@ class AuthService:
             "refresh_jti": refresh_jti,
         }
 
-    async def _revoke_access_family(self, family_id: str, *, revoked_at: datetime) -> None:
+    async def _revoke_access_family(
+        self, family_id: str, *, revoked_at: datetime
+    ) -> None:
         await self.db.execute(
             update(UserSession)
             .where(UserSession.family_id == family_id, UserSession.revoked_at.is_(None))
             .values(revoked_at=revoked_at)
         )
 
-    async def _revoke_refresh_family(self, family_id: str, *, revoked_at: datetime) -> None:
+    async def _revoke_refresh_family(
+        self, family_id: str, *, revoked_at: datetime
+    ) -> None:
         await self.db.execute(
             update(RefreshToken)
-            .where(RefreshToken.family_id == family_id, RefreshToken.revoked_at.is_(None))
+            .where(
+                RefreshToken.family_id == family_id, RefreshToken.revoked_at.is_(None)
+            )
             .values(revoked_at=revoked_at)
         )
 
-    async def _revoke_family_tokens(self, family_id: str, *, revoked_at: datetime) -> None:
+    async def _revoke_family_tokens(
+        self, family_id: str, *, revoked_at: datetime
+    ) -> None:
         await self._revoke_access_family(family_id, revoked_at=revoked_at)
         await self._revoke_refresh_family(family_id, revoked_at=revoked_at)
 
     async def login(self, data, ip: str | None = None, user_agent: str | None = None):
-        result = await self.db.execute(select(User).where(User.username == data.username))
+        result = await self.db.execute(
+            select(User).where(User.username == data.username)
+        )
         user = result.scalar_one_or_none()
         if not user or not user.is_active:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Credenciales invalidas",
+            )
 
         locked_until = user.locked_until
         if locked_until and locked_until.tzinfo is None:
             locked_until = locked_until.replace(tzinfo=timezone.utc)
         if locked_until and locked_until > self._now():
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cuenta bloqueada. Intente mas tarde")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cuenta bloqueada. Intente mas tarde",
+            )
 
         if not verify_password(data.password, user.password_hash):
             user.failed_attempts += 1
             locked = False
             if user.failed_attempts >= settings.account_lock_threshold:
-                user.locked_until = self._now() + timedelta(minutes=settings.account_lock_minutes)
+                user.locked_until = self._now() + timedelta(
+                    minutes=settings.account_lock_minutes
+                )
                 user.failed_attempts = 0
                 locked = True
-            await log_event(self.db, user.id, "login_failed", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+            await log_event(
+                self.db,
+                user.id,
+                "login_failed",
+                "user",
+                str(user.id),
+                "",
+                ip=ip,
+                user_agent=user_agent,
+            )
             if locked:
-                await log_event(self.db, user.id, "user_locked", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+                await log_event(
+                    self.db,
+                    user.id,
+                    "user_locked",
+                    "user",
+                    str(user.id),
+                    "",
+                    ip=ip,
+                    user_agent=user_agent,
+                )
             await self.db.commit()
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Credenciales invalidas",
+            )
 
         if user.twofa_enabled:
             if not data.otp:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="2FA_REQUIRED")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="2FA_REQUIRED"
+                )
             secret = decrypt_2fa_secret(user.twofa_secret)
             if not self._verify_totp(secret, data.otp or ""):
                 user.failed_attempts += 1
                 locked = False
                 if user.failed_attempts >= settings.account_lock_threshold:
-                    user.locked_until = self._now() + timedelta(minutes=settings.account_lock_minutes)
+                    user.locked_until = self._now() + timedelta(
+                        minutes=settings.account_lock_minutes
+                    )
                     user.failed_attempts = 0
                     locked = True
-                await log_event(self.db, user.id, "login_otp_failed", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+                await log_event(
+                    self.db,
+                    user.id,
+                    "login_otp_failed",
+                    "user",
+                    str(user.id),
+                    "",
+                    ip=ip,
+                    user_agent=user_agent,
+                )
                 if locked:
-                    await log_event(self.db, user.id, "user_locked", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+                    await log_event(
+                        self.db,
+                        user.id,
+                        "user_locked",
+                        "user",
+                        str(user.id),
+                        "",
+                        ip=ip,
+                        user_agent=user_agent,
+                    )
                 await self.db.commit()
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP invalido")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP invalido"
+                )
 
         user.failed_attempts = 0
         user.locked_until = None
 
         tokens = await self._issue_tokens_for_user(user, ip=ip, user_agent=user_agent)
-        await log_event(self.db, user.id, "login", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+        await log_event(
+            self.db,
+            user.id,
+            "login",
+            "user",
+            str(user.id),
+            "",
+            ip=ip,
+            user_agent=user_agent,
+        )
         await self.db.commit()
         return tokens
 
-    async def refresh(self, refresh_token: str, ip: str | None = None, user_agent: str | None = None):
+    async def refresh(
+        self, refresh_token: str, ip: str | None = None, user_agent: str | None = None
+    ):
         if not refresh_token:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token invalido")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token invalido",
+            )
         try:
             payload = decode_token(refresh_token)
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token invalido") from exc
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token invalido",
+            ) from exc
 
         if payload.get("typ") != "refresh":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token invalido")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token invalido",
+            )
 
         username = payload.get("sub")
         jti = payload.get("jti")
         family_id = payload.get("family")
         if not username or not jti or not family_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token invalido")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token invalido",
+            )
 
-        token_result = await self.db.execute(select(RefreshToken).where(RefreshToken.jti == jti))
+        token_result = await self.db.execute(
+            select(RefreshToken).where(RefreshToken.jti == jti)
+        )
         current_token = token_result.scalar_one_or_none()
         if not current_token:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sesion expirada")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Sesion expirada"
+            )
 
         now = self._now()
         token_expired = self._as_utc(current_token.expires_at) < now
@@ -205,13 +304,17 @@ class AuthService:
         if token_invalid:
             await self._revoke_family_tokens(current_token.family_id, revoked_at=now)
             await self.db.commit()
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sesion revocada")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Sesion revocada"
+            )
 
         user = await self.db.get(User, current_token.user_id)
         if not user or not user.is_active or user.username != username:
             await self._revoke_family_tokens(current_token.family_id, revoked_at=now)
             await self.db.commit()
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario inactivo")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario inactivo"
+            )
 
         current_token.revoked_at = now
         await self._revoke_access_family(current_token.family_id, revoked_at=now)
@@ -223,7 +326,16 @@ class AuthService:
             parent_refresh_jti=current_token.jti,
         )
         current_token.replaced_by_jti = rotated["refresh_jti"]
-        await log_event(self.db, user.id, "token_refresh", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+        await log_event(
+            self.db,
+            user.id,
+            "token_refresh",
+            "user",
+            str(user.id),
+            "",
+            ip=ip,
+            user_agent=user_agent,
+        )
         await self.db.commit()
         return rotated
 
@@ -232,7 +344,9 @@ class AuthService:
         current_user.twofa_secret = encrypt_2fa_secret(secret)
         current_user.twofa_enabled = False
         await self.db.commit()
-        uri = pyotp.totp.TOTP(secret).provisioning_uri(name=current_user.username, issuer_name="Bookstore POS")
+        uri = pyotp.totp.TOTP(secret).provisioning_uri(
+            name=current_user.username, issuer_name="Bookstore POS"
+        )
         return {"secret": secret, "otpauth": uri}
 
     async def confirm_2fa(self, current_user, code: str):
@@ -245,7 +359,9 @@ class AuthService:
         await self.db.commit()
         return {"ok": True}
 
-    async def revoke_token(self, token: str, ip: str | None = None, user_agent: str | None = None) -> None:
+    async def revoke_token(
+        self, token: str, ip: str | None = None, user_agent: str | None = None
+    ) -> None:
         try:
             payload = decode_token(token)
         except ValueError:
@@ -261,13 +377,17 @@ class AuthService:
         user_id: int | None = None
 
         if token_type == "refresh":
-            result = await self.db.execute(select(RefreshToken).where(RefreshToken.jti == jti))
+            result = await self.db.execute(
+                select(RefreshToken).where(RefreshToken.jti == jti)
+            )
             session_token = result.scalar_one_or_none()
             if session_token:
                 family_id = session_token.family_id
                 user_id = session_token.user_id
         else:
-            result = await self.db.execute(select(UserSession).where(UserSession.jti == jti))
+            result = await self.db.execute(
+                select(UserSession).where(UserSession.jti == jti)
+            )
             session = result.scalar_one_or_none()
             if session:
                 family_id = session.family_id
@@ -279,12 +399,23 @@ class AuthService:
             revoked_any = True
 
         if user_id is not None:
-            await log_event(self.db, user_id, "logout", "user", str(user_id), "", ip=ip, user_agent=user_agent)
+            await log_event(
+                self.db,
+                user_id,
+                "logout",
+                "user",
+                str(user_id),
+                "",
+                ip=ip,
+                user_agent=user_agent,
+            )
             revoked_any = True
         if revoked_any:
             await self.db.commit()
 
-    async def logout_all(self, user: User, ip: str | None = None, user_agent: str | None = None) -> None:
+    async def logout_all(
+        self, user: User, ip: str | None = None, user_agent: str | None = None
+    ) -> None:
         now = self._now()
         await self.db.execute(
             update(UserSession)
@@ -296,5 +427,14 @@ class AuthService:
             .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
             .values(revoked_at=now)
         )
-        await log_event(self.db, user.id, "logout_all", "user", str(user.id), "", ip=ip, user_agent=user_agent)
+        await log_event(
+            self.db,
+            user.id,
+            "logout_all",
+            "user",
+            str(user.id),
+            "",
+            ip=ip,
+            user_agent=user_agent,
+        )
         await self.db.commit()

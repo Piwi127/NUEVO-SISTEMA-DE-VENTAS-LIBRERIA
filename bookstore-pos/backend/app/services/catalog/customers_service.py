@@ -1,3 +1,8 @@
+"""
+Servicio de clientes.
+Gestiona operaciones CRUD de clientes.
+"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
@@ -7,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.customer import Customer
 
 from app.services._transaction import service_transaction
+
 
 class CustomersService:
     def __init__(self, db: AsyncSession):
@@ -26,7 +32,9 @@ class CustomersService:
             return customer
 
     async def update_customer(self, customer_id: int, data):
-        result = await self.db.execute(select(Customer).where(Customer.id == customer_id))
+        result = await self.db.execute(
+            select(Customer).where(Customer.id == customer_id)
+        )
         customer = result.scalar_one_or_none()
         if not customer:
             raise HTTPException(status_code=404, detail="Cliente no encontrado")
@@ -37,7 +45,9 @@ class CustomersService:
             return customer
 
     async def delete_customer(self, customer_id: int):
-        result = await self.db.execute(select(Customer).where(Customer.id == customer_id))
+        result = await self.db.execute(
+            select(Customer).where(Customer.id == customer_id)
+        )
         customer = result.scalar_one_or_none()
         if not customer:
             raise HTTPException(status_code=404, detail="Cliente no encontrado")

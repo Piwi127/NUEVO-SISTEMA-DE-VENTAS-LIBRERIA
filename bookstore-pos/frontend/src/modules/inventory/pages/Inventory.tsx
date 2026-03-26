@@ -89,7 +89,8 @@ const defaultTransferValues: TransferFormValues = { from_warehouse_id: 0, to_war
 const defaultBatchValues: BatchFormValues = { warehouse_id: 0, product_id: 0, lot: "", expiry_date: "", qty: 1 };
 
 
-const Inventory: React.FC = () => {
+// Página de gestión de inventario
+// Muestra stock, movimientos, kardex y permite subir inventario por Excel
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { role } = useAuth();

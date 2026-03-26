@@ -1,4 +1,8 @@
-const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, "");
+// Funciones de configuración del API
+// getApiBaseUrl - retorna la URL base del API
+// getWsBaseUrl - retorna la URL base para WebSocket
+// getApiTimeoutMs - retorna el timeout del API
+// getApiHealthTimeoutMs - retorna el timeout para health check
 
 const parseTimeoutMs = (value: string | undefined, fallback: number): number => {
   if (!value) return fallback;

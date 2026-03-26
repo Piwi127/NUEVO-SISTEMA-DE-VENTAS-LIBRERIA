@@ -1,3 +1,8 @@
+"""
+Modelos de listas de precios.
+Contiene clases para gestionar precios por cliente.
+"""
+
 from sqlalchemy import Integer, String, ForeignKey, Numeric, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -5,6 +10,8 @@ from app.db.base import Base
 
 
 class PriceList(Base):
+    """Lista de precios personalizada para clientes."""
+
     __tablename__ = "price_lists"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -12,6 +19,8 @@ class PriceList(Base):
 
 
 class PriceListItem(Base):
+    """Precio específico de un producto en una lista."""
+
     __tablename__ = "price_list_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

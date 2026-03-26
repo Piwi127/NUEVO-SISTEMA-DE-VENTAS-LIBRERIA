@@ -1,3 +1,8 @@
+"""
+Utilidades de gestión de stock.
+Funciones para obtener y modificar niveles de inventario.
+"""
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,12 +12,14 @@ from app.models.warehouse import StockLevel
 
 
 async def get_default_warehouse_id(db: AsyncSession) -> int | None:
+    """Obtiene el ID del almacén por defecto del sistema."""
     result = await db.execute(select(SystemSettings).limit(1))
     settings = result.scalar_one_or_none()
     return settings.default_warehouse_id if settings else None
 
 
 async def require_default_warehouse_id(db: AsyncSession) -> int:
+    """Obtiene el ID del almacén por defecto o lanza error si no existe."""
     warehouse_id = await get_default_warehouse_id(db)
     if not warehouse_id:
         raise ValueError("Almacen por defecto no configurado")
@@ -20,8 +27,11 @@ async def require_default_warehouse_id(db: AsyncSession) -> int:
 
 
 async def sync_product_stock_from_levels(db: AsyncSession, product_id: int) -> None:
+    """Sincroniza el stock total del producto desde los niveles por almacén."""
     res = await db.execute(
-        select(func.coalesce(func.sum(StockLevel.qty), 0)).where(StockLevel.product_id == product_id)
+        select(func.coalesce(func.sum(StockLevel.qty), 0)).where(
+            StockLevel.product_id == product_id
+        )
     )
     total = int(res.scalar_one() or 0)
     prod_res = await db.execute(select(Product).where(Product.id == product_id))
@@ -36,6 +46,7 @@ async def apply_stock_delta(
     delta: int,
     warehouse_id: int,
 ) -> None:
+    """Aplica un cambio (positivo o negativo) al stock de un producto."""
     res = await db.execute(
         select(StockLevel).where(
             StockLevel.product_id == product_id,
@@ -54,6 +65,7 @@ async def apply_stock_delta(
 
 
 async def get_stock_level(db: AsyncSession, product_id: int, warehouse_id: int) -> int:
+    """Obtiene el nivel de stock de un producto en un almacén."""
     res = await db.execute(
         select(StockLevel).where(
             StockLevel.product_id == product_id,
@@ -76,13 +88,17 @@ async def get_stock_level(db: AsyncSession, product_id: int, warehouse_id: int) 
         return 0
 
     total_levels_res = await db.execute(
-        select(func.coalesce(func.sum(StockLevel.qty), 0)).where(StockLevel.product_id == product_id)
+        select(func.coalesce(func.sum(StockLevel.qty), 0)).where(
+            StockLevel.product_id == product_id
+        )
     )
     total_levels = int(total_levels_res.scalar_one() or 0)
     if total_levels > 0:
         return 0
 
-    level = StockLevel(product_id=product_id, warehouse_id=warehouse_id, qty=legacy_stock)
+    level = StockLevel(
+        product_id=product_id, warehouse_id=warehouse_id, qty=legacy_stock
+    )
     db.add(level)
     await db.flush()
     return legacy_stock

@@ -1,19 +1,29 @@
+"""
+Utilidades de búsqueda y normalización de texto.
+Proporciona funciones para buscar productos sin acentos y en singular.
+"""
+
 import unicodedata
 
 from sqlalchemy import func
 
 
 def normalize_search_text(value: str) -> str:
+    """Normaliza texto quitando acentos y pasando a minúsculas."""
     normalized = unicodedata.normalize("NFD", (value or "").lower().strip())
-    without_accents = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+    without_accents = "".join(
+        ch for ch in normalized if unicodedata.category(ch) != "Mn"
+    )
     return " ".join(without_accents.split())
 
 
 def compact_search_text(value: str) -> str:
+    """Compacta texto quitando espacios y caracteres no alfanuméricos."""
     return "".join(ch for ch in normalize_search_text(value) if ch.isalnum())
 
 
 def singularize_token(token: str) -> str:
+    """Convierte palabra plural a singular."""
     if len(token) <= 3:
         return token
     if token.endswith("ces") and len(token) > 4:
@@ -26,6 +36,7 @@ def singularize_token(token: str) -> str:
 
 
 def split_search_terms(value: str) -> list[str]:
+    """Divide texto en términos normalizados y singularizados."""
     normalized = normalize_search_text(value)
     if not normalized:
         return []
@@ -33,6 +44,7 @@ def split_search_terms(value: str) -> list[str]:
 
 
 def normalized_column(column):
+    """Normaliza una columna SQL quitando acentos."""
     value = func.lower(func.coalesce(column, ""))
     replacements = (
         ("\u00e1", "a"),
@@ -49,6 +61,7 @@ def normalized_column(column):
 
 
 def compact_column(column):
+    """Compacta una columna SQL quitando caracteres especiales."""
     value = normalized_column(column)
     for token in (" ", "-", ".", "/", "_", ":"):
         value = func.replace(value, token, "")

@@ -1,3 +1,8 @@
+"""
+Servicio de productos.
+Gestiona operaciones CRUD de productos y importación masiva.
+"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException, status
@@ -14,7 +19,12 @@ from app.models.purchase import PurchaseItem
 from app.models.purchasing import PurchaseOrderItem
 from app.models.sale import SaleItem
 from app.models.sale_return import SaleReturnItem
-from app.models.warehouse import InventoryCount, StockBatch, StockLevel, StockTransferItem
+from app.models.warehouse import (
+    InventoryCount,
+    StockBatch,
+    StockLevel,
+    StockTransferItem,
+)
 from app.services._transaction import service_transaction
 
 
@@ -53,7 +63,9 @@ class ProductsService:
         payload["desired_margin"] = float(payload.get("desired_margin") or 0)
 
         breakdown = payload.get("direct_costs_breakdown")
-        payload["direct_costs_breakdown"] = breakdown if isinstance(breakdown, str) and breakdown.strip() else "{}"
+        payload["direct_costs_breakdown"] = (
+            breakdown if isinstance(breakdown, str) and breakdown.strip() else "{}"
+        )
         return payload
 
     @staticmethod
@@ -62,14 +74,25 @@ class ProductsService:
 
     @classmethod
     def _normalize_catalog_payload(cls, payload: dict) -> dict:
-        for field in ("sku", "name", "author", "publisher", "barcode", "shelf_location", "category", "tags"):
+        for field in (
+            "sku",
+            "name",
+            "author",
+            "publisher",
+            "barcode",
+            "shelf_location",
+            "category",
+            "tags",
+        ):
             payload[field] = cls._clean_text(payload.get(field))
 
         isbn = cls._clean_text(payload.get("isbn"))
         payload["isbn"] = isbn.replace("-", "").replace(" ", "")
         return payload
 
-    async def _ensure_unique_identifiers(self, payload: dict, *, exclude_product_id: int | None = None) -> None:
+    async def _ensure_unique_identifiers(
+        self, payload: dict, *, exclude_product_id: int | None = None
+    ) -> None:
         checks = (
             ("sku", payload.get("sku"), "SKU duplicado"),
             ("isbn", payload.get("isbn"), "ISBN duplicado"),
@@ -83,10 +106,14 @@ class ProductsService:
                 stmt = stmt.where(Product.id != exclude_product_id)
             exists = await self.db.execute(stmt.limit(1))
             if exists.scalar_one_or_none() is not None:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=message)
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT, detail=message
+                )
 
     async def create_product(self, data):
-        payload = self._normalize_catalog_payload(self._normalize_pricing_payload(data.model_dump()))
+        payload = self._normalize_catalog_payload(
+            self._normalize_pricing_payload(data.model_dump())
+        )
         await self._ensure_unique_identifiers(payload)
 
         initial_stock = int(payload.get("stock") or 0)
@@ -99,7 +126,9 @@ class ProductsService:
 
             if initial_stock:
                 default_warehouse_id = await require_default_warehouse_id(self.db)
-                await apply_stock_delta(self.db, product.id, initial_stock, default_warehouse_id)
+                await apply_stock_delta(
+                    self.db, product.id, initial_stock, default_warehouse_id
+                )
                 movement = StockMovement(
                     product_id=product.id,
                     type="IN",
@@ -109,7 +138,14 @@ class ProductsService:
                 self.db.add(movement)
 
             details = f"{product.sku} p:{float(product.price or 0):.2f} c:{float(product.cost or 0):.2f}"
-            await log_event(self.db, self.user.id, "product_create", "product", str(product.id), details[:255])
+            await log_event(
+                self.db,
+                self.user.id,
+                "product_create",
+                "product",
+                str(product.id),
+                details[:255],
+            )
             await self.db.refresh(product)
             return product
 
@@ -124,8 +160,12 @@ class ProductsService:
         old_sale_price = float(product.sale_price or 0)
         old_unit_cost = float(product.unit_cost or 0)
 
-        update_payload = self._normalize_catalog_payload(self._normalize_pricing_payload(data.model_dump()))
-        await self._ensure_unique_identifiers(update_payload, exclude_product_id=product_id)
+        update_payload = self._normalize_catalog_payload(
+            self._normalize_pricing_payload(data.model_dump())
+        )
+        await self._ensure_unique_identifiers(
+            update_payload, exclude_product_id=product_id
+        )
         stock_delta = 0
         if update_payload.get("stock") is not None:
             stock_delta = int(update_payload["stock"]) - int(product.stock or 0)
@@ -138,7 +178,9 @@ class ProductsService:
 
             if stock_delta:
                 default_warehouse_id = await require_default_warehouse_id(self.db)
-                await apply_stock_delta(self.db, product.id, stock_delta, default_warehouse_id)
+                await apply_stock_delta(
+                    self.db, product.id, stock_delta, default_warehouse_id
+                )
                 self.db.add(
                     StockMovement(
                         product_id=product.id,
@@ -155,7 +197,14 @@ class ProductsService:
                 f"sp:{old_sale_price:.2f}->{float(product.sale_price or 0):.2f} "
                 f"uc:{old_unit_cost:.2f}->{float(product.unit_cost or 0):.2f}"
             )
-            await log_event(self.db, self.user.id, "product_update", "product", str(product.id), details[:255])
+            await log_event(
+                self.db,
+                self.user.id,
+                "product_update",
+                "product",
+                str(product.id),
+                details[:255],
+            )
             await self.db.refresh(product)
             return product
 
@@ -174,7 +223,9 @@ class ProductsService:
             (InventoryCount, "conteos de inventario"),
         )
         for model, label in usage_checks:
-            usage = await self.db.execute(select(model.id).where(model.product_id == product_id).limit(1))
+            usage = await self.db.execute(
+                select(model.id).where(model.product_id == product_id).limit(1)
+            )
             if usage.scalar_one_or_none() is not None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -183,12 +234,27 @@ class ProductsService:
 
         try:
             async with self._transaction():
-                await self.db.execute(delete(PriceListItem).where(PriceListItem.product_id == product_id))
-                await self.db.execute(delete(StockBatch).where(StockBatch.product_id == product_id))
-                await self.db.execute(delete(StockLevel).where(StockLevel.product_id == product_id))
-                await self.db.execute(delete(StockMovement).where(StockMovement.product_id == product_id))
+                await self.db.execute(
+                    delete(PriceListItem).where(PriceListItem.product_id == product_id)
+                )
+                await self.db.execute(
+                    delete(StockBatch).where(StockBatch.product_id == product_id)
+                )
+                await self.db.execute(
+                    delete(StockLevel).where(StockLevel.product_id == product_id)
+                )
+                await self.db.execute(
+                    delete(StockMovement).where(StockMovement.product_id == product_id)
+                )
                 await self.db.delete(product)
-                await log_event(self.db, self.user.id, "product_delete", "product", str(product.id), product.sku)
+                await log_event(
+                    self.db,
+                    self.user.id,
+                    "product_delete",
+                    "product",
+                    str(product.id),
+                    product.sku,
+                )
         except IntegrityError:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

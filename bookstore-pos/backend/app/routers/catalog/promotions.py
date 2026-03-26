@@ -1,3 +1,8 @@
+"""
+Router de promociones.
+Endpoints: GET/POST /promotions, GET/POST /promotions/rules, /pack-rules
+"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,28 +40,55 @@ def _rule_details(rule: PromotionRule | PromotionRuleOut) -> str:
     )
 
 
-@router.get("", response_model=list[PromotionOut], dependencies=[Depends(require_role("admin"))])
+@router.get(
+    "", response_model=list[PromotionOut], dependencies=[Depends(require_role("admin"))]
+)
 async def list_promotions(db: AsyncSession = Depends(get_db)):
     service = PromotionsService(db)
     return await service.list_promotions()
 
 
-@router.get("/active", response_model=list[PromotionOut], dependencies=[Depends(require_role("admin", "cashier"))])
+@router.get(
+    "/active",
+    response_model=list[PromotionOut],
+    dependencies=[Depends(require_role("admin", "cashier"))],
+)
 async def list_active(db: AsyncSession = Depends(get_db)):
     service = PromotionsService(db)
     return await service.list_active()
 
 
-@router.post("", response_model=PromotionOut, status_code=201, dependencies=[Depends(require_role("admin"))])
-async def create_promotion(data: PromotionCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.post(
+    "",
+    response_model=PromotionOut,
+    status_code=201,
+    dependencies=[Depends(require_role("admin"))],
+)
+async def create_promotion(
+    data: PromotionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     service = PromotionsService(db)
     created = await service.create_promotion(data)
     details = f"{created.name} {created.type}:{float(created.value):.2f} active:{created.is_active}"
-    await log_event(db, current_user.id, "promotion_create", "promotion", str(created.id), details[:255], commit=True)
+    await log_event(
+        db,
+        current_user.id,
+        "promotion_create",
+        "promotion",
+        str(created.id),
+        details[:255],
+        commit=True,
+    )
     return created
 
 
-@router.put("/{promotion_id}", response_model=PromotionOut, dependencies=[Depends(require_role("admin"))])
+@router.put(
+    "/{promotion_id}",
+    response_model=PromotionOut,
+    dependencies=[Depends(require_role("admin"))],
+)
 async def update_promotion(
     promotion_id: int,
     data: PromotionUpdate,
@@ -66,7 +98,15 @@ async def update_promotion(
     service = PromotionsService(db)
     updated = await service.update_promotion(promotion_id, data)
     details = f"{updated.name} {updated.type}:{float(updated.value):.2f} active:{updated.is_active}"
-    await log_event(db, current_user.id, "promotion_update", "promotion", str(updated.id), details[:255], commit=True)
+    await log_event(
+        db,
+        current_user.id,
+        "promotion_update",
+        "promotion",
+        str(updated.id),
+        details[:255],
+        commit=True,
+    )
     return updated
 
 
@@ -78,24 +118,55 @@ async def delete_promotion(
 ):
     service = PromotionsService(db)
     response = await service.delete_promotion(promotion_id)
-    await log_event(db, current_user.id, "promotion_delete", "promotion", str(promotion_id), f"deleted:{promotion_id}", commit=True)
+    await log_event(
+        db,
+        current_user.id,
+        "promotion_delete",
+        "promotion",
+        str(promotion_id),
+        f"deleted:{promotion_id}",
+        commit=True,
+    )
     return response
 
 
-@router.get("/rules", response_model=list[PromotionRuleOut], dependencies=[Depends(require_role("admin"))])
+@router.get(
+    "/rules",
+    response_model=list[PromotionRuleOut],
+    dependencies=[Depends(require_role("admin"))],
+)
 async def list_rules(rule_type: str | None = None, db: AsyncSession = Depends(get_db)):
     service = PromotionsService(db)
     return await service.list_rules(rule_type=rule_type)
 
 
-@router.get("/rules/active", response_model=list[PromotionRuleOut], dependencies=[Depends(require_role("admin", "cashier"))])
-async def list_active_rules(product_ids: str | None = None, rule_type: str | None = None, db: AsyncSession = Depends(get_db)):
+@router.get(
+    "/rules/active",
+    response_model=list[PromotionRuleOut],
+    dependencies=[Depends(require_role("admin", "cashier"))],
+)
+async def list_active_rules(
+    product_ids: str | None = None,
+    rule_type: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     service = PromotionsService(db)
-    return await service.list_active_rules(product_ids=_parse_product_ids(product_ids) or None, rule_type=rule_type)
+    return await service.list_active_rules(
+        product_ids=_parse_product_ids(product_ids) or None, rule_type=rule_type
+    )
 
 
-@router.post("/rules", response_model=PromotionRuleOut, status_code=201, dependencies=[Depends(require_role("admin"))])
-async def create_rule(data: PromotionRuleCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.post(
+    "/rules",
+    response_model=PromotionRuleOut,
+    status_code=201,
+    dependencies=[Depends(require_role("admin"))],
+)
+async def create_rule(
+    data: PromotionRuleCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     service = PromotionsService(db)
     created = await service.create_rule(data)
     await log_event(
@@ -110,7 +181,11 @@ async def create_rule(data: PromotionRuleCreate, db: AsyncSession = Depends(get_
     return created
 
 
-@router.put("/rules/{rule_id}", response_model=PromotionRuleOut, dependencies=[Depends(require_role("admin"))])
+@router.put(
+    "/rules/{rule_id}",
+    response_model=PromotionRuleOut,
+    dependencies=[Depends(require_role("admin"))],
+)
 async def update_rule(
     rule_id: int,
     data: PromotionRuleUpdate,
@@ -151,20 +226,39 @@ async def delete_rule(
     return response
 
 
-@router.get("/pack-rules", response_model=list[PromotionRuleOut], dependencies=[Depends(require_role("admin"))])
+@router.get(
+    "/pack-rules",
+    response_model=list[PromotionRuleOut],
+    dependencies=[Depends(require_role("admin"))],
+)
 async def list_pack_rules(db: AsyncSession = Depends(get_db)):
     service = PromotionsService(db)
     return await service.list_pack_rules()
 
 
-@router.get("/pack-rules/active", response_model=list[PromotionRuleOut], dependencies=[Depends(require_role("admin", "cashier"))])
-async def list_active_pack_rules(product_ids: str | None = None, db: AsyncSession = Depends(get_db)):
+@router.get(
+    "/pack-rules/active",
+    response_model=list[PromotionRuleOut],
+    dependencies=[Depends(require_role("admin", "cashier"))],
+)
+async def list_active_pack_rules(
+    product_ids: str | None = None, db: AsyncSession = Depends(get_db)
+):
     service = PromotionsService(db)
     return await service.list_active_pack_rules(_parse_product_ids(product_ids) or None)
 
 
-@router.post("/pack-rules", response_model=PromotionRuleOut, status_code=201, dependencies=[Depends(require_role("admin"))])
-async def create_pack_rule(data: PromotionRuleCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.post(
+    "/pack-rules",
+    response_model=PromotionRuleOut,
+    status_code=201,
+    dependencies=[Depends(require_role("admin"))],
+)
+async def create_pack_rule(
+    data: PromotionRuleCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     service = PromotionsService(db)
     created = await service.create_pack_rule(data)
     await log_event(
@@ -179,7 +273,11 @@ async def create_pack_rule(data: PromotionRuleCreate, db: AsyncSession = Depends
     return created
 
 
-@router.put("/pack-rules/{rule_id}", response_model=PromotionRuleOut, dependencies=[Depends(require_role("admin"))])
+@router.put(
+    "/pack-rules/{rule_id}",
+    response_model=PromotionRuleOut,
+    dependencies=[Depends(require_role("admin"))],
+)
 async def update_pack_rule(
     rule_id: int,
     data: PromotionRuleUpdate,

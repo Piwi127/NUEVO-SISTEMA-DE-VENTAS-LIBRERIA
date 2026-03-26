@@ -1,3 +1,8 @@
+"""
+Router de impresión de documentos.
+Endpoints: GET /printing/receipt-text/{id}, /escpos/{id}, /document/{id}/html, /document/{id}/pdf
+"""
+
 from datetime import datetime
 from html import escape
 import logging
@@ -9,9 +14,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_db, require_permission, require_role
 from app.models.sale import SaleItem
 from app.services.pos.printing_service import PrintingService
-from app.services.printing_templates import DocumentRenderService, DocumentSnapshotService, TemplateService
+from app.services.printing_templates import (
+    DocumentRenderService,
+    DocumentSnapshotService,
+    TemplateService,
+)
 
-router = APIRouter(prefix="/printing", tags=["printing"], dependencies=[Depends(require_role("admin", "cashier"))])
+router = APIRouter(
+    prefix="/printing",
+    tags=["printing"],
+    dependencies=[Depends(require_role("admin", "cashier"))],
+)
 logger = logging.getLogger("bookstore")
 
 
@@ -36,7 +49,9 @@ def _wrap(text: str, width: int) -> list[str]:
     return lines
 
 
-def _build_receipt_lines(sale, items: list[tuple[SaleItem, str | None]], settings) -> list[str]:
+def _build_receipt_lines(
+    sale, items: list[tuple[SaleItem, str | None]], settings
+) -> list[str]:
     width = _line_width(settings.paper_width_mm if settings else 80)
     lines: list[str] = []
     header = settings.receipt_header if settings else ""
@@ -51,7 +66,11 @@ def _build_receipt_lines(sale, items: list[tuple[SaleItem, str | None]], setting
     if store:
         lines.extend(_wrap(store, width))
     if settings:
-        for line in [settings.store_address, settings.store_phone, settings.store_tax_id]:
+        for line in [
+            settings.store_address,
+            settings.store_phone,
+            settings.store_tax_id,
+        ]:
             if line:
                 lines.extend(_wrap(line, width))
 
@@ -63,7 +82,11 @@ def _build_receipt_lines(sale, items: list[tuple[SaleItem, str | None]], setting
     for item, name in items:
         name = name or f"Producto {item.product_id}"
         lines.extend(_wrap(name, width))
-        charged_line_total = item.final_total if getattr(item, "final_total", None) is not None else item.line_total
+        charged_line_total = (
+            item.final_total
+            if getattr(item, "final_total", None) is not None
+            else item.line_total
+        )
         line_total = f"{item.qty} x {item.unit_price:.2f} = {charged_line_total:.2f}"
         lines.append(line_total[:width])
         if getattr(item, "discount", 0) > 0:
@@ -161,7 +184,9 @@ def _legal_document_text(context: dict, document_type: str) -> str:
     return "\n".join(lines)
 
 
-def _build_legal_document_html(context: dict, document_type: str, tax_rate: float) -> str:
+def _build_legal_document_html(
+    context: dict, document_type: str, tax_rate: float
+) -> str:
     company_name = escape(str(context.get("company_name") or "Libreria Belen"))
     header = escape(str(context.get("receipt_header") or "Precios bajos siempre"))
     company_address = escape(str(context.get("company_address") or "Jr. Conchucos 120"))
@@ -173,8 +198,15 @@ def _build_legal_document_html(context: dict, document_type: str, tax_rate: floa
     customer_name = escape(str(context.get("customer_name") or "PUBLICO GENERAL"))
     customer_address = escape(str(context.get("customer_address") or "-"))
     customer_email = escape(str(context.get("customer_email") or "-"))
-    comments = escape(str(context.get("receipt_footer") or "Si usted tiene preguntas sobre esta factura, pongase en contacto con"))
-    contact_line = escape(str(context.get("company_phone") or "[Nombre, Telefono, E-mail]"))
+    comments = escape(
+        str(
+            context.get("receipt_footer")
+            or "Si usted tiene preguntas sobre esta factura, pongase en contacto con"
+        )
+    )
+    contact_line = escape(
+        str(context.get("company_phone") or "[Nombre, Telefono, E-mail]")
+    )
 
     items = list(context.get("items") or [])
     item_rows: list[str] = []
@@ -429,7 +461,7 @@ def _build_legal_document_html(context: dict, document_type: str, tax_rate: floa
         </tr>
       </thead>
       <tbody>
-        {''.join(item_rows)}
+        {"".join(item_rows)}
       </tbody>
     </table>
   </section>
@@ -458,7 +490,9 @@ def _build_legal_document_html(context: dict, document_type: str, tax_rate: floa
 """.strip()
 
 
-def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float) -> bytes:
+def _build_legal_document_pdf(
+    context: dict, document_type: str, tax_rate: float
+) -> bytes:
     try:
         from io import BytesIO
 
@@ -467,7 +501,9 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
         from reportlab.lib.units import mm
         from reportlab.pdfgen import canvas
     except Exception as exc:  # pragma: no cover
-        raise HTTPException(status_code=500, detail=f"No se pudo generar PDF legal: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"No se pudo generar PDF legal: {exc}"
+        ) from exc
 
     def _safe_int(value: float | int | str | None, default: int = 0) -> int:
         if value is None:
@@ -477,7 +513,15 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
         except (TypeError, ValueError):
             return default
 
-    def _draw_text(pdf: canvas.Canvas, x: float, y: float, text: str, *, size: float = 10, bold: bool = False) -> None:
+    def _draw_text(
+        pdf: canvas.Canvas,
+        x: float,
+        y: float,
+        text: str,
+        *,
+        size: float = 10,
+        bold: bool = False,
+    ) -> None:
         pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
         pdf.drawString(x, y, (text or "")[:220])
 
@@ -492,7 +536,10 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     customer_name = str(context.get("customer_name") or "PUBLICO GENERAL")
     customer_address = str(context.get("customer_address") or "-")
     customer_email = str(context.get("customer_email") or "-")
-    comments = str(context.get("receipt_footer") or "Si usted tiene preguntas sobre esta factura, pongase en contacto con")
+    comments = str(
+        context.get("receipt_footer")
+        or "Si usted tiene preguntas sobre esta factura, pongase en contacto con"
+    )
     contact_line = str(context.get("company_phone") or "[Nombre, Telefono, E-mail]")
 
     subtotal = _fmt_money(context.get("subtotal"))
@@ -517,7 +564,16 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     muted = colors.HexColor("#4B5563")
     shade = colors.HexColor("#F3F4F6")
 
-    def _box(x: float, y_top: float, w: float, h: float, *, fill: bool = False, fill_color=colors.white, stroke=border) -> None:
+    def _box(
+        x: float,
+        y_top: float,
+        w: float,
+        h: float,
+        *,
+        fill: bool = False,
+        fill_color=colors.white,
+        stroke=border,
+    ) -> None:
         pdf.setStrokeColor(stroke)
         pdf.setLineWidth(1)
         if fill:
@@ -536,7 +592,14 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     type_x = margin_x + content_w - type_w - (5 * mm)
     type_y = cursor_y - (5 * mm)
     _box(type_x, type_y, type_w, type_h, fill=True, fill_color=shade, stroke=ink)
-    _draw_text(pdf, type_x + 10 * mm, type_y - 19 * mm, document_type.upper(), size=22, bold=True)
+    _draw_text(
+        pdf,
+        type_x + 10 * mm,
+        type_y - 19 * mm,
+        document_type.upper(),
+        size=22,
+        bold=True,
+    )
 
     left_x = margin_x + 5 * mm
     _draw_text(pdf, left_x, cursor_y - 10 * mm, company_name, size=16, bold=True)
@@ -562,7 +625,9 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
         x = meta_x0 + idx * (meta_w + meta_gap)
         _box(x, meta_y, meta_w, meta_h, fill=True, fill_color=colors.white)
         pdf.setFillColor(muted)
-        _draw_text(pdf, x + 2.2 * mm, meta_y - 3.6 * mm, label.upper(), size=7.2, bold=True)
+        _draw_text(
+            pdf, x + 2.2 * mm, meta_y - 3.6 * mm, label.upper(), size=7.2, bold=True
+        )
         pdf.setFillColor(ink)
         _draw_text(pdf, x + 2.2 * mm, meta_y - 8.2 * mm, value, size=8.8, bold=True)
 
@@ -571,11 +636,21 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     # Customer card
     cust_h = 26 * mm
     _box(margin_x, cursor_y, content_w, cust_h, fill=True, fill_color=colors.white)
-    _draw_text(pdf, margin_x + 4 * mm, cursor_y - 5 * mm, "FACTURAR A", size=9, bold=True)
-    _draw_text(pdf, margin_x + 4 * mm, cursor_y - 11 * mm, customer_name, size=10, bold=True)
+    _draw_text(
+        pdf, margin_x + 4 * mm, cursor_y - 5 * mm, "FACTURAR A", size=9, bold=True
+    )
+    _draw_text(
+        pdf, margin_x + 4 * mm, cursor_y - 11 * mm, customer_name, size=10, bold=True
+    )
     pdf.setFillColor(muted)
     _draw_text(pdf, margin_x + 4 * mm, cursor_y - 16.5 * mm, customer_address, size=9)
-    _draw_text(pdf, margin_x + 4 * mm, cursor_y - 21.5 * mm, f"Correo: {customer_email}", size=9)
+    _draw_text(
+        pdf,
+        margin_x + 4 * mm,
+        cursor_y - 21.5 * mm,
+        f"Correo: {customer_email}",
+        size=9,
+    )
     pdf.setFillColor(ink)
 
     cursor_y -= cust_h + (4 * mm)
@@ -590,7 +665,15 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     row_h = 7.2 * mm
     visible_rows = 9
 
-    _box(table_x, cursor_y - 4 * mm, table_w, header_row_h, fill=True, fill_color=shade, stroke=border)
+    _box(
+        table_x,
+        cursor_y - 4 * mm,
+        table_w,
+        header_row_h,
+        fill=True,
+        fill_color=shade,
+        stroke=border,
+    )
 
     col_desc = table_w * 0.56
     col_qty = table_w * 0.14
@@ -601,11 +684,28 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     x_total = x_unit + col_unit
 
     pdf.setStrokeColor(border)
-    pdf.line(x_qty, cursor_y - 4 * mm, x_qty, cursor_y - 4 * mm - (header_row_h + visible_rows * row_h))
-    pdf.line(x_unit, cursor_y - 4 * mm, x_unit, cursor_y - 4 * mm - (header_row_h + visible_rows * row_h))
-    pdf.line(x_total, cursor_y - 4 * mm, x_total, cursor_y - 4 * mm - (header_row_h + visible_rows * row_h))
+    pdf.line(
+        x_qty,
+        cursor_y - 4 * mm,
+        x_qty,
+        cursor_y - 4 * mm - (header_row_h + visible_rows * row_h),
+    )
+    pdf.line(
+        x_unit,
+        cursor_y - 4 * mm,
+        x_unit,
+        cursor_y - 4 * mm - (header_row_h + visible_rows * row_h),
+    )
+    pdf.line(
+        x_total,
+        cursor_y - 4 * mm,
+        x_total,
+        cursor_y - 4 * mm - (header_row_h + visible_rows * row_h),
+    )
 
-    _draw_text(pdf, x_desc + 2 * mm, cursor_y - 9 * mm, "DESCRIPCION", size=8, bold=True)
+    _draw_text(
+        pdf, x_desc + 2 * mm, cursor_y - 9 * mm, "DESCRIPCION", size=8, bold=True
+    )
     _draw_text(pdf, x_qty + 2 * mm, cursor_y - 9 * mm, "CANT.", size=8, bold=True)
     _draw_text(pdf, x_unit + 2 * mm, cursor_y - 9 * mm, "P. UNIT", size=8, bold=True)
     _draw_text(pdf, x_total + 2 * mm, cursor_y - 9 * mm, "TOTAL", size=8, bold=True)
@@ -638,13 +738,29 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     comments_x = margin_x + 4 * mm
     totals_x = comments_x + comments_w + (4 * mm)
 
-    _box(comments_x, cursor_y - 4 * mm, comments_w, bottom_h - 8 * mm, fill=True, fill_color=colors.white)
-    _draw_text(pdf, comments_x + 2.2 * mm, cursor_y - 9 * mm, "COMENTARIOS", size=8, bold=True)
+    _box(
+        comments_x,
+        cursor_y - 4 * mm,
+        comments_w,
+        bottom_h - 8 * mm,
+        fill=True,
+        fill_color=colors.white,
+    )
+    _draw_text(
+        pdf, comments_x + 2.2 * mm, cursor_y - 9 * mm, "COMENTARIOS", size=8, bold=True
+    )
     pdf.setFillColor(muted)
     _draw_text(pdf, comments_x + 2.2 * mm, cursor_y - 15 * mm, comments[:80], size=8.5)
     pdf.setFillColor(ink)
 
-    _box(totals_x, cursor_y - 4 * mm, totals_w, bottom_h - 8 * mm, fill=True, fill_color=colors.white)
+    _box(
+        totals_x,
+        cursor_y - 4 * mm,
+        totals_w,
+        bottom_h - 8 * mm,
+        fill=True,
+        fill_color=colors.white,
+    )
     totals_rows = [
         ("Subtotal", subtotal),
         ("Tasa de impuesto", tax_rate_str),
@@ -658,8 +774,17 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
         if idx > 0:
             pdf.setStrokeColor(subtle)
             pdf.line(totals_x, y_top, totals_x + totals_w, y_top)
-        _draw_text(pdf, totals_x + 2 * mm, y_top - 5.2, label, size=8.8, bold=(label == "Total"))
-        value_w = pdf.stringWidth(value, "Helvetica-Bold" if label == "Total" else "Helvetica", 8.8)
+        _draw_text(
+            pdf,
+            totals_x + 2 * mm,
+            y_top - 5.2,
+            label,
+            size=8.8,
+            bold=(label == "Total"),
+        )
+        value_w = pdf.stringWidth(
+            value, "Helvetica-Bold" if label == "Total" else "Helvetica", 8.8
+        )
         pdf.setFont("Helvetica-Bold" if label == "Total" else "Helvetica", 8.8)
         pdf.drawString(totals_x + totals_w - value_w - 2 * mm, y_top - 5.2, value)
 
@@ -668,7 +793,14 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     pdf.setFillColor(muted)
     _draw_text(pdf, margin_x + 2 * mm, cursor_y - 1.5 * mm, contact_line, size=8.5)
     pdf.setFillColor(ink)
-    _draw_text(pdf, margin_x + (content_w / 2) - 23 * mm, cursor_y - 7 * mm, "Gracias por su compra", size=10.2, bold=True)
+    _draw_text(
+        pdf,
+        margin_x + (content_w / 2) - 23 * mm,
+        cursor_y - 7 * mm,
+        "Gracias por su compra",
+        size=10.2,
+        bold=True,
+    )
 
     pdf.showPage()
     pdf.save()
@@ -676,7 +808,9 @@ def _build_legal_document_pdf(context: dict, document_type: str, tax_rate: float
     return buffer.getvalue()
 
 
-async def _render_with_template(db: AsyncSession, sale_id: int) -> tuple[str, str, str, str]:
+async def _render_with_template(
+    db: AsyncSession, sale_id: int
+) -> tuple[str, str, str, str]:
     render_service = DocumentRenderService(db)
     snapshot_service = DocumentSnapshotService(db)
     context = await render_service.build_sale_context(sale_id)
@@ -684,9 +818,15 @@ async def _render_with_template(db: AsyncSession, sale_id: int) -> tuple[str, st
     document_number = str(context.get("document_number") or "")
 
     template_service = TemplateService(db)
-    template, schema_json = await template_service.get_active_template_with_schema(document_type=document_type)
+    template, schema_json = await template_service.get_active_template_with_schema(
+        document_type=document_type
+    )
     html, text, warnings = render_service.render(schema_json, context)
-    version = await template_service.get_latest_version_model(template.id) if template else None
+    version = (
+        await template_service.get_latest_version_model(template.id)
+        if template
+        else None
+    )
     await snapshot_service.upsert_snapshot(
         sale_id=sale_id,
         document_type=document_type,
@@ -701,17 +841,23 @@ async def _render_with_template(db: AsyncSession, sale_id: int) -> tuple[str, st
     return html, text, document_type, document_number
 
 
-async def _resolve_print_payload(db: AsyncSession, sale_id: int) -> tuple[str, str, str, str]:
+async def _resolve_print_payload(
+    db: AsyncSession, sale_id: int
+) -> tuple[str, str, str, str]:
     service = PrintingService(db)
     sale, items, settings = await service.build_receipt(sale_id)
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
 
-    document_type = (getattr(sale, "document_type", "TICKET") or "TICKET").strip().upper()
+    document_type = (
+        (getattr(sale, "document_type", "TICKET") or "TICKET").strip().upper()
+    )
     if document_type in {"BOLETA", "FACTURA"}:
         try:
             context = await DocumentRenderService(db).build_sale_context(sale_id)
-            legal_html = _build_legal_document_html(context, document_type, float(getattr(sale, "tax_rate", 0.0) or 0.0))
+            legal_html = _build_legal_document_html(
+                context, document_type, float(getattr(sale, "tax_rate", 0.0) or 0.0)
+            )
             legal_text = _legal_document_text(context, document_type)
             return legal_html, legal_text, document_type, sale.invoice_number or ""
         except Exception as exc:
@@ -749,10 +895,15 @@ async def receipt_escpos(sale_id: int, db: AsyncSession = Depends(get_db)):
     lines = text.splitlines()
     data = _to_escpos(lines)
     headers = {"Content-Disposition": f'attachment; filename="ticket_{sale_id}.bin"'}
-    return Response(content=data, media_type="application/octet-stream", headers=headers)
+    return Response(
+        content=data, media_type="application/octet-stream", headers=headers
+    )
 
 
-@router.get("/document/{sale_id}/html", dependencies=[Depends(require_permission("printing.documents.read"))])
+@router.get(
+    "/document/{sale_id}/html",
+    dependencies=[Depends(require_permission("printing.documents.read"))],
+)
 async def document_html(sale_id: int, db: AsyncSession = Depends(get_db)):
     html, _, _, _ = await _resolve_print_payload(db, sale_id)
     snapshot_service = DocumentSnapshotService(db)
@@ -760,7 +911,10 @@ async def document_html(sale_id: int, db: AsyncSession = Depends(get_db)):
     return Response(content=html, media_type="text/html")
 
 
-@router.get("/document/{sale_id}/text", dependencies=[Depends(require_permission("printing.documents.read"))])
+@router.get(
+    "/document/{sale_id}/text",
+    dependencies=[Depends(require_permission("printing.documents.read"))],
+)
 async def document_text(sale_id: int, db: AsyncSession = Depends(get_db)):
     _, text, _, _ = await _resolve_print_payload(db, sale_id)
     snapshot_service = DocumentSnapshotService(db)
@@ -768,25 +922,38 @@ async def document_text(sale_id: int, db: AsyncSession = Depends(get_db)):
     return Response(content=text, media_type="text/plain")
 
 
-@router.get("/document/{sale_id}/pdf", dependencies=[Depends(require_permission("printing.documents.read"))])
+@router.get(
+    "/document/{sale_id}/pdf",
+    dependencies=[Depends(require_permission("printing.documents.read"))],
+)
 async def document_pdf(sale_id: int, db: AsyncSession = Depends(get_db)):
     service = PrintingService(db)
     sale, _, _ = await service.build_receipt(sale_id)
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
 
-    document_type = (getattr(sale, "document_type", "TICKET") or "TICKET").strip().upper()
+    document_type = (
+        (getattr(sale, "document_type", "TICKET") or "TICKET").strip().upper()
+    )
     document_number = sale.invoice_number or ""
 
     if document_type in {"BOLETA", "FACTURA"}:
         context = await DocumentRenderService(db).build_sale_context(sale_id)
-        pdf = _build_legal_document_pdf(context, document_type, float(getattr(sale, "tax_rate", 0.0) or 0.0))
+        pdf = _build_legal_document_pdf(
+            context, document_type, float(getattr(sale, "tax_rate", 0.0) or 0.0)
+        )
     else:
-        _, text, document_type, document_number = await _resolve_print_payload(db, sale_id)
+        _, text, document_type, document_number = await _resolve_print_payload(
+            db, sale_id
+        )
         render_service = DocumentRenderService(db)
-        pdf = render_service.render_pdf_from_text(f"{document_type}_{document_number}", text)
+        pdf = render_service.render_pdf_from_text(
+            f"{document_type}_{document_number}", text
+        )
 
     snapshot_service = DocumentSnapshotService(db)
     await snapshot_service.mark_printed(sale_id)
-    headers = {"Content-Disposition": f'attachment; filename="{document_type.lower()}_{sale_id}.pdf"'}
+    headers = {
+        "Content-Disposition": f'attachment; filename="{document_type.lower()}_{sale_id}.pdf"'
+    }
     return Response(content=pdf, media_type="application/pdf", headers=headers)

@@ -40,7 +40,8 @@ const defaultValues: UserFormValues = {
   password: "",
 };
 
-const Users: React.FC = () => {
+// Página de gestión de usuarios
+// Lista, crea, edita y elimina usuarios del sistema
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["users"], queryFn: listUsers });

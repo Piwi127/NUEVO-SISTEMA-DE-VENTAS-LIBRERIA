@@ -1,3 +1,7 @@
+"""
+Router principal que exporta todos los endpoints de la API.
+"""
+
 from app.routers.auth import router as auth_router
 from app.routers.admin import admin as admin_router
 from app.routers.admin import permissions as permissions_router

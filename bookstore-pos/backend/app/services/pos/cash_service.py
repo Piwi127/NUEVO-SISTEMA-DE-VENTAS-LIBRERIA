@@ -1,3 +1,8 @@
+"""
+Servicio de caja.
+Gestiona sesiones de caja, movimientos y arqueos.
+"""
+
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -19,6 +24,7 @@ from app.schemas.cash import (
 
 from app.services._transaction import service_transaction
 
+
 class CashService:
     def __init__(self, db: AsyncSession, current_user):
         self.db = db
@@ -38,12 +44,19 @@ class CashService:
         return result.scalars().first()
 
     async def _get_session_or_404(self, cash_session_id: int) -> CashSession:
-        result = await self.db.execute(select(CashSession).where(CashSession.id == cash_session_id))
+        result = await self.db.execute(
+            select(CashSession).where(CashSession.id == cash_session_id)
+        )
         session = result.scalar_one_or_none()
         if not session:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesion de caja no encontrada")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Sesion de caja no encontrada",
+            )
         if self.user.role != "admin" and session.user_id != self.user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin permisos")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Sin permisos"
+            )
         return session
 
     async def compute_summary(self, session: CashSession) -> CashSummaryOut:
@@ -85,19 +98,27 @@ class CashService:
 
     async def open_cash(self, data):
         if await self.get_open_session():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Caja ya abierta")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Caja ya abierta"
+            )
         async with self._transaction():
-            session = CashSession(user_id=self.user.id, opening_amount=data.opening_amount, is_open=True)
+            session = CashSession(
+                user_id=self.user.id, opening_amount=data.opening_amount, is_open=True
+            )
             self.db.add(session)
             await self.db.flush()
-            await log_event(self.db, self.user.id, "cash_open", "cash_session", str(session.id), "")
+            await log_event(
+                self.db, self.user.id, "cash_open", "cash_session", str(session.id), ""
+            )
             await self.db.refresh(session)
             return session
 
     async def close_cash(self, data):
         session = await self.get_open_session()
         if not session:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta"
+            )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Cierre bloqueado: debe registrar arqueo tipo Z para cerrar caja",
@@ -106,13 +127,20 @@ class CashService:
     async def create_movement(self, data):
         session = await self.get_open_session()
         if not session:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta"
+            )
         movement_type = (data.type or "").strip().upper()
         if movement_type not in {"IN", "OUT"}:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de movimiento invalido")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tipo de movimiento invalido",
+            )
         amount = float(data.amount)
         if amount <= 0:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Monto invalido")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Monto invalido"
+            )
         async with self._transaction():
             movement = CashMovement(
                 cash_session_id=session.id,
@@ -136,19 +164,28 @@ class CashService:
     async def cash_summary(self):
         session = await self.get_open_session()
         if not session:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta"
+            )
         return await self.compute_summary(session)
 
     async def cash_audit(self, data):
         session = await self.get_open_session()
         if not session:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="No hay caja abierta"
+            )
         audit_type = (data.type or "").strip().upper()
         if audit_type not in {"X", "Z"}:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de arqueo invalido")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tipo de arqueo invalido",
+            )
         counted_amount = float(data.counted_amount)
         if counted_amount < 0:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Monto contado invalido")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Monto contado invalido"
+            )
         summary = await self.compute_summary(session)
         diff = counted_amount - summary.expected_amount
         async with self._transaction():
@@ -165,13 +202,22 @@ class CashService:
                 session.is_open = False
                 session.closed_at = datetime.now(timezone.utc)
             await self.db.flush()
-            await log_event(self.db, self.user.id, "cash_audit", "cash_audit", str(audit.id), audit_type)
+            await log_event(
+                self.db,
+                self.user.id,
+                "cash_audit",
+                "cash_audit",
+                str(audit.id),
+                audit_type,
+            )
             await self.db.refresh(audit)
             return audit
 
     async def force_close(self):
         result = await self.db.execute(
-            select(CashSession).where(CashSession.user_id == self.user.id, CashSession.is_open == True)  # noqa: E712
+            select(CashSession).where(
+                CashSession.user_id == self.user.id, CashSession.is_open == True
+            )  # noqa: E712
         )
         sessions = result.scalars().all()
         if not sessions:
@@ -181,7 +227,9 @@ class CashService:
             for s in sessions:
                 s.is_open = False
                 s.closed_at = now
-            await log_event(self.db, self.user.id, "cash_force_close", "cash_session", "", "")
+            await log_event(
+                self.db, self.user.id, "cash_force_close", "cash_session", "", ""
+            )
         return {"ok": True}
 
     async def session_report(self, cash_session_id: int) -> CashSessionReportOut:
@@ -227,7 +275,9 @@ class CashService:
             notes.append("La caja sigue abierta; el reporte es parcial.")
 
         last_audit = audits[-1] if audits else None
-        is_balanced = bool(last_audit and last_audit.type.upper() == "Z" and last_audit.validated)
+        is_balanced = bool(
+            last_audit and last_audit.type.upper() == "Z" and last_audit.validated
+        )
         if last_audit and last_audit.type.upper() == "Z" and last_audit.validated:
             notes.append("Cierre Z validado sin diferencias.")
         elif last_audit and last_audit.type.upper() == "Z":

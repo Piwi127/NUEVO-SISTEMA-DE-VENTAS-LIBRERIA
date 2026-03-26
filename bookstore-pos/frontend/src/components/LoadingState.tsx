@@ -6,7 +6,9 @@ type LoadingStateProps = {
   rows?: number;
 };
 
-export const LoadingState: React.FC<LoadingStateProps> = ({ title = "Cargando...", rows = 4 }) => {
+// Componente de estado de carga
+// Muestra un indicador de carga con esqueletos
+// Props: title - título, rows - número de filas de esqueletos
   return (
     <Paper
       sx={{

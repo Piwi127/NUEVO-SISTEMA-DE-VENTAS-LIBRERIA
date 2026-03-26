@@ -1,3 +1,8 @@
+"""
+Sistema de rate limiting para proteger endpoints.
+Soporta rate limiting en memoria y con Redis.
+"""
+
 import asyncio
 from functools import wraps
 from time import time
@@ -103,6 +108,7 @@ def rate_limit(limit: int = 60, window_seconds: int = 60, key_prefix: str = "end
         async def create_sale(...):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -135,5 +141,7 @@ def rate_limit(limit: int = 60, window_seconds: int = 60, key_prefix: str = "end
                 )
 
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator

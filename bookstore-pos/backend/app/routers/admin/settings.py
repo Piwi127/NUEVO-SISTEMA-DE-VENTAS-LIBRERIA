@@ -1,3 +1,8 @@
+"""
+Router de configuración del sistema.
+Endpoints: GET /settings, GET /settings/public, PUT /settings
+"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,21 +15,32 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 @router.get("/public", response_model=SystemSettingsOut)
 async def get_public_settings(db: AsyncSession = Depends(get_db)):
+    """Obtiene configuración pública del sistema."""
     service = SettingsService(db)
     return await service.get_settings_out()
 
 
-@router.get("", response_model=SystemSettingsOut, dependencies=[Depends(require_permission("settings.read"))])
+@router.get(
+    "",
+    response_model=SystemSettingsOut,
+    dependencies=[Depends(require_permission("settings.read"))],
+)
 async def get_settings(db: AsyncSession = Depends(get_db)):
+    """Obtiene la configuración del sistema."""
     service = SettingsService(db)
     return await service.get_settings_out()
 
 
-@router.put("", response_model=SystemSettingsOut, dependencies=[Depends(require_permission("settings.write"))])
+@router.put(
+    "",
+    response_model=SystemSettingsOut,
+    dependencies=[Depends(require_permission("settings.write"))],
+)
 async def update_settings(
     data: SystemSettingsUpdate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """Actualiza la configuración del sistema."""
     service = SettingsService(db, current_user)
     return await service.update_settings(data)

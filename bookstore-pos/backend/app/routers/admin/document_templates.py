@@ -1,3 +1,8 @@
+"""
+Router de plantillas de impresión.
+Endpoints: GET/POST /document-templates, PUT/DELETE /document-templates/{id}, POST /document-templates/{id}/duplicate
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +24,11 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=list[PrintTemplateOut], dependencies=[Depends(require_permission("print_templates.read"))])
+@router.get(
+    "",
+    response_model=list[PrintTemplateOut],
+    dependencies=[Depends(require_permission("print_templates.read"))],
+)
 async def list_templates(
     document_type: str | None = None,
     db: AsyncSession = Depends(get_db),
@@ -28,23 +37,38 @@ async def list_templates(
     return await service.list_templates(document_type=document_type)
 
 
-@router.get("/{template_id}", response_model=PrintTemplateOut, dependencies=[Depends(require_permission("print_templates.read"))])
+@router.get(
+    "/{template_id}",
+    response_model=PrintTemplateOut,
+    dependencies=[Depends(require_permission("print_templates.read"))],
+)
 async def get_template(template_id: int, db: AsyncSession = Depends(get_db)):
     service = TemplateService(db)
     return await service.get_template(template_id)
 
 
-@router.post("", response_model=PrintTemplateOut, status_code=201, dependencies=[Depends(require_permission("print_templates.write"))])
+@router.post(
+    "",
+    response_model=PrintTemplateOut,
+    status_code=201,
+    dependencies=[Depends(require_permission("print_templates.write"))],
+)
 async def create_template(
     data: PrintTemplateCreate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     service = TemplateService(db)
-    return await service.create_template(data, user_id=current_user.id if current_user else None)
+    return await service.create_template(
+        data, user_id=current_user.id if current_user else None
+    )
 
 
-@router.put("/{template_id}", response_model=PrintTemplateOut, dependencies=[Depends(require_permission("print_templates.write"))])
+@router.put(
+    "/{template_id}",
+    response_model=PrintTemplateOut,
+    dependencies=[Depends(require_permission("print_templates.write"))],
+)
 async def update_template(
     template_id: int,
     data: PrintTemplateUpdate,
@@ -52,10 +76,15 @@ async def update_template(
     current_user=Depends(get_current_user),
 ):
     service = TemplateService(db)
-    return await service.update_template(template_id, data, user_id=current_user.id if current_user else None)
+    return await service.update_template(
+        template_id, data, user_id=current_user.id if current_user else None
+    )
 
 
-@router.delete("/{template_id}", dependencies=[Depends(require_permission("print_templates.write"))])
+@router.delete(
+    "/{template_id}",
+    dependencies=[Depends(require_permission("print_templates.write"))],
+)
 async def delete_template(template_id: int, db: AsyncSession = Depends(get_db)):
     service = TemplateService(db)
     return await service.soft_delete_template(template_id)
@@ -74,10 +103,16 @@ async def duplicate_template(
     current_user=Depends(get_current_user),
 ):
     service = TemplateService(db)
-    return await service.duplicate_template(template_id, data.name, user_id=current_user.id if current_user else None)
+    return await service.duplicate_template(
+        template_id, data.name, user_id=current_user.id if current_user else None
+    )
 
 
-@router.post("/{template_id}/set-default", response_model=PrintTemplateOut, dependencies=[Depends(require_permission("print_templates.write"))])
+@router.post(
+    "/{template_id}/set-default",
+    response_model=PrintTemplateOut,
+    dependencies=[Depends(require_permission("print_templates.write"))],
+)
 async def set_default_template(template_id: int, db: AsyncSession = Depends(get_db)):
     service = TemplateService(db)
     return await service.set_default(template_id)
@@ -94,11 +129,19 @@ async def restore_default_template(
     current_user=Depends(get_current_user),
 ):
     service = TemplateService(db)
-    return await service.restore_default(template_id, user_id=current_user.id if current_user else None)
+    return await service.restore_default(
+        template_id, user_id=current_user.id if current_user else None
+    )
 
 
-@router.post("/preview", response_model=PrintTemplatePreviewOut, dependencies=[Depends(require_permission("print_templates.read"))])
-async def preview_template(data: PrintTemplatePreviewIn, db: AsyncSession = Depends(get_db)):
+@router.post(
+    "/preview",
+    response_model=PrintTemplatePreviewOut,
+    dependencies=[Depends(require_permission("print_templates.read"))],
+)
+async def preview_template(
+    data: PrintTemplatePreviewIn, db: AsyncSession = Depends(get_db)
+):
     render_service = DocumentRenderService(db)
     if data.sale_id:
         context = await render_service.build_sale_context(data.sale_id)
@@ -113,7 +156,12 @@ async def preview_template(data: PrintTemplatePreviewIn, db: AsyncSession = Depe
             "total": 11.8,
             "receipt_footer": "Gracias por su compra",
             "items": [
-                {"name": "Producto Demo", "qty": 2, "unit_price": 5.0, "line_total": 10.0},
+                {
+                    "name": "Producto Demo",
+                    "qty": 2,
+                    "unit_price": 5.0,
+                    "line_total": 10.0,
+                },
             ],
         }
     try:
@@ -121,5 +169,7 @@ async def preview_template(data: PrintTemplatePreviewIn, db: AsyncSession = Depe
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"No se pudo renderizar preview: {exc}") from exc
+        raise HTTPException(
+            status_code=422, detail=f"No se pudo renderizar preview: {exc}"
+        ) from exc
     return PrintTemplatePreviewOut(html=html, text=text, warnings=warnings)

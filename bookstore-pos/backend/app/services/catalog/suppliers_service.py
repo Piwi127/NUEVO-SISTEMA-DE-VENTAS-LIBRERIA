@@ -1,3 +1,8 @@
+"""
+Servicio de proveedores.
+Gestiona operaciones CRUD de proveedores.
+"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
@@ -7,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.supplier import Supplier
 
 from app.services._transaction import service_transaction
+
 
 class SuppliersService:
     def __init__(self, db: AsyncSession):
@@ -26,7 +32,9 @@ class SuppliersService:
             return supplier
 
     async def update_supplier(self, supplier_id: int, data):
-        result = await self.db.execute(select(Supplier).where(Supplier.id == supplier_id))
+        result = await self.db.execute(
+            select(Supplier).where(Supplier.id == supplier_id)
+        )
         supplier = result.scalar_one_or_none()
         if not supplier:
             raise HTTPException(status_code=404, detail="Proveedor no encontrado")
@@ -37,7 +45,9 @@ class SuppliersService:
             return supplier
 
     async def delete_supplier(self, supplier_id: int):
-        result = await self.db.execute(select(Supplier).where(Supplier.id == supplier_id))
+        result = await self.db.execute(
+            select(Supplier).where(Supplier.id == supplier_id)
+        )
         supplier = result.scalar_one_or_none()
         if not supplier:
             raise HTTPException(status_code=404, detail="Proveedor no encontrado")

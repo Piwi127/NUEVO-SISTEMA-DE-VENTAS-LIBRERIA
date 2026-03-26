@@ -7,7 +7,9 @@ type TableToolbarProps = {
   children?: React.ReactNode;
 };
 
-export const TableToolbar: React.FC<TableToolbarProps> = ({ title, subtitle, children }) => {
+// Componente de toolbar para tablas
+// Barra de título con subtítulo y acciones para tablas
+// Props: title - título, subtitle - descripción, children - acciones/botones
   return (
     <Paper
       sx={{

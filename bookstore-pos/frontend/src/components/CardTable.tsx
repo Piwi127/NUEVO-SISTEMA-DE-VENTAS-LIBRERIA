@@ -19,6 +19,10 @@ type CardTableProps = {
   maxHeight?: number | string;
 };
 
+// Componente de tabla tipo cards
+// Muestra registros en formato de tarjetas en lugar de filas de tabla
+// Props: rows - array de registros, resizable - permite redimensionar, minHeight/maxHeight - límites de altura
+
 export const CardTable: React.FC<CardTableProps> = ({ rows, resizable = true, minHeight = 240, maxHeight = "68vh" }) => {
   const canResize = resizable && rows.length > 3;
 

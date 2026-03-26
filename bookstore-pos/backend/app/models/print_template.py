@@ -1,3 +1,8 @@
+"""
+Modelos de plantillas de impresión.
+Contiene clases para gestionar plantillas de tickets y documentos.
+"""
+
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
@@ -7,6 +12,8 @@ from app.db.base import Base
 
 
 class PrintTemplate(Base):
+    """Plantilla de impresión para documentos."""
+
     __tablename__ = "print_templates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -23,9 +30,15 @@ class PrintTemplate(Base):
     scope_ref_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    updated_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -39,6 +52,8 @@ class PrintTemplate(Base):
 
 
 class PrintTemplateVersion(Base):
+    """Versión específica de una plantilla de impresión."""
+
     __tablename__ = "print_template_versions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -47,7 +62,11 @@ class PrintTemplateVersion(Base):
     schema_json: Mapped[str] = mapped_column(Text)
     checksum: Mapped[str] = mapped_column(String(64), default="")
     is_published: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
 
     template: Mapped[PrintTemplate] = relationship(back_populates="versions")

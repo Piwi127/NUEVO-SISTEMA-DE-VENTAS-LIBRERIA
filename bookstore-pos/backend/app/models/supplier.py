@@ -1,10 +1,17 @@
-﻿from sqlalchemy import Integer, String
+"""
+Modelo de proveedor.
+Contiene información de proveedores para compras.
+"""
+
+from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 
 
 class Supplier(Base):
+    """Proveedor de productos para el inventario."""
+
     __tablename__ = "suppliers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

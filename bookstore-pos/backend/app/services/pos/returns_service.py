@@ -1,3 +1,8 @@
+"""
+Servicio de devoluciones de ventas.
+Gestiona el registro y procesamiento de devoluciones.
+"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
@@ -13,6 +18,7 @@ from app.models.sale_return import SaleReturn, SaleReturnItem
 from app.schemas.sale_return import SaleReturnListOut
 
 from app.services._transaction import service_transaction
+
 
 class ReturnsService:
     def __init__(self, db: AsyncSession, current_user):
@@ -32,7 +38,9 @@ class ReturnsService:
         if sale.status == "VOID":
             raise HTTPException(status_code=409, detail="Venta ya anulada")
 
-        items_res = await self.db.execute(select(SaleItem).where(SaleItem.sale_id == sale_id))
+        items_res = await self.db.execute(
+            select(SaleItem).where(SaleItem.sale_id == sale_id)
+        )
         items = items_res.scalars().all()
 
         default_warehouse_id = await require_default_warehouse_id(self.db)
@@ -44,14 +52,31 @@ class ReturnsService:
             await self.db.flush()
 
             for item in items:
-                prod_res = await self.db.execute(select(Product).where(Product.id == item.product_id))
+                prod_res = await self.db.execute(
+                    select(Product).where(Product.id == item.product_id)
+                )
                 product = prod_res.scalar_one_or_none()
                 if product:
-                    await apply_stock_delta(self.db, product.id, item.qty, default_warehouse_id)
-                    self.db.add(StockMovement(product_id=product.id, type="IN", qty=item.qty, ref=f"RETURN:{ret.id}"))
-                self.db.add(SaleReturnItem(return_id=ret.id, product_id=item.product_id, qty=item.qty))
+                    await apply_stock_delta(
+                        self.db, product.id, item.qty, default_warehouse_id
+                    )
+                    self.db.add(
+                        StockMovement(
+                            product_id=product.id,
+                            type="IN",
+                            qty=item.qty,
+                            ref=f"RETURN:{ret.id}",
+                        )
+                    )
+                self.db.add(
+                    SaleReturnItem(
+                        return_id=ret.id, product_id=item.product_id, qty=item.qty
+                    )
+                )
 
-            await log_event(self.db, self.user.id, "return", "sale", str(sale_id), data.reason)
+            await log_event(
+                self.db, self.user.id, "return", "sale", str(sale_id), data.reason
+            )
             await self.db.refresh(ret)
             return ret
 

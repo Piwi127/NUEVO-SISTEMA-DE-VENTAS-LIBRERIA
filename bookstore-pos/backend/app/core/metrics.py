@@ -1,3 +1,8 @@
+"""
+Métricas de Prometheus para monitorear la aplicación.
+Contiene contadores e histogramas para solicitudes HTTP, ventas y operaciones.
+"""
+
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 http_requests_total = Counter(
@@ -59,6 +64,7 @@ inventory_import_job_duration_seconds = Histogram(
 
 
 def render_metrics() -> bytes:
+    """Genera el texto de métricas para Prometheus."""
     return generate_latest()
 
 

@@ -6,7 +6,8 @@ import { useCashOperations } from "@/modules/pos/hooks";
 import { parseDecimalInput } from "@/modules/pos/utils/number";
 import type { CashAuditValidation } from "@/modules/shared/types";
 
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+// Componente de panel de caja
+// Maneja operaciones de apertura, cierre, arqueo y validación de caja
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import LockIcon from '@mui/icons-material/Lock';

@@ -79,7 +79,8 @@ const shiftDateISO = (days: number) => {
   return value.toISOString().slice(0, 10);
 };
 
-const Reports: React.FC = () => {
+// Página de reportes
+// Muestra KPIs, gráficos y reportes de ventas, inventario y más
   const compact = useMediaQuery("(max-width:900px)");
   const { compactMode } = useSettings();
   const navigate = useNavigate();

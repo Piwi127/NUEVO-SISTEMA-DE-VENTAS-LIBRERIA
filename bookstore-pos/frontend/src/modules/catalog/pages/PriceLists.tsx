@@ -10,7 +10,8 @@ import { getPriceListItems, listPriceLists, replacePriceListItems, createPriceLi
 import { listProducts } from "@/modules/catalog/api";
 import { useSettings } from "@/app/store";
 
-const PriceLists: React.FC = () => {
+// Página de gestión de listas de precios
+// Crea y gestiona múltiples listas de precios para productos
   const qc = useQueryClient();
   const { showToast } = useToast();
 

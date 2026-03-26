@@ -47,7 +47,9 @@ const writeStoredWidths = (storageKey: string, widths: ColumnWidthModel) => {
   window.localStorage.setItem(storageKey, JSON.stringify(widths));
 };
 
-export const ResizableTable: React.FC<ResizableTableProps> = ({
+// Componente de tabla redimensionable
+// Tabla con columnas que pueden redimensionarse y persisten en localStorage
+// Props: children - contenido de la tabla, minHeight/maxHeight - límites, persistKey - clave para persistir anchos
   children,
   minHeight = 220,
   maxHeight = "64vh",

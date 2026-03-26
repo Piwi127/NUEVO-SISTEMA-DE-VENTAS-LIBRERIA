@@ -1,3 +1,8 @@
+"""
+Modelos de compras y pagos a proveedores.
+Contiene clases para órdenes de compra y pagos.
+"""
+
 from datetime import datetime, timezone
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Numeric, Index
 from sqlalchemy.orm import Mapped, mapped_column
@@ -6,13 +11,17 @@ from app.db.base import Base
 
 
 class PurchaseOrder(Base):
+    """Orden de compra a proveedor."""
+
     __tablename__ = "purchase_orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"), index=True)
     status: Mapped[str] = mapped_column(String(20), default="OPEN", index=True)
     total: Mapped[float] = mapped_column(Numeric(14, 4), default=0.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )
 
     __table_args__ = (
         Index("ix_purchase_orders_supplier_status", "supplier_id", "status"),
@@ -20,10 +29,14 @@ class PurchaseOrder(Base):
 
 
 class PurchaseOrderItem(Base):
+    """Ítem en una orden de compra."""
+
     __tablename__ = "purchase_order_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    purchase_order_id: Mapped[int] = mapped_column(ForeignKey("purchase_orders.id"), index=True)
+    purchase_order_id: Mapped[int] = mapped_column(
+        ForeignKey("purchase_orders.id"), index=True
+    )
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
     qty: Mapped[int] = mapped_column(Integer)
     unit_cost: Mapped[float] = mapped_column(Numeric(14, 4))
@@ -31,6 +44,8 @@ class PurchaseOrderItem(Base):
 
 
 class SupplierPayment(Base):
+    """Pago registrado a proveedor."""
+
     __tablename__ = "supplier_payments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -38,4 +53,6 @@ class SupplierPayment(Base):
     amount: Mapped[float] = mapped_column(Numeric(14, 4))
     method: Mapped[str] = mapped_column(String(20), index=True)
     reference: Mapped[str] = mapped_column(String(100), default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )

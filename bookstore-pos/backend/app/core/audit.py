@@ -1,3 +1,7 @@
+"""
+Funciones de auditoría para registrar acciones de usuarios.
+"""
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit import AuditLog
@@ -15,6 +19,7 @@ async def log_event(
     *,
     commit: bool = False,
 ):
+    """Registra un evento de auditoría en la base de datos."""
     db.add(
         AuditLog(
             user_id=user_id,

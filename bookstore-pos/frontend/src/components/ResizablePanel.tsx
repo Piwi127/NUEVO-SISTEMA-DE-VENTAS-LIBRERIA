@@ -42,7 +42,9 @@ const getCursor = (resize: ResizeAxis) => {
   return "nwse-resize";
 };
 
-export const ResizablePanel: React.FC<ResizablePanelProps> = ({
+// Componente de panel redimensionable
+// Panel con cabecera y contenido que puede redimensionarse
+// Props: title - título, subtitle - descripción, actions - botones de acción, resize - ejes de redimensión
   children,
   title,
   subtitle,

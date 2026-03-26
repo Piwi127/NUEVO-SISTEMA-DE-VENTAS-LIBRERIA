@@ -1,3 +1,8 @@
+"""
+Router de precios y márgenes.
+Endpoints: POST /catalog/pricing/preview, /products/{id}/pricing/apply, /pricing/bulk-apply
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,12 +17,20 @@ from app.schemas.pricing import (
     PricingPreviewIn,
     PricingPreviewOut,
 )
-from app.services.catalog.pricing_service import apply_bulk_pricing, apply_pricing_to_product, preview_pricing
+from app.services.catalog.pricing_service import (
+    apply_bulk_pricing,
+    apply_pricing_to_product,
+    preview_pricing,
+)
 
 router = APIRouter(prefix="/catalog", tags=["catalog-pricing"])
 
 
-@router.post("/pricing/preview", response_model=PricingPreviewOut, dependencies=[Depends(require_permission("products.read"))])
+@router.post(
+    "/pricing/preview",
+    response_model=PricingPreviewOut,
+    dependencies=[Depends(require_permission("products.read"))],
+)
 async def pricing_preview(data: PricingPreviewIn):
     try:
         result = preview_pricing(
@@ -65,7 +78,14 @@ async def pricing_apply(
             f"c:{old_unit_cost:.2f}->{float(result.unit_cost):.2f} "
             f"m:{float(result.desired_margin):.4f}"
         )
-        await log_event(db, current_user.id, "product_pricing_apply", "product", str(product_id), details[:255])
+        await log_event(
+            db,
+            current_user.id,
+            "product_pricing_apply",
+            "product",
+            str(product_id),
+            details[:255],
+        )
         await db.commit()
     except Exception:
         await db.rollback()
@@ -97,7 +117,14 @@ async def pricing_bulk_apply(
             f"scope={result['scope']} desired_margin={result['desired_margin']:.4f} "
             f"updated={result['updated_count']}"
         )
-        await log_event(db, current_user.id, "product_pricing_bulk_apply", "product", "*", details[:255])
+        await log_event(
+            db,
+            current_user.id,
+            "product_pricing_bulk_apply",
+            "product",
+            "*",
+            details[:255],
+        )
         await db.commit()
     except Exception:
         await db.rollback()

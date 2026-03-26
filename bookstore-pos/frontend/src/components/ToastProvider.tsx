@@ -9,7 +9,9 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-export const ToastProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
+// Proveedor de notificaciones toast
+// Muestra mensajes emergentes en la aplicación
+// Hook: useToast() - devuelve showToast para mostrar notificaciones
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<Toast>({ message: "" });
 

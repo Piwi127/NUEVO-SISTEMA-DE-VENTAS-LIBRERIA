@@ -1,3 +1,8 @@
+"""
+Servicio de impresión de tickets y documentos.
+Proporciona datos para renderizar recibos.
+"""
+
 from typing import Optional
 
 from sqlalchemy import select
@@ -14,7 +19,11 @@ class PrintingService:
 
     async def build_receipt(
         self, sale_id: int
-    ) -> tuple[Optional[Sale], Optional[list[tuple[SaleItem, str | None]]], Optional[SystemSettings]]:
+    ) -> tuple[
+        Optional[Sale],
+        Optional[list[tuple[SaleItem, str | None]]],
+        Optional[SystemSettings],
+    ]:
         res = await self.db.execute(select(Sale).where(Sale.id == sale_id))
         sale = res.scalar_one_or_none()
         if not sale:

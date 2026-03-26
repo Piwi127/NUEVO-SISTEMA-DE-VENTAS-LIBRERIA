@@ -1,3 +1,8 @@
+"""
+Router de gestión de caja.
+Endpoints: GET/POST /cash/current, /cash/open, /cash/close, /cash/movement, /cash/summary, /cash/audit
+"""
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
@@ -18,7 +23,11 @@ from app.schemas.cash import (
 )
 from app.services.pos.cash_service import CashService
 
-router = APIRouter(prefix="/cash", tags=["cash"], dependencies=[Depends(require_role("admin", "cashier"))])
+router = APIRouter(
+    prefix="/cash",
+    tags=["cash"],
+    dependencies=[Depends(require_role("admin", "cashier"))],
+)
 
 
 def _render_session_report_text(report: CashSessionReportOut) -> str:
@@ -57,50 +66,101 @@ def _render_session_report_text(report: CashSessionReportOut) -> str:
     lines.append("VALIDACION")
     lines.append(f"Movimientos contabilizados: {report.validation.movement_count}")
     lines.append(f"Arqueos registrados: {report.validation.audit_count}")
-    lines.append(f"Balance final validado: {'SI' if report.validation.is_balanced else 'NO'}")
+    lines.append(
+        f"Balance final validado: {'SI' if report.validation.is_balanced else 'NO'}"
+    )
     for note in report.validation.notes:
         lines.append(f"- {note}")
     return "\n".join(lines)
 
 
-@router.get("/current", response_model=CashSessionOut | None, dependencies=[Depends(require_permission("cash.open"))])
-async def current_cash(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.get(
+    "/current",
+    response_model=CashSessionOut | None,
+    dependencies=[Depends(require_permission("cash.open"))],
+)
+async def current_cash(
+    db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)
+):
     service = CashService(db, current_user)
     return await service.get_open_session()
 
 
-@router.post("/open", response_model=CashSessionOut, status_code=201, dependencies=[Depends(require_permission("cash.open"))])
-async def open_cash(data: CashOpenRequest, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.post(
+    "/open",
+    response_model=CashSessionOut,
+    status_code=201,
+    dependencies=[Depends(require_permission("cash.open"))],
+)
+async def open_cash(
+    data: CashOpenRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     service = CashService(db, current_user)
     return await service.open_cash(data)
 
 
 @router.post("/close", dependencies=[Depends(require_permission("cash.close"))])
-async def close_cash(data: CashCloseRequest, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def close_cash(
+    data: CashCloseRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     service = CashService(db, current_user)
     return await service.close_cash(data)
 
 
-@router.post("/movement", response_model=CashMovementOut, status_code=201, dependencies=[Depends(require_permission("cash.movement"))])
-async def create_movement(data: CashMovementCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.post(
+    "/movement",
+    response_model=CashMovementOut,
+    status_code=201,
+    dependencies=[Depends(require_permission("cash.movement"))],
+)
+async def create_movement(
+    data: CashMovementCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     service = CashService(db, current_user)
     return await service.create_movement(data)
 
 
-@router.get("/summary", response_model=CashSummaryOut, dependencies=[Depends(require_permission("cash.open"))])
-async def cash_summary(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.get(
+    "/summary",
+    response_model=CashSummaryOut,
+    dependencies=[Depends(require_permission("cash.open"))],
+)
+async def cash_summary(
+    db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)
+):
     service = CashService(db, current_user)
     return await service.cash_summary()
 
 
-@router.post("/audit", response_model=CashAuditOut, status_code=201, dependencies=[Depends(require_permission("cash.close"))])
-async def cash_audit(data: CashAuditCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.post(
+    "/audit",
+    response_model=CashAuditOut,
+    status_code=201,
+    dependencies=[Depends(require_permission("cash.close"))],
+)
+async def cash_audit(
+    data: CashAuditCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     service = CashService(db, current_user)
     return await service.cash_audit(data)
 
 
-@router.get("/audits", response_model=list[CashAuditOut], dependencies=[Depends(require_permission("cash.open"))])
-async def list_audits(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.get(
+    "/audits",
+    response_model=list[CashAuditOut],
+    dependencies=[Depends(require_permission("cash.open"))],
+)
+async def list_audits(
+    db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)
+):
     stmt = (
         select(CashAudit)
         .join(CashSession, CashAudit.cash_session_id == CashSession.id)
@@ -114,21 +174,40 @@ async def list_audits(db: AsyncSession = Depends(get_db), current_user=Depends(g
 
 
 @router.post("/force-close", dependencies=[Depends(require_permission("cash.close"))])
-async def force_close(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def force_close(
+    db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)
+):
     service = CashService(db, current_user)
     return await service.force_close()
 
 
-@router.get("/sessions/{cash_session_id}/report", response_model=CashSessionReportOut, dependencies=[Depends(require_permission("cash.open"))])
-async def get_session_report(cash_session_id: int, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.get(
+    "/sessions/{cash_session_id}/report",
+    response_model=CashSessionReportOut,
+    dependencies=[Depends(require_permission("cash.open"))],
+)
+async def get_session_report(
+    cash_session_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     service = CashService(db, current_user)
     return await service.session_report(cash_session_id)
 
 
-@router.get("/sessions/{cash_session_id}/report/export", dependencies=[Depends(require_permission("cash.open"))])
-async def export_session_report(cash_session_id: int, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+@router.get(
+    "/sessions/{cash_session_id}/report/export",
+    dependencies=[Depends(require_permission("cash.open"))],
+)
+async def export_session_report(
+    cash_session_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     service = CashService(db, current_user)
     report = await service.session_report(cash_session_id)
     content = _render_session_report_text(report)
-    headers = {"Content-Disposition": f'attachment; filename="cash_session_{cash_session_id}_report.txt"'}
+    headers = {
+        "Content-Disposition": f'attachment; filename="cash_session_{cash_session_id}_report.txt"'
+    }
     return PlainTextResponse(content=content, headers=headers)

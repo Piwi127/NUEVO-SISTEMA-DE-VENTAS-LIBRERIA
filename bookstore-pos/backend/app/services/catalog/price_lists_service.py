@@ -1,3 +1,8 @@
+"""
+Servicio de listas de precios.
+Gestiona listas de precios y sus ítems.
+"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
@@ -7,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.price_list import PriceList, PriceListItem
 
 from app.services._transaction import service_transaction
+
 
 class PriceListsService:
     def __init__(self, db: AsyncSession):
@@ -22,7 +28,9 @@ class PriceListsService:
         return result.scalars().all()
 
     async def create_price_list(self, data):
-        exists = await self.db.execute(select(PriceList).where(PriceList.name == data.name))
+        exists = await self.db.execute(
+            select(PriceList).where(PriceList.name == data.name)
+        )
         if exists.scalar_one_or_none():
             raise HTTPException(status_code=409, detail="Lista duplicada")
         async with self._transaction():
@@ -33,13 +41,27 @@ class PriceListsService:
             return pl
 
     async def list_items(self, price_list_id: int):
-        result = await self.db.execute(select(PriceListItem).where(PriceListItem.price_list_id == price_list_id))
+        result = await self.db.execute(
+            select(PriceListItem).where(PriceListItem.price_list_id == price_list_id)
+        )
         return result.scalars().all()
 
     async def replace_items(self, price_list_id: int, data):
         async with self._transaction():
-            await self.db.execute(delete(PriceListItem).where(PriceListItem.price_list_id == price_list_id))
+            await self.db.execute(
+                delete(PriceListItem).where(
+                    PriceListItem.price_list_id == price_list_id
+                )
+            )
             for item in data:
-                self.db.add(PriceListItem(price_list_id=price_list_id, product_id=item.product_id, price=item.price))
-        result = await self.db.execute(select(PriceListItem).where(PriceListItem.price_list_id == price_list_id))
+                self.db.add(
+                    PriceListItem(
+                        price_list_id=price_list_id,
+                        product_id=item.product_id,
+                        price=item.price,
+                    )
+                )
+        result = await self.db.execute(
+            select(PriceListItem).where(PriceListItem.price_list_id == price_list_id)
+        )
         return result.scalars().all()

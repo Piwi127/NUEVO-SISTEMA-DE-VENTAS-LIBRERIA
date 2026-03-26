@@ -120,7 +120,8 @@ const defaultPaymentValues: PaymentFormValues = {
   pay_ref: "",
 };
 
-const Purchases: React.FC = () => {
+// Página de gestión de compras
+// Lista y crea órdenes de compra a proveedores
   const qc = useQueryClient();
   const { showToast } = useToast();
   const compact = useMediaQuery("(max-width:900px)");

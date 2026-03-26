@@ -1,4 +1,9 @@
-﻿from datetime import datetime, timezone
+"""
+Modelos de compras a proveedores.
+Contiene clases para compras e ítems comprados.
+"""
+
+from datetime import datetime, timezone
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, Text, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -6,6 +11,8 @@ from app.db.base import Base
 
 
 class Purchase(Base):
+    """Compra registrada de productos a un proveedor."""
+
     __tablename__ = "purchases"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -14,16 +21,26 @@ class Purchase(Base):
     direct_costs_breakdown: Mapped[str] = mapped_column(Text, default="{}")
     direct_costs_total: Mapped[float] = mapped_column(Numeric(14, 4), default=0)
     total: Mapped[float] = mapped_column(Numeric(14, 4))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )
 
-    items: Mapped[list["PurchaseItem"]] = relationship(back_populates="purchase", cascade="all, delete-orphan")
+    items: Mapped[list["PurchaseItem"]] = relationship(
+        back_populates="purchase", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
-        Index("ix_purchases_created_at_desc", "created_at", postgresql_ops={"created_at": "DESC"}),
+        Index(
+            "ix_purchases_created_at_desc",
+            "created_at",
+            postgresql_ops={"created_at": "DESC"},
+        ),
     )
 
 
 class PurchaseItem(Base):
+    """Ítem individual en una compra."""
+
     __tablename__ = "purchase_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

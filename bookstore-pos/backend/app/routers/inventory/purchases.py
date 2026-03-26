@@ -1,3 +1,8 @@
+"""
+Router de compras.
+Endpoints: GET/POST /purchases, GET /purchases/export
+"""
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
@@ -10,9 +15,18 @@ from app.models.purchase import Purchase
 from app.schemas.purchase import PurchaseCreate, PurchaseOut, PurchaseListOut
 from app.services.inventory.purchases_service import PurchasesService
 
-router = APIRouter(prefix="/purchases", tags=["purchases"], dependencies=[Depends(require_role("admin", "stock"))])
+router = APIRouter(
+    prefix="/purchases",
+    tags=["purchases"],
+    dependencies=[Depends(require_role("admin", "stock"))],
+)
 
-@router.get("", response_model=list[PurchaseListOut], dependencies=[Depends(require_permission("purchases.read"))])
+
+@router.get(
+    "",
+    response_model=list[PurchaseListOut],
+    dependencies=[Depends(require_permission("purchases.read"))],
+)
 async def list_purchases(
     from_date: str | None = None,
     to: str | None = None,
@@ -20,6 +34,7 @@ async def list_purchases(
     limit: int = 200,
     db: AsyncSession = Depends(get_db),
 ):
+    """Lista todas las compras."""
     stmt = select(Purchase)
     if from_date:
         stmt = stmt.where(Purchase.created_at >= from_date)
@@ -39,21 +54,38 @@ async def export_purchases(
     supplier_id: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
+    """Exporta compras a CSV."""
     rows = await list_purchases(from_date, to, supplier_id, 500, db)
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(["id", "supplier_id", "subtotal", "direct_costs_total", "total", "created_at"])
+    writer.writerow(
+        ["id", "supplier_id", "subtotal", "direct_costs_total", "total", "created_at"]
+    )
     for r in rows:
-        writer.writerow([r.id, r.supplier_id, r.subtotal, r.direct_costs_total, r.total, r.created_at])
+        writer.writerow(
+            [
+                r.id,
+                r.supplier_id,
+                r.subtotal,
+                r.direct_costs_total,
+                r.total,
+                r.created_at,
+            ]
+        )
     return PlainTextResponse(output.getvalue(), media_type="text/csv")
 
 
-@router.post("", response_model=PurchaseOut, status_code=201, dependencies=[Depends(require_permission("purchases.create"))])
+@router.post(
+    "",
+    response_model=PurchaseOut,
+    status_code=201,
+    dependencies=[Depends(require_permission("purchases.create"))],
+)
 async def create_purchase(
     data: PurchaseCreate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """Registra una nueva compra."""
     service = PurchasesService(db, current_user)
     return await service.create_purchase(data)
-

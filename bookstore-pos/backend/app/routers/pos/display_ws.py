@@ -1,4 +1,9 @@
-﻿from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+"""
+Router de WebSocket para displays en tiempo real.
+Endpoints: WS /ws/display/{session_id}
+"""
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from datetime import datetime, timezone
 from sqlalchemy import select
 
@@ -52,7 +57,9 @@ async def _validate_display_token(token: str) -> bool:
         user = result.scalar_one_or_none()
         if not user or not user.is_active:
             return False
-        sess_result = await db.execute(select(UserSession).where(UserSession.jti == jti))
+        sess_result = await db.execute(
+            select(UserSession).where(UserSession.jti == jti)
+        )
         session = sess_result.scalar_one_or_none()
         if not session or session.revoked_at is not None:
             return False

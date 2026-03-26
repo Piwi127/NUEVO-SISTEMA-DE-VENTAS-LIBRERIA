@@ -25,7 +25,8 @@ import { useSettings } from "@/app/store";
 import { openReceiptWindow } from "@/modules/pos/utils/receiptWindow";
 import { detectTimeContext, formatDateTimeRegional } from "@/app/utils";
 
-const Returns: React.FC = () => {
+// Página de devoluciones
+// Maneja devoluciones de ventas realizadas
   const { showToast } = useToast();
   const qc = useQueryClient();
   const compact = useMediaQuery("(max-width:900px)");

@@ -1,3 +1,8 @@
+"""
+Router de permisos.
+Endpoints: GET /permissions/{role}, PUT /permissions/{role}
+"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,18 +13,28 @@ from app.services.admin.permissions_service import PermissionsService
 router = APIRouter(prefix="/permissions", tags=["permissions"])
 
 
-@router.get("/{role}", response_model=RolePermissionsOut, dependencies=[Depends(require_permission("permissions.read"))])
+@router.get(
+    "/{role}",
+    response_model=RolePermissionsOut,
+    dependencies=[Depends(require_permission("permissions.read"))],
+)
 async def get_role_permissions(role: str, db: AsyncSession = Depends(get_db)):
+    """Obtiene los permisos de un rol."""
     service = PermissionsService(db, None)
     return await service.get_role_permissions(role)
 
 
-@router.put("/{role}", response_model=RolePermissionsOut, dependencies=[Depends(require_permission("permissions.write"))])
+@router.put(
+    "/{role}",
+    response_model=RolePermissionsOut,
+    dependencies=[Depends(require_permission("permissions.write"))],
+)
 async def update_role_permissions(
     role: str,
     data: RolePermissionsUpdate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """Actualiza los permisos de un rol."""
     service = PermissionsService(db, current_user)
     return await service.update_role_permissions(role, data.permissions)

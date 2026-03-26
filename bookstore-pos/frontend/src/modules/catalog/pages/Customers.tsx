@@ -32,7 +32,8 @@ const defaultValues: CustomerFormValues = {
   price_list_id: null,
 };
 
-const Customers: React.FC = () => {
+// Página de gestión de clientes
+// Lista, crea, edita y elimina clientes
   const qc = useQueryClient();
   const { showToast } = useToast();
 

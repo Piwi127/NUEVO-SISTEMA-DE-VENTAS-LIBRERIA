@@ -1,3 +1,8 @@
+"""
+Router de inventario.
+Endpoints: POST /inventory/movement, /upload, /import-jobs, GET /inventory/kardex/{id}
+"""
+
 import base64
 import csv
 import os
@@ -5,7 +10,16 @@ import tempfile
 from datetime import datetime
 from io import BytesIO, StringIO
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,10 +35,17 @@ from app.schemas.inventory import (
     KardexPageOut,
     StockMovementOut,
 )
-from app.services.inventory.import_jobs_service import InventoryImportJobService, run_inventory_import_job
+from app.services.inventory.import_jobs_service import (
+    InventoryImportJobService,
+    run_inventory_import_job,
+)
 from app.services.inventory.stock_service import StockService
 
-router = APIRouter(prefix="/inventory", tags=["inventory"], dependencies=[Depends(require_role("admin", "stock"))])
+router = APIRouter(
+    prefix="/inventory",
+    tags=["inventory"],
+    dependencies=[Depends(require_role("admin", "stock"))],
+)
 
 REQUIRED_COLUMNS = {"sku", "name", "category", "price", "cost", "stock", "stock_min"}
 SUPPORTED_FILE_TYPES = {"csv", "xlsx"}
@@ -61,7 +82,10 @@ def _validate_date(value: str | None, field_name: str) -> str | None:
     try:
         datetime.strptime(value, "%Y-%m-%d")
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Filtro '{field_name}' invalido. Formato esperado YYYY-MM-DD") from exc
+        raise HTTPException(
+            status_code=400,
+            detail=f"Filtro '{field_name}' invalido. Formato esperado YYYY-MM-DD",
+        ) from exc
     return value
 
 
@@ -85,7 +109,9 @@ async def _read_upload_rows(file: UploadFile) -> list[dict]:
         try:
             from openpyxl import load_workbook
         except Exception as exc:
-            raise HTTPException(status_code=400, detail="Instale openpyxl para XLSX") from exc
+            raise HTTPException(
+                status_code=400, detail="Instale openpyxl para XLSX"
+            ) from exc
         data = await file.read()
         workbook = load_workbook(filename=BytesIO(data))
         worksheet = workbook.active
@@ -94,7 +120,10 @@ async def _read_upload_rows(file: UploadFile) -> list[dict]:
         header_rows = list(worksheet.iter_rows(min_row=1, max_row=1))
         if not header_rows:
             raise HTTPException(status_code=400, detail="XLSX sin encabezados")
-        headers = [str(cell.value).strip() if cell.value is not None else "" for cell in header_rows[0]]
+        headers = [
+            str(cell.value).strip() if cell.value is not None else ""
+            for cell in header_rows[0]
+        ]
         if not any(headers):
             raise HTTPException(status_code=400, detail="XLSX sin encabezados")
         header = {h for h in headers if h}
@@ -106,9 +135,13 @@ async def _read_upload_rows(file: UploadFile) -> list[dict]:
     return rows
 
 
-async def _write_upload_to_temp_file(file: UploadFile, file_type: str) -> tuple[str, int]:
+async def _write_upload_to_temp_file(
+    file: UploadFile, file_type: str
+) -> tuple[str, int]:
     suffix = ".csv" if file_type == "csv" else ".xlsx"
-    handler = tempfile.NamedTemporaryFile(prefix="inventory-import-", suffix=suffix, delete=False)
+    handler = tempfile.NamedTemporaryFile(
+        prefix="inventory-import-", suffix=suffix, delete=False
+    )
     max_bytes = max(1, settings.inventory_import_max_file_size_mb) * 1024 * 1024
     size = 0
     try:
@@ -143,7 +176,12 @@ def _assert_job_access(job: InventoryImportJob, current_user) -> None:
         raise HTTPException(status_code=403, detail="Sin permisos")
 
 
-@router.post("/movement", response_model=StockMovementOut, status_code=201, dependencies=[Depends(require_permission("inventory.write"))])
+@router.post(
+    "/movement",
+    response_model=StockMovementOut,
+    status_code=201,
+    dependencies=[Depends(require_permission("inventory.write"))],
+)
 async def create_movement(
     data: InventoryMovementCreate,
     db: AsyncSession = Depends(get_db),
@@ -162,18 +200,26 @@ async def download_template():
     return PlainTextResponse(output.getvalue(), media_type="text/csv")
 
 
-@router.get("/template/xlsx", dependencies=[Depends(require_permission("inventory.read"))])
+@router.get(
+    "/template/xlsx", dependencies=[Depends(require_permission("inventory.read"))]
+)
 async def download_template_xlsx():
     try:
         from openpyxl import Workbook
     except Exception as exc:
-        raise HTTPException(status_code=400, detail="Instale openpyxl para XLSX") from exc
+        raise HTTPException(
+            status_code=400, detail="Instale openpyxl para XLSX"
+        ) from exc
     workbook = Workbook()
     worksheet = workbook.active
     if worksheet is None:
-        raise HTTPException(status_code=500, detail="No se pudo crear la hoja de trabajo")
+        raise HTTPException(
+            status_code=500, detail="No se pudo crear la hoja de trabajo"
+        )
     worksheet.append(["sku", "name", "category", "price", "cost", "stock", "stock_min"])
-    worksheet.append(["BK-001", "Libro ejemplo", "Ficcion", "25.90", "12.50", "10", "2"])
+    worksheet.append(
+        ["BK-001", "Libro ejemplo", "Ficcion", "25.90", "12.50", "10", "2"]
+    )
     buffer = BytesIO()
     workbook.save(buffer)
     buffer.seek(0)
@@ -257,7 +303,9 @@ async def get_import_job_errors(
         return PlainTextResponse(
             content,
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=import_job_{job_id}_errors.csv"},
+            headers={
+                "Content-Disposition": f"attachment; filename=import_job_{job_id}_errors.csv"
+            },
         )
     return InventoryImportJobErrorListOut(
         job_id=job.id,
@@ -298,16 +346,23 @@ async def get_kardex(
         stmt = stmt.where(
             or_(
                 StockMovement.created_at < cursor_created_at,
-                and_(StockMovement.created_at == cursor_created_at, StockMovement.id < cursor_id),
+                and_(
+                    StockMovement.created_at == cursor_created_at,
+                    StockMovement.id < cursor_id,
+                ),
             )
         )
 
     result = await db.execute(
-        stmt.order_by(StockMovement.created_at.desc(), StockMovement.id.desc()).limit(limit + 1)
+        stmt.order_by(StockMovement.created_at.desc(), StockMovement.id.desc()).limit(
+            limit + 1
+        )
     )
     rows = list(result.scalars().all())
     has_more = len(rows) > limit
     visible = rows[:limit]
     items = [StockMovementOut.model_validate(row) for row in visible]
     next_cursor = _encode_cursor(items[-1]) if has_more and items else None
-    return KardexPageOut(items=items, limit=limit, has_more=has_more, next_cursor=next_cursor)
+    return KardexPageOut(
+        items=items, limit=limit, has_more=has_more, next_cursor=next_cursor
+    )

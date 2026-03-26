@@ -32,7 +32,9 @@ type AreaChartProps = ChartProps & {
   color?: string;
 };
 
-export const SalesAreaChart: React.FC<AreaChartProps> = ({
+// Componente de gráfico de área
+// Muestra datos en un gráfico de área con gradiente
+// Props: data - datos, dataKey - clave del valor, xAxisKey - clave del eje X, color - color de la línea
   title,
   data,
   dataKey,

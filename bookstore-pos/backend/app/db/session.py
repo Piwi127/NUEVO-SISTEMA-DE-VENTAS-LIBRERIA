@@ -1,3 +1,8 @@
+"""
+Configuración de sesión de base de datos.
+Crea el engine y sessionmaker asíncronos.
+"""
+
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
@@ -8,6 +13,7 @@ AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
 if settings.database_url.startswith("sqlite"):
+
     @event.listens_for(engine.sync_engine, "connect")
     def _set_sqlite_pragma(dbapi_connection, _connection_record) -> None:
         cursor = dbapi_connection.cursor()

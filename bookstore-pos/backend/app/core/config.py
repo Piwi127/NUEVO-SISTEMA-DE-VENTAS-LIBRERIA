@@ -1,3 +1,8 @@
+"""
+Configuración global de la aplicación.
+Carga variables de entorno y define settings de la app.
+"""
+
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
@@ -93,7 +98,9 @@ class Settings(BaseSettings):
     # ACCOUNT_LOCK_MINUTES: Minutos de bloqueo tras intentos fallidos
     account_lock_minutes: int = 15
 
-    model_config = ConfigDict(env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore")
+    model_config = ConfigDict(
+        env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
 
     @field_validator("jwt_secret")
     @classmethod
@@ -107,7 +114,7 @@ class Settings(BaseSettings):
         if len(v) < 32:
             raise ValueError(
                 f"JWT_SECRET debe tener al menos 32 caracteres (actual: {len(v)}). "
-                "Genere uno seguro con: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                'Genere uno seguro con: python -c "import secrets; print(secrets.token_urlsafe(32))"'
             )
         return v
 

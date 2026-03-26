@@ -121,7 +121,9 @@ type ProductSearchProps = {
   splitTabs?: boolean;
 };
 
-export const ProductSearch: React.FC<ProductSearchProps> = ({
+// Componente de búsqueda de productos
+// Busca y filtra productos con búsqueda inteligente, rankeo y sugerencias
+// Props: priceMap - precios especiales, inputRef - referencia al input, view - modo de vista (dropdown/panel), minimal - modo minimal
   priceMap,
   inputRef,
   view = "dropdown",
