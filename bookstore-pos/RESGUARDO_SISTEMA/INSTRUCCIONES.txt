@@ -1,0 +1,98 @@
+=======================================================
+RESGUARDO DEL SISTEMA BOOKSTORE POS
+=======================================================
+
+CONTENIDO DEL RESGUARDO:
+------------------------
+1. bookstore.db - Base de datos completa con:
+   - Productos (SKU, precios, stock)
+   - Clientes y proveedores
+   - Historial de ventas
+   - Usuarios y permisos
+   - Configuraciones del sistema
+   - Promociones y listas de precios
+
+2. .env - Variables de entorno del servidor
+
+3. README.txt - Documentación general del proyecto
+
+=======================================================
+INSTRUCCIONES PARA INSTALAR EN NUEVO SERVIDOR
+=======================================================
+
+PASO 1: COPIAR ARCHIVOS
+------------------------
+1. Copia toda la carpeta del proyecto (bookstore-pos) al nuevo PC
+2. O copia solo:
+   - La carpeta "backend" completa
+   - La carpeta "frontend" completa
+   - El archivo "bookstore.db" a backend/
+
+PASO 2: INSTALAR DEPENDENCIAS
+------------------------------
+Backend (Python):
+  cd backend
+  pip install -r requirements.txt
+
+Frontend (Node.js):
+  cd frontend
+  npm install
+
+PASO 3: CONFIGURAR BASE DE DATOS
+---------------------------------
+La base de datos (bookstore.db) ya viene incluida con todos los datos.
+No necesitas hacer migraciones.
+
+Si necesitas crear un admin:
+  python scripts/create_admin.py
+
+PASO 4: EJECUTAR EL SISTEMA
+----------------------------
+Opción 1 - Windows (batch):
+  run_windows.bat
+
+Opción 2 - Manual:
+  Terminal 1 (Backend):
+    cd backend
+    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+  Terminal 2 (Frontend):
+    cd frontend
+    npm run dev
+
+PASO 5: ACCEDER AL SISTEMA
+--------------------------
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- Documentación API: http://localhost:8000/docs
+
+USUARIOS POR DEFECTO:
+----------------------
+El sistema incluye usuarios predefinidos. Consulta la configuración
+en el archivo seed.py del backend para ver los usuarios iniciales.
+
+=======================================================
+NOTAS IMPORTANTES
+=======================================================
+
+1. La base de datos SQLite (bookstore.db) es portable:
+   - Funciona en Windows, Linux, Mac
+   - No requiere instalar PostgreSQL
+
+2. Para modificar configuración:
+   - Edita el archivo .env en la carpeta backend
+
+3. CORS está configurado para:
+   - http://localhost:5173
+   - http://127.0.0.1:5173
+   - http://192.168.1.3:5173
+   - http://192.168.1.6:5173
+
+   Si accedes desde otra IP, agrégala al .env
+
+4. Backup de la base de datos:
+   python scripts/backup_db.py
+
+=======================================================
+Fecha de creación del resguardo: 2026-03-26
+=======================================================
